@@ -1,0 +1,17 @@
+[project]
+name = "japan-taxi-tour"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "httpx>=0.28.1",
+    "jose>=1.0.0",
+    "jwt>=1.4.0",
+    "python-jose>=3.5.0",
+]
+
+[tool.uv.workspace]
+members = [
+    "app",
+]
