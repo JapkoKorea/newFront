@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Input } from '@/components/ui/input.jsx'
@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label.jsx'
 import { Textarea } from '@/components/ui/textarea.jsx'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx'
 import { Calendar, Clock, Users, MapPin, CreditCard, X, ChevronLeft, ChevronRight, AlertTriangle, Search, Plus } from 'lucide-react'
+import { Toaster } from 'react-hot-toast'
+import MapContainer, { COORDS_DICT } from '@/components/MapContainer.jsx'
 
 const TaxiBooking = ({ isOpen, onClose }) => {
   const [bookingData, setBookingData] = useState({
@@ -24,11 +26,37 @@ const TaxiBooking = ({ isOpen, onClose }) => {
   })
 
   const [currentStep, setCurrentStep] = useState(1)
+  const [hoveredSpot, setHoveredSpot] = useState(null)
+
+  // 모달이 열릴 때 body 스크롤 방지
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [isOpen])
+
+  // ESC 키로 닫기
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
 
   const popularDestinations = [
-    '크리스마스트리의 나무',
-    '세븐스타의 나무',
-    '켄과 메리의 나무',
+    '크리스마스 나무',
+    '세븐스타 나무',
+    '켄과 메리 나무',
     '마일드세븐 언덕',
     '탁신관',
     '흰수염폭포',
@@ -45,7 +73,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
       duration: '3시간',
       departure: '아사히카와역',
       destination: '비에이역',
-      spots: ['크리스마스트리의 나무', '탁신관', '흰수염폭포'],
+      spots: ['크리스마스 나무', '탁신관', '흰수염폭포'],
       description: '가장 인기 있는 정석 루트. 짧은 시간 안에 비에이의 대표 명소를 둘러보는 코스.'
     },
     { 
@@ -54,7 +82,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
       duration: '3시간',
       departure: '아사히카와역',
       destination: '비에이역',
-      spots: ['세븐스타의 나무', '켄과 메리의 나무', '마일드세븐 언덕', '청의 호수'],
+      spots: ['세븐스타 나무', '켄과 메리 나무', '마일드세븐 언덕', '청의 호수'],
       description: '사진 촬영을 좋아하거나 자연경관 중심의 여유로운 투어를 원하는 분께 추천.'
     },
     { 
@@ -63,7 +91,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
       duration: '3시간',
       departure: '아사히카와역',
       destination: '아사히카와역',
-      spots: ['크리스마스트리의 나무', '사계채언덕 (四季彩の丘)', '아사히야마 동물원'],
+      spots: ['크리스마스 나무', '사계채언덕 (四季彩の丘)', '아사히야마 동물원'],
       description: '아이가 있는 가족에게 적합한 코스. 동물원 + 가벼운 자연 관광 조합.'
     },
     { 
@@ -81,7 +109,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
       duration: '4-6시간',
       departure: '아사히카와역',
       destination: '아사히카와역',
-      spots: ['세븐스타의 나무', '켄과 메리의 나무', '마일드세븐 언덕', '패치워크의 길', '크리스마스트리의 나무'],
+      spots: ['세븐스타 나무', '켄과 메리 나무', '마일드세븐 언덕', '패치워크의 길', '크리스마스트리의 나무'],
       description: '사진 찍기 좋은 장소들만 모아 구성. 인스타 감성 코스로 인기.'
     },
     { 
@@ -120,6 +148,20 @@ const TaxiBooking = ({ isOpen, onClose }) => {
     })
   }
 
+  const handleSpotAdd = (spotName) => {
+    setBookingData(prev => ({
+      ...prev,
+      selectedSpots: [...(prev.selectedSpots || []), spotName]
+    }))
+  }
+
+  const handleSpotRemove = (spot) => {
+    setBookingData(prev => ({
+      ...prev,
+      selectedSpots: (prev.selectedSpots || []).filter(s => s !== spot)
+    }))
+  }
+
   const handleNext = () => {
     if (currentStep < 3) {
       setCurrentStep(currentStep + 1)
@@ -138,11 +180,16 @@ const TaxiBooking = ({ isOpen, onClose }) => {
     onClose()
   }
 
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+    <div 
+      className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 ${isOpen ? '' : 'hidden'}`}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose()
+        }
+      }}
+    >
+      <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto" onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center p-6 border-b">
           <h2 className="text-2xl font-bold text-gray-900">택시 투어 예약</h2>
           <Button variant="ghost" size="sm" onClick={onClose}>
@@ -356,12 +403,16 @@ const TaxiBooking = ({ isOpen, onClose }) => {
               {/* 지도 영역 */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">투어 경로</h3>
-                <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center">
-                  <div className="text-center text-gray-500">
-                    <MapPin className="h-12 w-12 mx-auto mb-2" />
-                    <p>Google Maps API 연동 예정</p>
-                    <p className="text-sm">선택한 코스의 경로가 여기에 표시됩니다</p>
-                  </div>
+                <div className="h-96 rounded-lg overflow-hidden border">
+                  <MapContainer
+                    departure={bookingData.departure}
+                    destination={bookingData.destination}
+                    spots={bookingData.selectedSpots || []}
+                    onPlaceChange={handleInputChange}
+                    onSpotAdd={handleSpotAdd}
+                    onSpotRemove={handleSpotRemove}
+                    hoveredSpot={hoveredSpot}
+                  />
                 </div>
                 
                 {/* 선택된 관광지 목록 */}
@@ -370,12 +421,17 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                     <Label>선택된 관광지</Label>
                     <div className="space-y-1">
                       {bookingData.selectedSpots.map((spot, index) => (
-                        <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                        <div 
+                          key={index} 
+                          className="flex items-center justify-between bg-gray-50 p-2 rounded hover:bg-gray-100 transition-colors"
+                          onMouseEnter={() => setHoveredSpot(spot)}
+                          onMouseLeave={() => setHoveredSpot(null)}
+                        >
                           <span className="text-sm">{spot}</span>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleSpotToggle(spot)}
+                            onClick={() => handleSpotRemove(spot)}
                           >
                             <X className="h-3 w-3" />
                           </Button>
@@ -506,6 +562,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
           </div>
         </div>
       </div>
+      <Toaster position="top-right" />
     </div>
   )
 }
