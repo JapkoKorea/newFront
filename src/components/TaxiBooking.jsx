@@ -10,10 +10,13 @@ import { Toaster } from 'react-hot-toast'
 import MapContainer, { COORDS_DICT } from '@/components/MapContainer.jsx'
 
 const TaxiBooking = ({ isOpen, onClose }) => {
+  const today = new Date().toISOString().split('T')[0]
+  const totalSteps = 3
+  const stepLabels = ['코스 선택', '일정 설정', '예약자 정보']
   const [bookingData, setBookingData] = useState({
     departure: '',
     destination: '',
-    date: '',
+    date: today,
     time: '',
     duration: '',
     passengers: '',
@@ -27,6 +30,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
 
   const [currentStep, setCurrentStep] = useState(1)
   const [hoveredSpot, setHoveredSpot] = useState(null)
+  const [showValidation, setShowValidation] = useState(false)
 
   // 모달이 열릴 때 body 스크롤 방지
   useEffect(() => {
@@ -163,9 +167,13 @@ const TaxiBooking = ({ isOpen, onClose }) => {
   }
 
   const handleNext = () => {
-    if (currentStep < 3) {
+    if (currentStep < totalSteps && canProceedToNext()) {
+      setShowValidation(false)
       setCurrentStep(currentStep + 1)
+      return
     }
+
+    setShowValidation(true)
   }
 
   const handlePrev = () => {
@@ -175,10 +183,54 @@ const TaxiBooking = ({ isOpen, onClose }) => {
   }
 
   const handleSubmit = () => {
+    if (!canSubmit()) {
+      setShowValidation(true)
+      return
+    }
+
     // 예약 처리 로직
     alert('예약이 접수되었습니다! 곧 연락드리겠습니다.')
     onClose()
   }
+
+  const getStepErrors = (step) => {
+    if (step === 1) {
+      return bookingData.course ? [] : ['투어 코스를 하나 선택해 주세요.']
+    }
+
+    if (step === 2) {
+      const errors = []
+
+      if (!bookingData.date) errors.push('투어 날짜를 선택해 주세요.')
+      if (!bookingData.time) errors.push('투어 시작 시간을 선택해 주세요.')
+      if (!bookingData.passengers) errors.push('탑승 인원을 선택해 주세요.')
+      if (!bookingData.departure) errors.push('출발지를 입력해 주세요.')
+      if (!bookingData.destination) errors.push('도착지를 입력해 주세요.')
+
+      return errors
+    }
+
+    if (step === 3) {
+      const errors = []
+
+      if (!bookingData.name) errors.push('예약자 이름을 입력해 주세요.')
+      if (!bookingData.phone) errors.push('연락처를 입력해 주세요.')
+      if (!bookingData.email) errors.push('이메일을 입력해 주세요.')
+
+      return errors
+    }
+
+    return []
+  }
+
+  const canProceedToNext = () => {
+    return getStepErrors(currentStep).length === 0
+  }
+
+  const canSubmit = () => getStepErrors(3).length === 0
+  const progressPercent = Math.round((currentStep / totalSteps) * 100)
+  const selectedCourse = tourCourses.find(c => c.id === bookingData.course)
+  const currentStepErrors = getStepErrors(currentStep)
 
   return (
     <div 
@@ -191,14 +243,27 @@ const TaxiBooking = ({ isOpen, onClose }) => {
     >
       <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto" onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center p-6 border-b">
-          <h2 className="text-2xl font-bold text-gray-900">택시 투어 예약</h2>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">택시 투어 예약</h2>
+            <p className="text-sm text-gray-500 mt-1">3단계로 간단하게 예약을 완료할 수 있어요.</p>
+          </div>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <X className="h-5 w-5" />
           </Button>
         </div>
 
         {/* 진행 단계 표시 */}
-        <div className="flex items-center justify-center p-6 border-b">
+        <div className="p-6 border-b space-y-4">
+          <div>
+            <div className="flex justify-between text-sm text-gray-600 mb-2">
+              <span>진행률</span>
+              <span>{progressPercent}%</span>
+            </div>
+            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-full bg-yellow-500 transition-all duration-300" style={{ width: `${progressPercent}%` }} />
+            </div>
+          </div>
+          <div className="flex items-center justify-center">
           {[1, 2, 3].map((step) => (
             <div key={step} className="flex items-center">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
@@ -207,16 +272,39 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                 {step}
               </div>
               <div className={`ml-2 text-sm ${currentStep >= step ? 'text-yellow-600' : 'text-gray-400'}`}>
-                {step === 1 && '코스 선택'}
-                {step === 2 && '일정 설정'}
-                {step === 3 && '예약자 정보'}
+                {stepLabels[step - 1]}
               </div>
               {step < 3 && <div className="w-12 h-px bg-gray-300 mx-4" />}
             </div>
           ))}
+          </div>
         </div>
 
         <div className="p-6">
+          {showValidation && currentStepErrors.length > 0 && (
+            <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-amber-800">입력 확인이 필요해요</p>
+              <ul className="mt-2 list-disc pl-5 text-sm text-amber-700 space-y-1">
+                {currentStepErrors.map((error, index) => (
+                  <li key={index}>{error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {(currentStep === 2 || currentStep === 3) && (
+            <div className="mb-5 rounded-lg border bg-gray-50 p-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-gray-500">선택 코스</p>
+                <p className="font-medium text-gray-900">{selectedCourse?.name || '아직 선택 전'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">방문 장소 수</p>
+                <p className="font-medium text-gray-900">{bookingData.selectedSpots?.length || 0}곳</p>
+              </div>
+            </div>
+          )}
+
           {/* 1단계: 코스 선택 */}
           {currentStep === 1 && (
             <div className="space-y-6">
@@ -291,6 +379,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                     <Input
                       id="date"
                       type="date"
+                      min={today}
                       value={bookingData.date}
                       onChange={(e) => handleInputChange('date', e.target.value)}
                     />
@@ -451,7 +540,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="name">이름</Label>
+                  <Label htmlFor="name">이름 *</Label>
                   <Input
                     id="name"
                     placeholder="홍길동"
@@ -460,7 +549,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="phone">연락처</Label>
+                  <Label htmlFor="phone">연락처 *</Label>
                   <Input
                     id="phone"
                     placeholder="010-1234-5678"
@@ -471,7 +560,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
               </div>
 
               <div>
-                <Label htmlFor="email">이메일</Label>
+                <Label htmlFor="email">이메일 *</Label>
                 <Input
                   id="email"
                   type="email"
@@ -542,10 +631,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
               <Button 
                 onClick={handleNext}
                 className="bg-yellow-500 hover:bg-yellow-600"
-                disabled={
-                  (currentStep === 1 && !bookingData.course) ||
-                  (currentStep === 2 && (!bookingData.date || !bookingData.time || !bookingData.passengers || !bookingData.departure || !bookingData.destination))
-                }
+                disabled={!canProceedToNext()}
               >
                 다음
               </Button>
@@ -553,7 +639,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
               <Button 
                 onClick={handleSubmit}
                 className="bg-yellow-500 hover:bg-yellow-600"
-                disabled={!bookingData.name || !bookingData.phone || !bookingData.email}
+                disabled={!canSubmit()}
               >
                 <CreditCard className="mr-2 h-4 w-4" />
                 예약 완료
@@ -568,4 +654,3 @@ const TaxiBooking = ({ isOpen, onClose }) => {
 }
 
 export default TaxiBooking
-

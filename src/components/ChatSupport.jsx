@@ -88,11 +88,31 @@ const ChatSupport = ({ isOpen, onClose }) => {
     })
   }
 
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
+
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-md w-full h-[600px] flex flex-col">
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose()
+        }
+      }}
+    >
+      <div className="bg-white rounded-lg max-w-md w-full h-[600px] flex flex-col" onMouseDown={(e) => e.stopPropagation()}>
         {/* 헤더 */}
         <div className="flex justify-between items-center p-4 border-b bg-green-500 text-white rounded-t-lg">
           <div className="flex items-center gap-3">
@@ -209,4 +229,3 @@ const ChatSupport = ({ isOpen, onClose }) => {
 }
 
 export default ChatSupport
-

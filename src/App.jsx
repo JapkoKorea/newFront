@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button.jsx'
-import { ChevronDown, MapPin, Clock, Users, Star, MessageCircle, HelpCircle } from 'lucide-react'
+import { ChevronDown, MapPin, Clock, Users, Star, MessageCircle, HelpCircle, Menu, X } from 'lucide-react'
 import TaxiBooking from './components/TaxiBooking.jsx'
 import FAQ from './components/FAQ.jsx'
 import ChatSupport from './components/ChatSupport.jsx'
@@ -22,18 +22,41 @@ function App() {
   const [isBookingOpen, setIsBookingOpen] = useState(false)
   const [isFAQOpen, setIsFAQOpen] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const navigate = useNavigate();
+  const anyModalOpen = isBookingOpen || isFAQOpen || isChatOpen
+
+  const openBooking = () => {
+    setIsFAQOpen(false)
+    setIsChatOpen(false)
+    setIsBookingOpen(true)
+    setIsMobileMenuOpen(false)
+  }
+
+  const openFAQ = () => {
+    setIsBookingOpen(false)
+    setIsChatOpen(false)
+    setIsFAQOpen(true)
+    setIsMobileMenuOpen(false)
+  }
+
+  const openChat = () => {
+    setIsBookingOpen(false)
+    setIsFAQOpen(false)
+    setIsChatOpen(true)
+    setIsMobileMenuOpen(false)
+  }
 
   // 풀페이지 스크롤 구현
   useEffect(() => {
-    if (isBookingOpen) {
+    if (anyModalOpen) {
       return
     }
 
     const handleWheel = (e) => {
+      if (window.innerWidth < 768) return
       if (isScrolling) return
       
-      e.preventDefault()
       setIsScrolling(true)
       
       if (e.deltaY > 0 && currentSection < 1) {
@@ -45,9 +68,9 @@ function App() {
       setTimeout(() => setIsScrolling(false), 1000)
     }
 
-    window.addEventListener('wheel', handleWheel, { passive: false })
+    window.addEventListener('wheel', handleWheel)
     return () => window.removeEventListener('wheel', handleWheel)
-  }, [currentSection, isScrolling, isBookingOpen])
+  }, [currentSection, isScrolling, anyModalOpen])
 
   return (
     <div className="h-screen overflow-hidden">
@@ -60,16 +83,26 @@ function App() {
             </div>
             <div className="hidden md:block">
               <div className="ml-10 flex items-baseline space-x-4">
-                <a href="#" className="text-gray-900 hover:text-yellow-500 px-3 py-2 rounded-md text-sm font-medium">택시투어</a>
-                <a href="#" className="text-gray-500 hover:text-yellow-500 px-3 py-2 rounded-md text-sm font-medium">식당예약</a>
+                <button
+                  onClick={() => setCurrentSection(1)}
+                  className="text-gray-900 hover:text-yellow-500 px-3 py-2 rounded-md text-sm font-medium"
+                >
+                  택시투어
+                </button>
+                <button
+                  onClick={openBooking}
+                  className="text-gray-500 hover:text-yellow-500 px-3 py-2 rounded-md text-sm font-medium"
+                >
+                  예약하기
+                </button>
                 <button 
-                  onClick={() => setIsFAQOpen(true)}
+                  onClick={openFAQ}
                   className="text-gray-500 hover:text-yellow-500 px-3 py-2 rounded-md text-sm font-medium"
                 >
                   FAQ
                 </button>
                 <button 
-                  onClick={() => setIsChatOpen(true)}
+                  onClick={openChat}
                   className="text-gray-500 hover:text-yellow-500 px-3 py-2 rounded-md text-sm font-medium"
                 >
                   상담
@@ -82,7 +115,57 @@ function App() {
                 </Button>
               </div>
             </div>
+            <div className="md:hidden">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+                aria-label="모바일 메뉴 열기"
+              >
+                {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </Button>
+            </div>
           </div>
+          {isMobileMenuOpen && (
+            <div className="md:hidden border-t py-3 space-y-2">
+              <button
+                onClick={() => {
+                  setCurrentSection(1)
+                  setIsMobileMenuOpen(false)
+                }}
+                className="block w-full text-left px-3 py-2 text-sm font-medium text-gray-900 hover:bg-yellow-50 rounded"
+              >
+                택시투어
+              </button>
+              <button
+                onClick={openBooking}
+                className="block w-full text-left px-3 py-2 text-sm font-medium text-gray-700 hover:bg-yellow-50 rounded"
+              >
+                예약하기
+              </button>
+              <button
+                onClick={openFAQ}
+                className="block w-full text-left px-3 py-2 text-sm font-medium text-gray-700 hover:bg-yellow-50 rounded"
+              >
+                FAQ
+              </button>
+              <button
+                onClick={openChat}
+                className="block w-full text-left px-3 py-2 text-sm font-medium text-gray-700 hover:bg-yellow-50 rounded"
+              >
+                상담
+              </button>
+              <Button
+                className="w-full bg-yellow-400 hover:bg-yellow-500 text-white"
+                onClick={() => {
+                  setIsMobileMenuOpen(false)
+                  navigate('/login')
+                }}
+              >
+                카카오 로그인
+              </Button>
+            </div>
+          )}
         </div>
       </nav>
 
@@ -195,7 +278,7 @@ function App() {
                         <Button 
                           size="lg" 
                           className="bg-yellow-500 hover:bg-yellow-600 text-white px-8 py-3"
-                          onClick={() => setIsBookingOpen(true)}
+                          onClick={openBooking}
                         >
                           택시투어 예약하기
                         </Button>
@@ -203,7 +286,7 @@ function App() {
                           variant="outline" 
                           size="lg" 
                           className="border-yellow-500 text-yellow-600 hover:bg-yellow-50 px-8 py-3"
-                          onClick={() => setIsChatOpen(true)}
+                          onClick={openChat}
                         >
                           <MessageCircle className="mr-2 h-5 w-5" />
                           채팅 상담
@@ -264,7 +347,7 @@ function App() {
                 size="lg" 
                 className="bg-green-500 hover:bg-green-600 text-white rounded-full p-4 shadow-lg"
                 title="채팅 상담"
-                onClick={() => setIsChatOpen(true)}
+                onClick={openChat}
               >
                 <MessageCircle className="h-6 w-6" />
               </Button>
@@ -272,7 +355,7 @@ function App() {
                 size="lg" 
                 className="bg-blue-500 hover:bg-blue-600 text-white rounded-full p-4 shadow-lg"
                 title="FAQ"
-                onClick={() => setIsFAQOpen(true)}
+                onClick={openFAQ}
               >
                 <HelpCircle className="h-6 w-6" />
               </Button>
@@ -301,6 +384,7 @@ function App() {
             <FAQ 
               isOpen={isFAQOpen} 
               onClose={() => setIsFAQOpen(false)} 
+              onStartChat={openChat}
             />
 
             {/* 채팅 상담 모달 */}
@@ -327,4 +411,3 @@ function LoginPage() {
 }
 
 export default App
-
