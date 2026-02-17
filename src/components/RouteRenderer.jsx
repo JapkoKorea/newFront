@@ -107,6 +107,7 @@ const RouteRenderer = ({
       directions={directionsResult}
       options={{
         suppressMarkers: true, // 기본 마커 숨김 (커스텀 마커 사용)
+        preserveViewport: true,
         polylineOptions: {
           strokeColor: '#f59e0b',
           strokeWeight: 4,

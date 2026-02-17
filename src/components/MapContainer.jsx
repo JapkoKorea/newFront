@@ -2,9 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import {
   GoogleMap,
   Marker,
-  DirectionsRenderer,
   useLoadScript,
-  Autocomplete,
 } from "@react-google-maps/api";
 import toast from 'react-hot-toast';
 import MarkerWithLabel from './MarkerWithLabel';
@@ -44,6 +42,8 @@ const MapContainer = ({
   departure,
   destination,
   spots = [],
+  availableSpots = [],
+  spotMeta = {},
   onPlaceChange,
   onSpotAdd,
   onSpotRemove,
@@ -56,6 +56,14 @@ const MapContainer = ({
 
   const mapRef = useRef();
   const [selectionMode, setSelectionMode] = useState(null); // 'departure', 'destination', 'spot'
+  const [activeCandidateSpot, setActiveCandidateSpot] = useState(null);
+
+  const selectableSpotNames =
+    availableSpots.length > 0
+      ? availableSpots.filter((spot) => !!COORDS_DICT[spot])
+      : Object.keys(COORDS_DICT).filter(
+          (name) => !["아사히카와역", "비에이역", "후라노역"].includes(name)
+        );
 
   // 허용 지역 내 좌표인지 확인
   const isInAllowedRegion = useCallback((lat, lng) => {
@@ -69,6 +77,10 @@ const MapContainer = ({
 
   // 지도 클릭 핸들러
   const handleMapClick = useCallback((event) => {
+    if (activeCandidateSpot) {
+      setActiveCandidateSpot(null);
+    }
+
     const lat = event.latLng.lat();
     const lng = event.latLng.lng();
 
@@ -83,13 +95,14 @@ const MapContainer = ({
       } else if (selectionMode === 'destination') {
         onPlaceChange('destination', `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
       } else if (selectionMode === 'spot') {
-        onSpotAdd(`위치 ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+        toast('관광지 추가 모드에서는 파란 마커를 눌러 선택해 주세요');
+        return;
       }
       
       setSelectionMode(null);
       toast.success("위치가 선택되었습니다");
     }
-  }, [selectionMode, isInAllowedRegion, onPlaceChange, onSpotAdd]);
+  }, [activeCandidateSpot, selectionMode, isInAllowedRegion, onPlaceChange]);
 
   // 마커 생성
   const renderMarkers = useCallback(() => {
@@ -162,6 +175,27 @@ const MapContainer = ({
     return markers;
   }, [departure, destination, spots, hoveredSpot, onSpotRemove]);
 
+  const handleSelectableSpotClick = useCallback(
+    (spotName) => {
+      setActiveCandidateSpot(spotName);
+    },
+    []
+  );
+
+  const handleCandidateSpotAdd = useCallback(
+    (spotName) => {
+      if (spots.includes(spotName)) {
+        toast('이미 추가된 관광지입니다');
+        return;
+      }
+
+      onSpotAdd(spotName);
+      setActiveCandidateSpot(null);
+      toast.success(`${spotName}이(가) 추가되었습니다`);
+    },
+    [spots, onSpotAdd]
+  );
+
   if (!isLoaded) {
     return (
       <div className="h-full w-full flex items-center justify-center bg-gray-100 rounded-lg">
@@ -179,7 +213,10 @@ const MapContainer = ({
       <div className="absolute top-2 left-2 right-2 z-10 bg-white rounded-lg shadow-md p-3">
         <div className="flex flex-wrap gap-2 mb-2">
           <button
-            onClick={() => setSelectionMode('departure')}
+            onClick={() => {
+              setSelectionMode('departure')
+              setActiveCandidateSpot(null)
+            }}
             className={`px-3 py-1 rounded text-sm font-medium ${
               selectionMode === 'departure'
                 ? 'bg-green-500 text-white'
@@ -189,7 +226,10 @@ const MapContainer = ({
             출발지 선택
           </button>
           <button
-            onClick={() => setSelectionMode('destination')}
+            onClick={() => {
+              setSelectionMode('destination')
+              setActiveCandidateSpot(null)
+            }}
             className={`px-3 py-1 rounded text-sm font-medium ${
               selectionMode === 'destination'
                 ? 'bg-red-500 text-white'
@@ -212,7 +252,9 @@ const MapContainer = ({
         
         {selectionMode && (
           <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
-            지도를 클릭하여 {selectionMode === 'departure' ? '출발지' : selectionMode === 'destination' ? '도착지' : '관광지'}를 선택하세요
+            {selectionMode === 'spot'
+              ? '파란 마커를 클릭해 관광지를 추가하세요'
+              : `지도를 클릭하여 ${selectionMode === 'departure' ? '출발지' : '도착지'}를 선택하세요`}
           </div>
         )}
       </div>
@@ -236,6 +278,35 @@ const MapContainer = ({
       >
         {/* 마커들 */}
         {renderMarkers()}
+
+        {selectionMode === 'spot' &&
+          selectableSpotNames.map((spotName) => {
+            const coords = COORDS_DICT[spotName];
+            const isSelected = spots.includes(spotName);
+
+            return (
+              <Marker
+                key={`candidate-${spotName}`}
+                position={coords}
+                title={spotName}
+                onClick={() => handleSelectableSpotClick(spotName)}
+                icon={{
+                  path: window.google?.maps?.SymbolPath?.CIRCLE,
+                  scale: isSelected ? 7 : 6,
+                  fillColor: isSelected ? '#22c55e' : '#3b82f6',
+                  fillOpacity: 1,
+                  strokeColor: '#ffffff',
+                  strokeWeight: 2,
+                }}
+                label={{
+                  text: spotName,
+                  color: '#1f2937',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                }}
+              />
+            );
+          })}
         
         {/* 경로 렌더링 */}
         <RouteRenderer
@@ -245,6 +316,69 @@ const MapContainer = ({
           onRouteChange={() => {}} // 빈 함수로 처리
         />
       </GoogleMap>
+
+      {selectionMode === 'spot' && activeCandidateSpot && (
+        <div className="absolute bottom-3 left-3 right-3 z-20 md:left-auto md:max-w-sm">
+          <div className="rounded-xl border bg-white p-4 shadow-xl">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">{activeCandidateSpot}</p>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {spotMeta[activeCandidateSpot]?.isPopular && (
+                    <span className="rounded bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+                      인기 장소
+                    </span>
+                  )}
+                  {spots.includes(activeCandidateSpot) && (
+                    <span className="rounded bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">
+                      이미 선택됨
+                    </span>
+                  )}
+                </div>
+              </div>
+              <button
+                className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100"
+                onClick={() => setActiveCandidateSpot(null)}
+              >
+                닫기
+              </button>
+            </div>
+
+            {spotMeta[activeCandidateSpot]?.includedCourses?.length > 0 && (
+              <p className="mt-2 text-xs leading-relaxed text-gray-600">
+                추천 코스: {spotMeta[activeCandidateSpot].includedCourses.slice(0, 2).join(', ')}
+                {spotMeta[activeCandidateSpot].includedCourses.length > 2 ? ' 외' : ''}
+              </p>
+            )}
+
+            {spotMeta[activeCandidateSpot]?.guide?.stayMinutes && (
+              <p className="mt-2 text-xs text-gray-700">
+                추천 체류시간: <span className="font-semibold">약 {spotMeta[activeCandidateSpot].guide.stayMinutes}분</span>
+              </p>
+            )}
+
+            {spotMeta[activeCandidateSpot]?.guide?.photoPoint && (
+              <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                사진 포인트: {spotMeta[activeCandidateSpot].guide.photoPoint}
+              </p>
+            )}
+
+            {spotMeta[activeCandidateSpot]?.guide?.nearby?.length > 0 && (
+              <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                근처 추천: {spotMeta[activeCandidateSpot].guide.nearby.slice(0, 2).join(', ')}
+              </p>
+            )}
+
+            <button
+              className="mt-3 w-full rounded bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+              onClick={() => handleCandidateSpotAdd(activeCandidateSpot)}
+              disabled={spots.includes(activeCandidateSpot)}
+            >
+              {spots.includes(activeCandidateSpot) ? '이미 추가됨' : '이 장소 추가'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

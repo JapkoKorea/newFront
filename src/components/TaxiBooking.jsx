@@ -31,6 +31,8 @@ const TaxiBooking = ({ isOpen, onClose }) => {
   const [currentStep, setCurrentStep] = useState(1)
   const [hoveredSpot, setHoveredSpot] = useState(null)
   const [showValidation, setShowValidation] = useState(false)
+  const [draggedSpotIndex, setDraggedSpotIndex] = useState(null)
+  const [dragOverSpotIndex, setDragOverSpotIndex] = useState(null)
 
   // 모달이 열릴 때 body 스크롤 방지
   useEffect(() => {
@@ -69,6 +71,69 @@ const TaxiBooking = ({ isOpen, onClose }) => {
     '닝구르 테라스',
     '팜 토미타'
   ]
+
+  const spotGuideData = {
+    '크리스마스 나무': {
+      stayMinutes: 20,
+      photoPoint: '정면 도로 쪽에서 단독 트리 구도를 잡기 좋아요.',
+      nearby: ['세븐스타 나무', '패치워크의 길'],
+    },
+    '세븐스타 나무': {
+      stayMinutes: 20,
+      photoPoint: '일몰 전 역광 타이밍이 사진 색감이 가장 좋아요.',
+      nearby: ['켄과 메리 나무', '마일드세븐 언덕'],
+    },
+    '켄과 메리 나무': {
+      stayMinutes: 15,
+      photoPoint: '길을 배경으로 나무를 세로 프레임으로 담기 좋습니다.',
+      nearby: ['세븐스타 나무', '마일드세븐 언덕'],
+    },
+    '마일드세븐 언덕': {
+      stayMinutes: 20,
+      photoPoint: '언덕 라인이 보이는 높은 지점에서 촬영 추천.',
+      nearby: ['켄과 메리 나무', '패치워크의 길'],
+    },
+    '탁신관': {
+      stayMinutes: 30,
+      photoPoint: '라벤더 시즌에는 입구 주변 색감이 가장 선명합니다.',
+      nearby: ['크리스마스 나무', '청의 호수'],
+    },
+    '흰수염폭포': {
+      stayMinutes: 25,
+      photoPoint: '다리 중앙 지점에서 폭포 전경을 넓게 담아보세요.',
+      nearby: ['청의 호수', '닝구르 테라스'],
+    },
+    '청의 호수': {
+      stayMinutes: 35,
+      photoPoint: '산책로 첫 포인트가 호수 색을 가장 진하게 볼 수 있어요.',
+      nearby: ['흰수염폭포', '탁신관'],
+    },
+    '패치워크의 길': {
+      stayMinutes: 25,
+      photoPoint: '넓은 화각으로 구릉지 패턴을 담으면 대표 컷이 됩니다.',
+      nearby: ['세븐스타 나무', '크리스마스 나무'],
+    },
+    '닝구르 테라스': {
+      stayMinutes: 40,
+      photoPoint: '해 질 무렵 조명 켜지는 시간대 방문을 추천합니다.',
+      nearby: ['흰수염폭포', '팜 토미타'],
+    },
+    '팜 토미타': {
+      stayMinutes: 50,
+      photoPoint: '라벤더 밭 중앙 동선에서 파노라마 촬영 추천.',
+      nearby: ['닝구르 테라스', '후라노역'],
+    },
+    '사계채언덕 (四季彩の丘)': {
+      stayMinutes: 45,
+      photoPoint: '전망 포인트에서 꽃밭 층을 배경으로 촬영하기 좋아요.',
+      nearby: ['비에이역', '팜 토미타'],
+    },
+    '아사히야마 동물원': {
+      stayMinutes: 70,
+      photoPoint: '펭귄/물개 관찰관 앞 대기 시간을 고려해 주세요.',
+      nearby: ['아사히카와역', '세븐스타 나무'],
+    },
+  }
 
   const tourCourses = [
     { 
@@ -127,6 +192,30 @@ const TaxiBooking = ({ isOpen, onClose }) => {
     }
   ]
 
+  const availableSpots = Array.from(
+    new Set([
+      ...popularDestinations,
+      ...tourCourses.flatMap((course) => course.spots),
+    ])
+  )
+
+  const spotMeta = Object.fromEntries(
+    availableSpots.map((spot) => {
+      const includedCourses = tourCourses
+        .filter((course) => course.spots.includes(spot))
+        .map((course) => course.name)
+
+      return [
+        spot,
+        {
+          isPopular: popularDestinations.includes(spot),
+          includedCourses,
+          guide: spotGuideData[spot] || null,
+        },
+      ]
+    })
+  )
+
   const handleInputChange = (field, value) => {
     setBookingData(prev => ({ ...prev, [field]: value }))
   }
@@ -164,6 +253,46 @@ const TaxiBooking = ({ isOpen, onClose }) => {
       ...prev,
       selectedSpots: (prev.selectedSpots || []).filter(s => s !== spot)
     }))
+  }
+
+  const handleSpotDragStart = (index) => {
+    setDraggedSpotIndex(index)
+  }
+
+  const handleSpotDragOver = (event, index) => {
+    event.preventDefault()
+    setDragOverSpotIndex(index)
+  }
+
+  const handleSpotDrop = (dropIndex) => {
+    if (
+      draggedSpotIndex === null ||
+      dropIndex === null ||
+      draggedSpotIndex === dropIndex
+    ) {
+      setDraggedSpotIndex(null)
+      setDragOverSpotIndex(null)
+      return
+    }
+
+    setBookingData(prev => {
+      const currentSpots = [...(prev.selectedSpots || [])]
+      const [movedSpot] = currentSpots.splice(draggedSpotIndex, 1)
+      currentSpots.splice(dropIndex, 0, movedSpot)
+
+      return {
+        ...prev,
+        selectedSpots: currentSpots,
+      }
+    })
+
+    setDraggedSpotIndex(null)
+    setDragOverSpotIndex(null)
+  }
+
+  const handleSpotDragEnd = () => {
+    setDraggedSpotIndex(null)
+    setDragOverSpotIndex(null)
   }
 
   const handleNext = () => {
@@ -492,11 +621,13 @@ const TaxiBooking = ({ isOpen, onClose }) => {
               {/* 지도 영역 */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">투어 경로</h3>
-                <div className="h-96 rounded-lg overflow-hidden border">
+                <div className="h-[520px] rounded-lg overflow-hidden border lg:h-[620px]">
                   <MapContainer
                     departure={bookingData.departure}
                     destination={bookingData.destination}
                     spots={bookingData.selectedSpots || []}
+                    availableSpots={availableSpots}
+                    spotMeta={spotMeta}
                     onPlaceChange={handleInputChange}
                     onSpotAdd={handleSpotAdd}
                     onSpotRemove={handleSpotRemove}
@@ -507,12 +638,22 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                 {/* 선택된 관광지 목록 */}
                 {bookingData.selectedSpots && bookingData.selectedSpots.length > 0 && (
                   <div className="space-y-2">
-                    <Label>선택된 관광지</Label>
+                    <div className="flex items-center justify-between">
+                      <Label>선택된 관광지</Label>
+                      <span className="text-xs text-gray-500">드래그로 순서를 변경할 수 있어요</span>
+                    </div>
                     <div className="space-y-1">
                       {bookingData.selectedSpots.map((spot, index) => (
                         <div 
                           key={index} 
-                          className="flex items-center justify-between bg-gray-50 p-2 rounded hover:bg-gray-100 transition-colors"
+                          draggable
+                          onDragStart={() => handleSpotDragStart(index)}
+                          onDragOver={(event) => handleSpotDragOver(event, index)}
+                          onDrop={() => handleSpotDrop(index)}
+                          onDragEnd={handleSpotDragEnd}
+                          className={`flex items-center justify-between bg-gray-50 p-2 rounded hover:bg-gray-100 transition-colors cursor-move ${
+                            dragOverSpotIndex === index ? 'ring-2 ring-blue-300 bg-blue-50' : ''
+                          }`}
                           onMouseEnter={() => setHoveredSpot(spot)}
                           onMouseLeave={() => setHoveredSpot(null)}
                         >
