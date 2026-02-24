@@ -6,8 +6,9 @@ import FAQ from './components/FAQ.jsx'
 import ChatSupport from './components/ChatSupport.jsx'
 import './App.css'
 import { useNavigate } from 'react-router-dom'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import LoginKakaoButton from './components/LoginKakao.jsx'
+import LoginKakaoCallback from './components/LoginKakaoCallback.jsx'
 
 // 이미지 import
 import biei1 from './assets/xpGwZKvsyDaZ.webp'
@@ -17,14 +18,46 @@ import biei5 from './assets/HGsZN8MV1MIb.jpg'
 import biei6 from './assets/Mg1bQjbINPBk.jpg'
 
 function App() {
+  const location = useLocation()
   const [currentSection, setCurrentSection] = useState(0)
   const [isScrolling, setIsScrolling] = useState(false)
   const [isBookingOpen, setIsBookingOpen] = useState(false)
   const [isFAQOpen, setIsFAQOpen] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [nickname, setNickname] = useState('')
   const navigate = useNavigate();
   const anyModalOpen = isBookingOpen || isFAQOpen || isChatOpen
+
+  useEffect(() => {
+    const jwtToken = localStorage.getItem('jwt')
+    const userRaw = localStorage.getItem('user')
+
+    if (!jwtToken || !userRaw) {
+      setIsLoggedIn(false)
+      setNickname('')
+      return
+    }
+
+    try {
+      const parsedUser = JSON.parse(userRaw)
+      const userNickname = parsedUser?.nickname || parsedUser?.userName || ''
+      setIsLoggedIn(true)
+      setNickname(userNickname)
+    } catch {
+      setIsLoggedIn(false)
+      setNickname('')
+    }
+  }, [location.pathname, location.search])
+
+  const handleLogout = () => {
+    localStorage.removeItem('jwt')
+    localStorage.removeItem('user')
+    setIsLoggedIn(false)
+    setNickname('')
+    navigate('/')
+  }
 
   const openBooking = () => {
     setIsFAQOpen(false)
@@ -107,11 +140,14 @@ function App() {
                 >
                   상담
                 </button>
-                <Button 
+                {isLoggedIn && nickname && (
+                  <span className="text-sm text-gray-700 ml-2">{nickname}님 환영합니다.</span>
+                )}
+                <Button
                   className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-2 rounded-md text-sm font-medium ml-4"
-                  onClick={() => navigate('/login')}
+                  onClick={isLoggedIn ? handleLogout : () => navigate('/login')}
                 >
-                  카카오 로그인
+                  {isLoggedIn ? '로그아웃' : '카카오 로그인'}
                 </Button>
               </div>
             </div>
@@ -155,14 +191,21 @@ function App() {
               >
                 상담
               </button>
+              {isLoggedIn && nickname && (
+                <p className="px-3 py-1 text-sm text-gray-700">{nickname}님 환영합니다.</p>
+              )}
               <Button
                 className="w-full bg-yellow-400 hover:bg-yellow-500 text-white"
                 onClick={() => {
                   setIsMobileMenuOpen(false)
-                  navigate('/login')
+                  if (isLoggedIn) {
+                    handleLogout()
+                  } else {
+                    navigate('/login')
+                  }
                 }}
               >
-                카카오 로그인
+                {isLoggedIn ? '로그아웃' : '카카오 로그인'}
               </Button>
             </div>
           )}
@@ -402,6 +445,13 @@ function App() {
 
 // 임시 LoginPage 컴포넌트
 function LoginPage() {
+  const location = useLocation()
+  const hasCode = new URLSearchParams(location.search).get('code')
+
+  if (hasCode) {
+    return <LoginKakaoCallback />
+  }
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
       <h2 className="text-2xl font-bold mb-6">카카오 로그인</h2>

@@ -2,7 +2,7 @@
 app/routers/auth/kakao.py
 카카오 OAuth 인증 처리를 위한 FastAPI Router
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 import httpx
 import os
@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-KAKAO_CLIENT_ID = os.getenv('VITE_KAKAO_CLIENT_ID')
+KAKAO_CLIENT_ID = os.getenv('KAKAO_CLIENT_ID') or os.getenv('VITE_KAKAO_CLIENT_ID')
 # KAKAO_CLIENT_SECRET = os.getenv('KAKAO_CLIENT_SECRET')
 KAKAO_REDIRECT_URI = os.getenv('KAKAO_REDIRECT_URI')
 JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'secret')
@@ -22,20 +22,26 @@ router = APIRouter(prefix="/api/auth/kakao", tags=["auth"])
 class KakaoCode(BaseModel):
     code: str
 
-@router.post("/callback")
-async def kakao_callback(data: KakaoCode):
+async def _handle_kakao_callback(code: str):
+    if not KAKAO_CLIENT_ID or not KAKAO_REDIRECT_URI:
+        raise HTTPException(status_code=500, detail="Kakao OAuth environment is not configured")
+
+    if not code or not code.strip():
+        raise HTTPException(status_code=422, detail="카카오 인증 코드(code)가 필요합니다")
+
+    kakao_client_id = KAKAO_CLIENT_ID
+    kakao_redirect_uri = KAKAO_REDIRECT_URI
+
     token_url = "https://kauth.kakao.com/oauth/token"
     payload = {
         'grant_type': 'authorization_code',
-        'client_id': KAKAO_CLIENT_ID,
+        'client_id': kakao_client_id,
         # 'client_secret': KAKAO_CLIENT_SECRET,
-        'redirect_uri': KAKAO_REDIRECT_URI + "login",
-        'code': data.code
+        'redirect_uri': kakao_redirect_uri,
+        'code': code.strip()
     }
     async with httpx.AsyncClient() as client:
         token_resp = await client.post(token_url, data=payload)
-        print(token_url, payload)
-        print(token_resp.text)
         if token_resp.status_code != 200:
             raise HTTPException(status_code=400, detail="카카오 토큰 요청 실패")
         token_json = token_resp.json()
@@ -62,4 +68,14 @@ async def kakao_callback(data: KakaoCode):
         }
         token = jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
-        return {"token": token, "user": payload} 
+        return {"token": token, "user": payload}
+
+
+@router.post("/callback")
+async def kakao_callback_post(data: KakaoCode):
+    return await _handle_kakao_callback(data.code)
+
+
+@router.get("/callback")
+async def kakao_callback_get(code: str = Query(...)):
+    return await _handle_kakao_callback(code)
