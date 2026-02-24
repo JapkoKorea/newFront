@@ -4,6 +4,9 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from routers.auth import kakao
+from services.mysql_user_service import ensure_user_tables
+from routers import reservations
+from services.mysql_reservation_service import ensure_reservation_tables
 
 app = FastAPI()
 
@@ -18,6 +21,13 @@ app.add_middleware(
 
 # 카카오 인증 라우터 포함
 app.include_router(kakao.router) 
+app.include_router(reservations.router)
+
+
+@app.on_event("startup")
+async def startup_event():
+    ensure_user_tables()
+    ensure_reservation_tables()
 
 import uvicorn
 

@@ -8,6 +8,7 @@ import httpx
 import os
 from jose import jwt
 from dotenv import load_dotenv
+from services.mysql_user_service import upsert_oauth_user
 
 load_dotenv()
 
@@ -60,11 +61,17 @@ async def _handle_kakao_callback(code: str):
         email = kakao_account.get('email')
         profile = kakao_account.get('profile', {})
         nickname = profile.get('nickname')
+        user_id = upsert_oauth_user(
+            provider='kakao',
+            provider_user_id=str(kakao_id),
+            display_name=nickname or 'Unknown',
+        )
 
         payload = {
             'sub': str(kakao_id),
             'email': email,
-            'nickname': nickname
+            'nickname': nickname,
+            'user_id': user_id,
         }
         token = jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 

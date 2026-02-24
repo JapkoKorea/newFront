@@ -9,6 +9,8 @@ import { Calendar, Clock, Users, MapPin, CreditCard, X, ChevronLeft, ChevronRigh
 import { Toaster } from 'react-hot-toast'
 import MapContainer, { COORDS_DICT } from '@/components/MapContainer.jsx'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+
 const TaxiBooking = ({ isOpen, onClose }) => {
   const today = new Date().toISOString().split('T')[0]
   const totalSteps = 3
@@ -311,15 +313,80 @@ const TaxiBooking = ({ isOpen, onClose }) => {
     }
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!canSubmit()) {
       setShowValidation(true)
       return
     }
 
-    // 예약 처리 로직
-    alert('예약이 접수되었습니다! 곧 연락드리겠습니다.')
-    onClose()
+    const userRaw = localStorage.getItem('user')
+    if (!userRaw) {
+      alert('로그인이 필요합니다. 카카오 로그인 후 다시 시도해 주세요.')
+      return
+    }
+
+    let userId = ''
+    try {
+      const parsedUser = JSON.parse(userRaw)
+      userId = (parsedUser?.user_id || '').trim()
+    } catch {
+      alert('로그인 정보가 올바르지 않습니다. 다시 로그인해 주세요.')
+      return
+    }
+
+    if (!userId) {
+      alert('사용자 식별 정보가 없습니다. 다시 로그인해 주세요.')
+      return
+    }
+
+    const durationNumber = Number(bookingData.duration)
+    const passengersNumber = Number(bookingData.passengers)
+    if (!Number.isFinite(durationNumber) || durationNumber <= 0) {
+      alert('예상 소요 시간을 숫자로 선택해 주세요.')
+      return
+    }
+    if (!Number.isFinite(passengersNumber) || passengersNumber <= 0) {
+      alert('탑승 인원을 숫자로 선택해 주세요.')
+      return
+    }
+
+    const selectedCourse = tourCourses.find((course) => course.id === bookingData.course)
+    const desiredCourse = selectedCourse
+      ? `${selectedCourse.name}${bookingData.selectedSpots?.length ? `: ${bookingData.selectedSpots.join(' > ')}` : ''}`
+      : bookingData.selectedSpots.join(' > ')
+
+    const payload = {
+      english_name: bookingData.name,
+      contact_number: bookingData.phone,
+      tour_date: bookingData.date,
+      tour_start_time: bookingData.time,
+      tour_duration: durationNumber,
+      number_of_people: passengersNumber,
+      departure: bookingData.departure,
+      destination: bookingData.destination,
+      desired_course: desiredCourse,
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/reservations?user_id=${encodeURIComponent(userId)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }
+      )
+
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data?.detail || `HTTP ${response.status}`)
+      }
+
+      alert('예약이 접수되었습니다! 곧 연락드리겠습니다.')
+      onClose()
+    } catch (error) {
+      alert(`예약 저장 실패: ${error?.message || error}`)
+    }
   }
 
   const getStepErrors = (step) => {
