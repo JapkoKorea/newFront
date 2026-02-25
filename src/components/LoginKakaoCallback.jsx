@@ -24,6 +24,17 @@ function LoginKakaoCallback() {
       return;
     }
 
+    const callbackStateKey = `kakao_callback_${code}`
+    const callbackState = sessionStorage.getItem(callbackStateKey)
+    if (callbackState === 'processing') {
+      return
+    }
+    if (callbackState === 'done') {
+      navigate('/')
+      return
+    }
+    sessionStorage.setItem(callbackStateKey, 'processing')
+
     // 백엔드에 code 전달
     fetch(`${API_BASE_URL}/api/auth/kakao/callback`, {
       method: 'POST',
@@ -42,14 +53,17 @@ function LoginKakaoCallback() {
           localStorage.setItem('jwt', data.token);
           // 사용자 정보도 저장 가능
           localStorage.setItem('user', JSON.stringify(data.user));
+          sessionStorage.setItem(callbackStateKey, 'done')
           alert('로그인 성공!');
           navigate('/');
         } else {
+          sessionStorage.removeItem(callbackStateKey)
           alert('로그인 실패: ' + (data.detail || '알 수 없는 오류'));
           navigate('/');
         }
       })
       .catch(err => {
+        sessionStorage.removeItem(callbackStateKey)
         alert('로그인 중 오류 발생: ' + (err?.message || err));
         navigate('/');
       });

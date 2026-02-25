@@ -44,7 +44,16 @@ async def _handle_kakao_callback(code: str):
     async with httpx.AsyncClient() as client:
         token_resp = await client.post(token_url, data=payload)
         if token_resp.status_code != 200:
-            raise HTTPException(status_code=400, detail="카카오 토큰 요청 실패")
+            error_detail = "카카오 토큰 요청 실패"
+            try:
+                token_error = token_resp.json()
+                kakao_error = token_error.get("error")
+                kakao_error_desc = token_error.get("error_description")
+                if kakao_error or kakao_error_desc:
+                    error_detail = f"카카오 토큰 요청 실패: {kakao_error or ''} {kakao_error_desc or ''}".strip()
+            except Exception:
+                pass
+            raise HTTPException(status_code=400, detail=error_detail)
         token_json = token_resp.json()
         access_token = token_json.get('access_token')
         if not access_token:
