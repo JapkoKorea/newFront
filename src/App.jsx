@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom'
 import { Routes, Route, useLocation } from 'react-router-dom'
 import LoginKakaoButton from './components/LoginKakao.jsx'
 import LoginKakaoCallback from './components/LoginKakaoCallback.jsx'
+import ReservationCheckPage from './components/ReservationCheckPage.jsx'
 
 // 이미지 import
 import biei1 from './assets/xpGwZKvsyDaZ.webp'
@@ -128,6 +129,12 @@ function App() {
                 >
                   예약하기
                 </button>
+                <button
+                  onClick={() => navigate('/reservations')}
+                  className="text-gray-500 hover:text-yellow-500 px-3 py-2 rounded-md text-sm font-medium"
+                >
+                  예약 확인
+                </button>
                 <button 
                   onClick={openFAQ}
                   className="text-gray-500 hover:text-yellow-500 px-3 py-2 rounded-md text-sm font-medium"
@@ -178,6 +185,15 @@ function App() {
                 className="block w-full text-left px-3 py-2 text-sm font-medium text-gray-700 hover:bg-yellow-50 rounded"
               >
                 예약하기
+              </button>
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false)
+                  navigate('/reservations')
+                }}
+                className="block w-full text-left px-3 py-2 text-sm font-medium text-gray-700 hover:bg-yellow-50 rounded"
+              >
+                예약 확인
               </button>
               <button
                 onClick={openFAQ}
@@ -438,6 +454,7 @@ function App() {
           </>
         } />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/reservations" element={<ReservationCheckPage />} />
       </Routes>
     </div>
   )

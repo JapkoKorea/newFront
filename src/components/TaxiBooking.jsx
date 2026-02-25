@@ -8,17 +8,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar, Clock, Users, MapPin, CreditCard, X, ChevronLeft, ChevronRight, AlertTriangle, Search, Plus } from 'lucide-react'
 import { Toaster } from 'react-hot-toast'
 import MapContainer, { COORDS_DICT } from '@/components/MapContainer.jsx'
+import { useNavigate } from 'react-router-dom'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
 
 const TaxiBooking = ({ isOpen, onClose }) => {
+  const navigate = useNavigate()
   const today = new Date().toISOString().split('T')[0]
   const totalSteps = 3
   const stepLabels = ['코스 선택', '일정 설정', '예약자 정보']
-  const [bookingData, setBookingData] = useState({
+  const getInitialBookingData = () => ({
     departure: '',
     destination: '',
-    date: today,
+    date: new Date().toISOString().split('T')[0],
     time: '',
     duration: '',
     passengers: '',
@@ -26,9 +28,9 @@ const TaxiBooking = ({ isOpen, onClose }) => {
     specialRequests: '',
     name: '',
     phone: '',
-    email: '',
     selectedSpots: []
   })
+  const [bookingData, setBookingData] = useState(getInitialBookingData)
 
   const [currentStep, setCurrentStep] = useState(1)
   const [hoveredSpot, setHoveredSpot] = useState(null)
@@ -383,7 +385,13 @@ const TaxiBooking = ({ isOpen, onClose }) => {
       }
 
       alert('예약이 접수되었습니다! 곧 연락드리겠습니다.')
+      setCurrentStep(1)
+      setShowValidation(false)
+      setDraggedSpotIndex(null)
+      setDragOverSpotIndex(null)
+      setBookingData(getInitialBookingData())
       onClose()
+      navigate('/', { replace: true })
     } catch (error) {
       alert(`예약 저장 실패: ${error?.message || error}`)
     }
@@ -410,8 +418,6 @@ const TaxiBooking = ({ isOpen, onClose }) => {
       const errors = []
 
       if (!bookingData.name) errors.push('예약자 이름을 입력해 주세요.')
-      if (!bookingData.phone) errors.push('연락처를 입력해 주세요.')
-      if (!bookingData.email) errors.push('이메일을 입력해 주세요.')
 
       return errors
     }
@@ -745,8 +751,8 @@ const TaxiBooking = ({ isOpen, onClose }) => {
           {currentStep === 3 && (
             <div className="space-y-6">
               <h3 className="text-lg font-semibold">예약자 정보를 입력해주세요</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              <div className="rounded-lg border-2 border-yellow-200 bg-yellow-50/60 p-4 space-y-3">
                 <div>
                   <Label htmlFor="name">이름 *</Label>
                   <Input
@@ -754,28 +760,21 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                     placeholder="홍길동"
                     value={bookingData.name}
                     onChange={(e) => handleInputChange('name', e.target.value)}
+                    className="mt-1 border-2 border-yellow-300 bg-white focus-visible:ring-yellow-500"
                   />
+                  <p className="mt-1 text-xs text-gray-600">예약 확인을 위해 이름은 필수 입력입니다.</p>
                 </div>
+
                 <div>
-                  <Label htmlFor="phone">연락처 *</Label>
+                  <Label htmlFor="phone">연락처</Label>
                   <Input
                     id="phone"
                     placeholder="010-1234-5678"
                     value={bookingData.phone}
                     onChange={(e) => handleInputChange('phone', e.target.value)}
+                    className="mt-1 border-2 border-gray-200 bg-white focus-visible:ring-yellow-500"
                   />
                 </div>
-              </div>
-
-              <div>
-                <Label htmlFor="email">이메일 *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="example@email.com"
-                  value={bookingData.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
-                />
               </div>
 
               {/* 예약 요약 */}
