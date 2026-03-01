@@ -5,6 +5,8 @@ import { COORDS_DICT } from './MapContainer';
 const RouteRenderer = ({
   departure,
   destination,
+  departureCoordinate,
+  destinationCoordinate,
   spots = [],
   onRouteChange,
 }) => {
@@ -46,8 +48,8 @@ const RouteRenderer = ({
       return;
     }
 
-    const departureCoords = getCoordinates(departure);
-    const destinationCoords = getCoordinates(destination);
+    const departureCoords = departureCoordinate || getCoordinates(departure);
+    const destinationCoords = destinationCoordinate || getCoordinates(destination);
 
     if (!departureCoords || !destinationCoords) {
       setDirectionsResult(null);
@@ -89,7 +91,7 @@ const RouteRenderer = ({
         }
       );
     }, 300); // 300ms 디바운싱
-  }, [departure, destination, spots, getCoordinates, onRouteChange]);
+  }, [departure, destination, departureCoordinate, destinationCoordinate, spots, getCoordinates, onRouteChange]);
 
   // 경로 재계산
   useEffect(() => {

@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.j
 import { Input } from '@/components/ui/input.jsx'
 import { Label } from '@/components/ui/label.jsx'
 import { Textarea } from '@/components/ui/textarea.jsx'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx'
-import { Calendar, Clock, Users, MapPin, CreditCard, X, ChevronLeft, ChevronRight, AlertTriangle, Search, Plus } from 'lucide-react'
+import { Calendar, Clock, Users, MapPin, CreditCard, X, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react'
 import { Toaster } from 'react-hot-toast'
 import MapContainer, { COORDS_DICT } from '@/components/MapContainer.jsx'
 import { useNavigate } from 'react-router-dom'
@@ -18,7 +19,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
   const totalSteps = 3
   const stepLabels = ['코스 선택', '일정 설정', '예약자 정보']
   const getInitialBookingData = () => ({
-    departure: '',
+    departure: '비에이역',
     destination: '',
     date: new Date().toISOString().split('T')[0],
     time: '',
@@ -37,6 +38,19 @@ const TaxiBooking = ({ isOpen, onClose }) => {
   const [showValidation, setShowValidation] = useState(false)
   const [draggedSpotIndex, setDraggedSpotIndex] = useState(null)
   const [dragOverSpotIndex, setDragOverSpotIndex] = useState(null)
+  const [selectionModeRequest, setSelectionModeRequest] = useState(null)
+  const [showBieiPairWarning, setShowBieiPairWarning] = useState(false)
+  const [placeCoordinates, setPlaceCoordinates] = useState({
+    departure: COORDS_DICT['비에이역'] || null,
+    destination: null,
+  })
+
+  const popularDepartureChips = ['비에이역', '지요가오카역', '후라노역', '아사히카와역']
+  const popularDestinationChips = ['비에이역', '지요가오카역', '후라노역', '아사히카와역']
+
+  const shouldBlockBieiPair = (nextDeparture, nextDestination) => (
+    nextDeparture === '비에이역' && nextDestination === '비에이역'
+  )
 
   // 모달이 열릴 때 body 스크롤 방지
   useEffect(() => {
@@ -220,18 +234,61 @@ const TaxiBooking = ({ isOpen, onClose }) => {
     })
   )
 
-  const handleInputChange = (field, value) => {
-    setBookingData(prev => ({ ...prev, [field]: value }))
+  const handleInputChange = (field, value, coords = null) => {
+    const nextDeparture = field === 'departure' ? value : bookingData.departure
+    const nextDestination = field === 'destination' ? value : bookingData.destination
+    const shouldResetLastSelection =
+      (field === 'departure' || field === 'destination') &&
+      shouldBlockBieiPair(nextDeparture, nextDestination)
+
+    const finalValue = shouldResetLastSelection ? '' : value
+    setBookingData(prev => ({ ...prev, [field]: finalValue }))
+
+    if (shouldResetLastSelection) {
+      setShowBieiPairWarning(true)
+    }
+
+    if (field === 'departure' || field === 'destination') {
+      let resolved = coords
+      if (!resolved && COORDS_DICT[finalValue]) {
+        resolved = COORDS_DICT[finalValue]
+      }
+      if (!resolved && typeof finalValue === 'string' && finalValue.includes(',')) {
+        const [lat, lng] = finalValue.split(',').map((coord) => parseFloat(coord.trim()))
+        if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+          resolved = { lat, lng }
+        }
+      }
+
+      setPlaceCoordinates((prev) => ({
+        ...prev,
+        [field]: shouldResetLastSelection ? null : resolved,
+      }))
+    }
   }
 
   const handleCourseSelect = (courseId) => {
     const selectedCourse = tourCourses.find(c => c.id === courseId)
+    const normalizedDeparture = (() => {
+      const departure = selectedCourse.departure || ''
+      if (departure.includes('비에이') || departure.includes('후라노')) {
+        return '비에이역'
+      }
+      return departure
+    })()
+
     setBookingData(prev => ({
       ...prev,
       course: courseId,
-      departure: selectedCourse.departure,
+      departure: normalizedDeparture,
       destination: selectedCourse.destination,
       selectedSpots: selectedCourse.spots
+    }))
+
+    setPlaceCoordinates((prev) => ({
+      ...prev,
+      departure: COORDS_DICT[normalizedDeparture] || prev.departure,
+      destination: COORDS_DICT[selectedCourse.destination] || prev.destination,
     }))
   }
 
@@ -297,6 +354,10 @@ const TaxiBooking = ({ isOpen, onClose }) => {
   const handleSpotDragEnd = () => {
     setDraggedSpotIndex(null)
     setDragOverSpotIndex(null)
+  }
+
+  const requestMapSelectionMode = (mode) => {
+    setSelectionModeRequest({ mode, requestedAt: Date.now() })
   }
 
   const handleNext = () => {
@@ -390,6 +451,10 @@ const TaxiBooking = ({ isOpen, onClose }) => {
       setDraggedSpotIndex(null)
       setDragOverSpotIndex(null)
       setBookingData(getInitialBookingData())
+      setPlaceCoordinates({
+        departure: COORDS_DICT['비에이역'] || null,
+        destination: null,
+      })
       onClose()
       navigate('/', { replace: true })
     } catch (error) {
@@ -639,22 +704,78 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                 {/* 출발지/도착지 설정 */}
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="departure">출발지</Label>
-                    <Input
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="departure">출발지</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-3 text-xs"
+                        onClick={() => requestMapSelectionMode('departure')}
+                      >
+                        지도에서 선택
+                      </Button>
+                    </div>
+                    <button
+                      type="button"
                       id="departure"
-                      placeholder="출발지를 입력하거나 선택해주세요"
-                      value={bookingData.departure}
-                      onChange={(e) => handleInputChange('departure', e.target.value)}
-                    />
+                      onClick={() => requestMapSelectionMode('departure')}
+                      className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm hover:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    >
+                      {bookingData.departure || '출발지를 선택해 주세요'}
+                    </button>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {popularDepartureChips.map((chip) => (
+                        <Button
+                          key={chip}
+                          type="button"
+                          variant={bookingData.departure === chip ? 'default' : 'outline'}
+                          size="sm"
+                          className={bookingData.departure === chip ? 'bg-yellow-500 hover:bg-yellow-600' : ''}
+                          onClick={() => handleInputChange('departure', chip)}
+                        >
+                          {chip}
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">인기 출발지 칩을 선택하거나, 지도로 직접 고를 수 있어요.</p>
                   </div>
                   <div>
-                    <Label htmlFor="destination">도착지</Label>
-                    <Input
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="destination">도착지</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-3 text-xs"
+                        onClick={() => requestMapSelectionMode('destination')}
+                      >
+                        지도에서 선택
+                      </Button>
+                    </div>
+                    <button
+                      type="button"
                       id="destination"
-                      placeholder="도착지를 입력하거나 선택해주세요"
-                      value={bookingData.destination}
-                      onChange={(e) => handleInputChange('destination', e.target.value)}
-                    />
+                      onClick={() => requestMapSelectionMode('destination')}
+                      className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm hover:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    >
+                      {bookingData.destination || '도착지를 선택해 주세요'}
+                    </button>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {popularDestinationChips.map((chip) => (
+                        <Button
+                          key={`destination-${chip}`}
+                          type="button"
+                          variant={bookingData.destination === chip ? 'default' : 'outline'}
+                          size="sm"
+                          className={bookingData.destination === chip ? 'bg-yellow-500 hover:bg-yellow-600' : ''}
+                          onClick={() => handleInputChange('destination', chip, COORDS_DICT[chip] || null)}
+                        >
+                          {chip}
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">직접 입력 대신 장소 검색 또는 지도 선택으로 지정됩니다.</p>
                   </div>
                 </div>
 
@@ -705,6 +826,9 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                     onSpotAdd={handleSpotAdd}
                     onSpotRemove={handleSpotRemove}
                     hoveredSpot={hoveredSpot}
+                    selectionModeRequest={selectionModeRequest}
+                    departureCoordinate={placeCoordinates.departure}
+                    destinationCoordinate={placeCoordinates.destination}
                   />
                 </div>
                 
@@ -855,7 +979,23 @@ const TaxiBooking = ({ isOpen, onClose }) => {
           </div>
         </div>
       </div>
+
       <Toaster position="top-right" />
+
+      <Dialog open={showBieiPairWarning} onOpenChange={setShowBieiPairWarning}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>출발/도착지 선택 안내</DialogTitle>
+            <DialogDescription>
+              교통권 문제로 인해 아사히카와 지역이 출발지 또는 도착지에 포함되어야 합니다.
+              비에이역에서 2 전역인 지요가오카역에서 출발 또는 도착하실 수 있습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setShowBieiPairWarning(false)}>확인</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

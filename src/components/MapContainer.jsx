@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   GoogleMap,
   Marker,
@@ -35,12 +35,15 @@ export const COORDS_DICT = {
   "아사히야마 동물원": { lat: 43.7690, lng: 142.4801 },
   "아사히카와역": { lat: 43.7629, lng: 142.3593 },
   "비에이역": { lat: 43.5913, lng: 142.4622 },
+  "지요가오카역": { lat: 43.5695, lng: 142.4886 },
   "후라노역": { lat: 43.3471, lng: 142.3917 },
 };
 
 const MapContainer = ({
   departure,
   destination,
+  departureCoordinate,
+  destinationCoordinate,
   spots = [],
   availableSpots = [],
   spotMeta = {},
@@ -48,6 +51,7 @@ const MapContainer = ({
   onSpotAdd,
   onSpotRemove,
   hoveredSpot,
+  selectionModeRequest,
 }) => {
   const { isLoaded } = useLoadScript({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY,
@@ -57,12 +61,89 @@ const MapContainer = ({
   const mapRef = useRef();
   const [selectionMode, setSelectionMode] = useState(null); // 'departure', 'destination', 'spot'
   const [activeCandidateSpot, setActiveCandidateSpot] = useState(null);
+  const [placeSearchInput, setPlaceSearchInput] = useState('');
+  const [placePredictions, setPlacePredictions] = useState([]);
+
+  useEffect(() => {
+    if (!selectionModeRequest?.mode) return;
+    setSelectionMode(selectionModeRequest.mode);
+    if (selectionModeRequest.mode !== 'spot') {
+      setActiveCandidateSpot(null);
+    }
+  }, [selectionModeRequest]);
+
+  useEffect(() => {
+    if (selectionMode !== 'departure' && selectionMode !== 'destination') {
+      setPlaceSearchInput('');
+      setPlacePredictions([]);
+    }
+  }, [selectionMode]);
+
+  const handlePlaceSearchChange = useCallback((value) => {
+    setPlaceSearchInput(value);
+
+    if (!value || value.trim().length < 2 || !window.google?.maps?.places?.AutocompleteService) {
+      setPlacePredictions([]);
+      return;
+    }
+
+    const autocompleteService = new window.google.maps.places.AutocompleteService();
+    autocompleteService.getPlacePredictions(
+      {
+        input: value,
+        componentRestrictions: { country: 'jp' },
+      },
+      (predictions, status) => {
+        if (status !== window.google.maps.places.PlacesServiceStatus.OK || !predictions) {
+          setPlacePredictions([]);
+          return;
+        }
+        setPlacePredictions(predictions.slice(0, 6));
+      }
+    );
+  }, []);
+
+  const handlePredictionSelect = useCallback(
+    (prediction) => {
+      if (!selectionMode || !['departure', 'destination'].includes(selectionMode)) return;
+
+      if (!window.google?.maps?.places?.PlacesService || !mapRef.current) {
+        onPlaceChange(selectionMode, prediction.description, null);
+        setSelectionMode(null);
+        setPlacePredictions([]);
+        setPlaceSearchInput('');
+        return;
+      }
+
+      const placesService = new window.google.maps.places.PlacesService(mapRef.current);
+      placesService.getDetails(
+        { placeId: prediction.place_id, fields: ['name', 'geometry'] },
+        (place, status) => {
+          const placeName = place?.name || prediction.structured_formatting?.main_text || prediction.description;
+          const location = place?.geometry?.location;
+          const resolvedCoords = location ? { lat: location.lat(), lng: location.lng() } : null;
+          onPlaceChange(selectionMode, placeName, resolvedCoords);
+
+          if (location && mapRef.current) {
+            mapRef.current.panTo(location);
+            mapRef.current.setZoom(13);
+          }
+
+          setSelectionMode(null);
+          setPlacePredictions([]);
+          setPlaceSearchInput('');
+          toast.success(`${placeName} 선택 완료`);
+        }
+      );
+    },
+    [selectionMode, onPlaceChange]
+  );
 
   const selectableSpotNames =
     availableSpots.length > 0
       ? availableSpots.filter((spot) => !!COORDS_DICT[spot])
       : Object.keys(COORDS_DICT).filter(
-          (name) => !["아사히카와역", "비에이역", "후라노역"].includes(name)
+          (name) => !["아사히카와역", "비에이역", "지요가오카역", "후라노역"].includes(name)
         );
 
   // 허용 지역 내 좌표인지 확인
@@ -91,9 +172,9 @@ const MapContainer = ({
 
     if (selectionMode) {
       if (selectionMode === 'departure') {
-        onPlaceChange('departure', `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+        onPlaceChange('departure', `${lat.toFixed(4)}, ${lng.toFixed(4)}`, { lat, lng });
       } else if (selectionMode === 'destination') {
-        onPlaceChange('destination', `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+        onPlaceChange('destination', `${lat.toFixed(4)}, ${lng.toFixed(4)}`, { lat, lng });
       } else if (selectionMode === 'spot') {
         toast('관광지 추가 모드에서는 파란 마커를 눌러 선택해 주세요');
         return;
@@ -110,7 +191,7 @@ const MapContainer = ({
 
     // 출발지 마커
     if (departure) {
-      const coords = COORDS_DICT[departure] || 
+      const coords = departureCoordinate || COORDS_DICT[departure] || 
         (departure.includes(',') ? {
           lat: parseFloat(departure.split(',')[0]),
           lng: parseFloat(departure.split(',')[1])
@@ -131,7 +212,7 @@ const MapContainer = ({
 
     // 도착지 마커
     if (destination) {
-      const coords = COORDS_DICT[destination] || 
+      const coords = destinationCoordinate || COORDS_DICT[destination] || 
         (destination.includes(',') ? {
           lat: parseFloat(destination.split(',')[0]),
           lng: parseFloat(destination.split(',')[1])
@@ -173,7 +254,7 @@ const MapContainer = ({
     });
 
     return markers;
-  }, [departure, destination, spots, hoveredSpot, onSpotRemove]);
+  }, [departure, destination, departureCoordinate, destinationCoordinate, spots, hoveredSpot, onSpotRemove]);
 
   const handleSelectableSpotClick = useCallback(
     (spotName) => {
@@ -249,7 +330,37 @@ const MapContainer = ({
             + 장소 추가
           </button>
         </div>
-        
+
+        {(selectionMode === 'departure' || selectionMode === 'destination') && (
+          <div className="mb-2">
+            <input
+              type="text"
+              value={placeSearchInput}
+              onChange={(e) => handlePlaceSearchChange(e.target.value)}
+              placeholder={`구글 지도에서 ${selectionMode === 'departure' ? '출발지' : '도착지'} 검색`}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/40"
+            />
+
+            {placePredictions.length > 0 && (
+              <div className="mt-2 max-h-40 overflow-y-auto rounded-md border bg-white shadow-sm">
+                {placePredictions.map((prediction) => (
+                  <button
+                    key={prediction.place_id}
+                    type="button"
+                    onClick={() => handlePredictionSelect(prediction)}
+                    className="w-full border-b px-3 py-2 text-left text-sm hover:bg-yellow-50 last:border-b-0"
+                  >
+                    <p className="font-medium text-gray-900">{prediction.structured_formatting?.main_text || prediction.description}</p>
+                    {prediction.structured_formatting?.secondary_text && (
+                      <p className="text-xs text-gray-500">{prediction.structured_formatting.secondary_text}</p>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {selectionMode && (
           <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
             {selectionMode === 'spot'
@@ -312,6 +423,8 @@ const MapContainer = ({
         <RouteRenderer
           departure={departure}
           destination={destination}
+          departureCoordinate={departureCoordinate}
+          destinationCoordinate={destinationCoordinate}
           spots={spots}
           onRouteChange={() => {}} // 빈 함수로 처리
         />
