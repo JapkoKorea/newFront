@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
-import { Calendar, Clock, MapPin, RefreshCcw, UserRound } from 'lucide-react'
+import { Calendar, Clock, CreditCard, MapPin, RefreshCcw, UserRound } from 'lucide-react'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
 
@@ -21,6 +21,20 @@ const statusTone = {
   cancelled: 'bg-rose-100 text-rose-800 border-rose-200',
   rejected: 'bg-red-100 text-red-800 border-red-200',
   completed: 'bg-blue-100 text-blue-800 border-blue-200',
+}
+
+const paymentLabel = {
+  unpaid: '결제 전',
+  ready: '결제 대기',
+  paid: '결제 완료',
+  failed: '결제 실패',
+}
+
+const paymentTone = {
+  unpaid: 'bg-slate-100 text-slate-700 border-slate-200',
+  ready: 'bg-amber-100 text-amber-800 border-amber-200',
+  paid: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  failed: 'bg-rose-100 text-rose-800 border-rose-200',
 }
 
 function ReservationCheckPage() {
@@ -198,13 +212,20 @@ function ReservationCheckPage() {
                 <Card className="border-yellow-200 bg-yellow-50/60">
                   <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle className="text-lg">예약 상태</CardTitle>
-                    <Badge className={`border ${statusTone[selectedReservation.status] || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
-                      {statusLabel[selectedReservation.status] || selectedReservation.status}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge className={`border ${statusTone[selectedReservation.status] || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+                        {statusLabel[selectedReservation.status] || selectedReservation.status}
+                      </Badge>
+                      <Badge className={`border ${paymentTone[selectedReservation.payment_status] || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+                        {paymentLabel[selectedReservation.payment_status] || selectedReservation.payment_status || '결제 전'}
+                      </Badge>
+                    </div>
                   </CardHeader>
                   <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                     <p><span className="text-gray-500">예약번호:</span> <span className="font-medium break-all">{selectedReservation.reservation_number}</span></p>
                     <p><span className="text-gray-500">접수일시:</span> <span className="font-medium">{selectedReservation.created_at?.replace('T', ' ').slice(0, 16) || '-'}</span></p>
+                    <p><span className="text-gray-500">결제 상태:</span> <span className="font-medium">{paymentLabel[selectedReservation.payment_status] || selectedReservation.payment_status || '결제 전'}</span></p>
+                    <p><span className="text-gray-500">결제 금액:</span> <span className="font-medium">{selectedReservation.payment_amount_krw ? `${Number(selectedReservation.payment_amount_krw).toLocaleString()}원` : '-'}</span></p>
                   </CardContent>
                 </Card>
 
@@ -242,6 +263,14 @@ function ReservationCheckPage() {
                 </Card>
 
                 <div className="flex gap-2">
+                  <Button
+                    className="bg-yellow-500 hover:bg-yellow-600"
+                    onClick={() => navigate(`/payments?reservation_number=${encodeURIComponent(selectedReservation.reservation_number)}`)}
+                    disabled={selectedReservation.payment_status === 'paid' || selectedReservation.status === 'cancelled'}
+                  >
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    {selectedReservation.payment_status === 'paid' ? '결제 완료' : '결제하기'}
+                  </Button>
                   <Button variant="outline" onClick={() => navigate('/')}>문의하기</Button>
                   <Button variant="outline" onClick={() => navigate('/')}>변경 요청</Button>
                   <Button variant="outline" onClick={handleCancelRequest} disabled={!canCancel || canceling}>

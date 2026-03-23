@@ -1,3 +1,5 @@
+from typing import Any
+
 from services.mysql_user_service import _connect
 
 
@@ -20,6 +22,9 @@ def ensure_reservation_tables() -> None:
                     departure VARCHAR(255) NOT NULL,
                     destination VARCHAR(255) NOT NULL,
                     desired_course TEXT NOT NULL,
+                    payment_status VARCHAR(32) NOT NULL DEFAULT 'unpaid',
+                    payment_amount_krw INT UNSIGNED NULL,
+                    payment_updated_at DATETIME(6) NULL,
                     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
                     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
                     created_at_source VARCHAR(32) NULL,
@@ -30,12 +35,36 @@ def ensure_reservation_tables() -> None:
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                 """
             )
+            cursor.execute(
+                """
+                CREATE TABLE reservation_payments (
+                    order_id VARCHAR(64) NOT NULL,
+                    reservation_number CHAR(36) NOT NULL,
+                    user_id CHAR(36) NOT NULL,
+                    amount_krw INT UNSIGNED NOT NULL,
+                    status VARCHAR(32) NOT NULL,
+                    payment_key VARCHAR(200) NULL,
+                    method VARCHAR(50) NULL,
+                    raw_response_json LONGTEXT NULL,
+                    failure_code VARCHAR(120) NULL,
+                    failure_message TEXT NULL,
+                    approved_at DATETIME(6) NULL,
+                    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+                    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+                    PRIMARY KEY (order_id),
+                    KEY idx_reservation_payment (reservation_number, created_at),
+                    KEY idx_user_payment (user_id, created_at),
+                    CONSTRAINT fk_payment_reservation FOREIGN KEY (reservation_number) REFERENCES reservations(reservation_number),
+                    CONSTRAINT fk_payment_user FOREIGN KEY (user_id) REFERENCES users(id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                """
+            )
         conn.commit()
     finally:
         conn.close()
 
 
-def save_reservation_mysql(data: dict) -> None:
+def save_reservation_mysql(data: dict[str, Any]) -> None:
     conn = _connect()
     try:
         with conn.cursor() as cursor:

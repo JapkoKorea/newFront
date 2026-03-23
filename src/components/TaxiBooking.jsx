@@ -11,7 +11,7 @@ import { Toaster } from 'react-hot-toast'
 import MapContainer, { COORDS_DICT } from '@/components/MapContainer.jsx'
 import { useNavigate } from 'react-router-dom'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+const BOOKING_DRAFT_STORAGE_KEY = 'booking_draft_v1'
 
 const TaxiBooking = ({ isOpen, onClose }) => {
   const navigate = useNavigate()
@@ -47,6 +47,26 @@ const TaxiBooking = ({ isOpen, onClose }) => {
 
   const popularDepartureChips = ['비에이역', '지요가오카역', '후라노역', '아사히카와역']
   const popularDestinationChips = ['비에이역', '지요가오카역', '후라노역', '아사히카와역']
+
+  const passengerOptions = [
+    { value: '1', label: '1명', helper: '개인 여행' },
+    { value: '2', label: '2명', helper: '커플/친구' },
+    { value: '3', label: '3명', helper: '소규모 팀' },
+    { value: '4', label: '4명', helper: '가족 여행' },
+    { value: '5', label: '5명', helper: '점보택시 권장' },
+    { value: '6', label: '6명', helper: '점보택시 필수' },
+    { value: '7', label: '7명', helper: '점보택시 필수' },
+    { value: '8', label: '8명', helper: '점보택시 필수' },
+  ]
+
+  const durationOptions = [
+    { value: '2', label: '2시간', helper: '최소 이용 시간' },
+    { value: '3', label: '3시간', helper: '하이라이트 코스' },
+    { value: '4', label: '4시간', helper: '여유 있는 코스' },
+    { value: '5', label: '5시간', helper: '확장 코스' },
+    { value: '6', label: '6시간', helper: '롱 코스' },
+    { value: '8', label: '8시간', helper: '풀데이' },
+  ]
 
   const shouldBlockBieiPair = (nextDeparture, nextDestination) => (
     nextDeparture === '비에이역' && nextDestination === '비에이역'
@@ -382,26 +402,6 @@ const TaxiBooking = ({ isOpen, onClose }) => {
       return
     }
 
-    const userRaw = localStorage.getItem('user')
-    if (!userRaw) {
-      alert('로그인이 필요합니다. 카카오 로그인 후 다시 시도해 주세요.')
-      return
-    }
-
-    let userId = ''
-    try {
-      const parsedUser = JSON.parse(userRaw)
-      userId = (parsedUser?.user_id || '').trim()
-    } catch {
-      alert('로그인 정보가 올바르지 않습니다. 다시 로그인해 주세요.')
-      return
-    }
-
-    if (!userId) {
-      alert('사용자 식별 정보가 없습니다. 다시 로그인해 주세요.')
-      return
-    }
-
     const durationNumber = Number(bookingData.duration)
     const passengersNumber = Number(bookingData.passengers)
     if (!Number.isFinite(durationNumber) || durationNumber <= 0) {
@@ -430,36 +430,40 @@ const TaxiBooking = ({ isOpen, onClose }) => {
       desired_course: desiredCourse,
     }
 
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/reservations?user_id=${encodeURIComponent(userId)}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        }
-      )
-
-      const data = await response.json()
-      if (!response.ok) {
-        throw new Error(data?.detail || `HTTP ${response.status}`)
-      }
-
-      alert('예약이 접수되었습니다! 곧 연락드리겠습니다.')
-      setCurrentStep(1)
-      setShowValidation(false)
-      setDraggedSpotIndex(null)
-      setDragOverSpotIndex(null)
-      setBookingData(getInitialBookingData())
-      setPlaceCoordinates({
-        departure: COORDS_DICT['비에이역'] || null,
-        destination: null,
-      })
-      onClose()
-      navigate('/', { replace: true })
-    } catch (error) {
-      alert(`예약 저장 실패: ${error?.message || error}`)
+    const selectedCourseName = tourCourses.find((course) => course.id === bookingData.course)?.name || '미선택'
+    const draft = {
+      reservationPayload: payload,
+      summary: {
+        courseName: selectedCourseName,
+        departure: bookingData.departure,
+        destination: bookingData.destination,
+        date: bookingData.date,
+        time: bookingData.time,
+        duration: durationNumber,
+        passengers: passengersNumber,
+        selectedSpots: bookingData.selectedSpots || [],
+      },
+      createdAt: new Date().toISOString(),
     }
+
+    try {
+      sessionStorage.setItem(BOOKING_DRAFT_STORAGE_KEY, JSON.stringify(draft))
+    } catch {
+      alert('예약 정보를 저장하지 못했습니다. 브라우저 저장소 설정을 확인해 주세요.')
+      return
+    }
+
+    setCurrentStep(1)
+    setShowValidation(false)
+    setDraggedSpotIndex(null)
+    setDragOverSpotIndex(null)
+    setBookingData(getInitialBookingData())
+    setPlaceCoordinates({
+      departure: COORDS_DICT['비에이역'] || null,
+      destination: null,
+    })
+    onClose()
+    navigate('/pricing')
   }
 
   const getStepErrors = (step) => {
@@ -670,34 +674,64 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="passengers">탑승 인원</Label>
-                    <Select value={bookingData.passengers} onValueChange={(value) => handleInputChange('passengers', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="인원 선택" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1명</SelectItem>
-                        <SelectItem value="2">2명</SelectItem>
-                        <SelectItem value="3">3명</SelectItem>
-                        <SelectItem value="4">4명</SelectItem>
-                        <SelectItem value="5+">5명 이상</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="rounded-xl border border-yellow-200 bg-yellow-50/40 p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <Label htmlFor="passengers" className="text-sm font-semibold text-gray-900">탑승 인원 선택</Label>
+                      <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">필수</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {passengerOptions.map((option) => {
+                        const isSelected = bookingData.passengers === option.value
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => handleInputChange('passengers', option.value)}
+                            className={`rounded-lg border px-3 py-2 text-left transition ${
+                              isSelected
+                                ? 'border-yellow-500 bg-yellow-100 shadow-sm'
+                                : 'border-gray-200 bg-white hover:border-yellow-300'
+                            }`}
+                          >
+                            <p className="text-sm font-semibold text-gray-900">{option.label}</p>
+                            <p className="text-xs text-gray-500">{option.helper}</p>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {!bookingData.passengers && (
+                      <p className="mt-2 text-xs text-rose-600">탑승 인원을 먼저 선택해 주세요.</p>
+                    )}
                   </div>
-                  <div>
-                    <Label htmlFor="duration">예상 소요 시간</Label>
-                    <Select value={bookingData.duration} onValueChange={(value) => handleInputChange('duration', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="시간 선택" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="3">3시간</SelectItem>
-                        <SelectItem value="5">5시간</SelectItem>
-                        <SelectItem value="8">8시간 (풀데이)</SelectItem>
-                        <SelectItem value="custom">직접 입력</SelectItem>
-                      </SelectContent>
-                    </Select>
+
+                  <div className="rounded-xl border border-yellow-200 bg-yellow-50/40 p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <Label htmlFor="duration" className="text-sm font-semibold text-gray-900">예상 소요 시간 선택</Label>
+                      <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">필수</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {durationOptions.map((option) => {
+                        const isSelected = bookingData.duration === option.value
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => handleInputChange('duration', option.value)}
+                            className={`rounded-lg border px-3 py-2 text-left transition ${
+                              isSelected
+                                ? 'border-yellow-500 bg-yellow-100 shadow-sm'
+                                : 'border-gray-200 bg-white hover:border-yellow-300'
+                            }`}
+                          >
+                            <p className="text-sm font-semibold text-gray-900">{option.label}</p>
+                            <p className="text-xs text-gray-500">{option.helper}</p>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {!bookingData.duration && (
+                      <p className="mt-2 text-xs text-rose-600">예상 소요 시간을 선택해 주세요.</p>
+                    )}
                   </div>
                 </div>
 
@@ -973,7 +1007,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                 disabled={!canSubmit()}
               >
                 <CreditCard className="mr-2 h-4 w-4" />
-                예약 완료
+                요금 확인 및 결제
               </Button>
             )}
           </div>

@@ -118,7 +118,7 @@ const MapContainer = ({
       const placesService = new window.google.maps.places.PlacesService(mapRef.current);
       placesService.getDetails(
         { placeId: prediction.place_id, fields: ['name', 'geometry'] },
-        (place, status) => {
+        (place) => {
           const placeName = place?.name || prediction.structured_formatting?.main_text || prediction.description;
           const location = place?.geometry?.location;
           const resolvedCoords = location ? { lat: location.lat(), lng: location.lng() } : null;

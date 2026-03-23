@@ -10,6 +10,10 @@ import { Routes, Route, useLocation } from 'react-router-dom'
 import LoginKakaoButton from './components/LoginKakao.jsx'
 import LoginKakaoCallback from './components/LoginKakaoCallback.jsx'
 import ReservationCheckPage from './components/ReservationCheckPage.jsx'
+import PaymentPage from './components/PaymentPage.jsx'
+import PaymentSuccessPage from './components/PaymentSuccessPage.jsx'
+import PaymentFailPage from './components/PaymentFailPage.jsx'
+import PricingDepositPage from './components/PricingDepositPage.jsx'
 
 // 이미지 import
 import biei1 from './assets/xpGwZKvsyDaZ.webp'
@@ -130,6 +134,18 @@ function App() {
                   예약하기
                 </button>
                 <button
+                  onClick={() => navigate('/pricing')}
+                  className="text-gray-500 hover:text-yellow-500 px-3 py-2 rounded-md text-sm font-medium"
+                >
+                  요금안내
+                </button>
+                <button
+                  onClick={() => navigate('/pricing')}
+                  className="text-gray-500 hover:text-yellow-500 px-3 py-2 rounded-md text-sm font-medium"
+                >
+                  요금/결제
+                </button>
+                <button
                   onClick={() => navigate('/reservations')}
                   className="text-gray-500 hover:text-yellow-500 px-3 py-2 rounded-md text-sm font-medium"
                 >
@@ -185,6 +201,24 @@ function App() {
                 className="block w-full text-left px-3 py-2 text-sm font-medium text-gray-700 hover:bg-yellow-50 rounded"
               >
                 예약하기
+              </button>
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false)
+                  navigate('/pricing')
+                }}
+                className="block w-full text-left px-3 py-2 text-sm font-medium text-gray-700 hover:bg-yellow-50 rounded"
+              >
+                요금안내
+              </button>
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false)
+                  navigate('/pricing')
+                }}
+                className="block w-full text-left px-3 py-2 text-sm font-medium text-gray-700 hover:bg-yellow-50 rounded"
+              >
+                요금/결제
               </button>
               <button
                 onClick={() => {
@@ -454,6 +488,10 @@ function App() {
           </>
         } />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/pricing" element={<PricingDepositPage />} />
+        <Route path="/payments" element={<PaymentPage />} />
+        <Route path="/payments/success" element={<PaymentSuccessPage />} />
+        <Route path="/payments/fail" element={<PaymentFailPage />} />
         <Route path="/reservations" element={<ReservationCheckPage />} />
       </Routes>
     </div>

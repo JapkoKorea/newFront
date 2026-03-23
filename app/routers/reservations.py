@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -33,7 +34,7 @@ def _user_exists(user_id: str) -> bool:
         conn.close()
 
 
-def _serialize_row(row: dict) -> dict:
+def _serialize_row(row: dict[str, Any]) -> dict[str, Any]:
     result = dict(row)
     for key in ("created_at", "updated_at"):
         value = result.get(key)
@@ -97,7 +98,9 @@ async def list_reservations(user_id: str, reservation_number: str | None = None)
                     """
                     SELECT reservation_number, status, english_name, contact_number,
                            tour_date, tour_start_time, tour_duration_hours, number_of_people,
-                           departure, destination, desired_course, created_at, updated_at
+                           departure, destination, desired_course,
+                           payment_status, payment_amount_krw, payment_updated_at,
+                           created_at, updated_at
                     FROM reservations
                     WHERE user_id = %s AND reservation_number = %s
                     LIMIT 1
@@ -113,7 +116,9 @@ async def list_reservations(user_id: str, reservation_number: str | None = None)
                 """
                 SELECT reservation_number, status, english_name, contact_number,
                        tour_date, tour_start_time, tour_duration_hours, number_of_people,
-                       departure, destination, desired_course, created_at, updated_at
+                       departure, destination, desired_course,
+                       payment_status, payment_amount_krw, payment_updated_at,
+                       created_at, updated_at
                 FROM reservations
                 WHERE user_id = %s
                 ORDER BY created_at DESC

@@ -92,6 +92,9 @@ dependencies:
   '@tailwindcss/vite':
     specifier: ^4.1.7
     version: 4.1.11(vite@6.3.5)
+  '@tosspayments/tosspayments-sdk':
+    specifier: ^2.4.0
+    version: 2.5.0
   class-variance-authority:
     specifier: ^0.7.1
     version: 0.7.1
@@ -2253,6 +2256,10 @@ packages:
       '@tailwindcss/oxide': 4.1.11
       tailwindcss: 4.1.11
       vite: 6.3.5
+    dev: false
+
+  /@tosspayments/tosspayments-sdk@2.5.0:
+    resolution: {integrity: sha512-qapms+cTY5/4MBwcEegG1GkYBIWVjWv77yWnG2+CWXqdZOtGKLmqt0pb1lbrevBOF/uhO1f2Wtj+r/bggHwiHQ==}
     dev: false
 
   /@types/babel__core@7.20.5:
