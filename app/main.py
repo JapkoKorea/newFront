@@ -11,10 +11,15 @@ from services.mysql_reservation_service import ensure_reservation_tables
 
 app = FastAPI()
 
+cors_origins_raw = os.getenv("CORS_ALLOW_ORIGINS", "http://localhost:5173")
+allowed_origins = [origin.strip() for origin in cors_origins_raw.split(",") if origin.strip()]
+if not allowed_origins:
+    allowed_origins = ["http://localhost:5173"]
+
 # CORS 설정 (프론트엔드 주소로 변경 권장)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

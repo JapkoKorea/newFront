@@ -7,6 +7,7 @@ from pydantic import BaseModel
 import httpx
 import os
 from jose import jwt
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from services.mysql_user_service import upsert_oauth_user
 
@@ -15,8 +16,9 @@ load_dotenv()
 KAKAO_CLIENT_ID = os.getenv('KAKAO_CLIENT_ID') or os.getenv('VITE_KAKAO_CLIENT_ID')
 # KAKAO_CLIENT_SECRET = os.getenv('KAKAO_CLIENT_SECRET')
 KAKAO_REDIRECT_URI = os.getenv('KAKAO_REDIRECT_URI')
-JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'secret')
+JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', '').strip()
 JWT_ALGORITHM = 'HS256'
+JWT_EXPIRES_HOURS = int(os.getenv('JWT_EXPIRES_HOURS', '24'))
 
 router = APIRouter(prefix="/api/auth/kakao", tags=["auth"])
 
@@ -26,6 +28,8 @@ class KakaoCode(BaseModel):
 async def _handle_kakao_callback(code: str):
     if not KAKAO_CLIENT_ID or not KAKAO_REDIRECT_URI:
         raise HTTPException(status_code=500, detail="Kakao OAuth environment is not configured")
+    if not JWT_SECRET_KEY:
+        raise HTTPException(status_code=500, detail="Missing JWT_SECRET_KEY")
 
     if not code or not code.strip():
         raise HTTPException(status_code=422, detail="카카오 인증 코드(code)가 필요합니다")
@@ -76,11 +80,14 @@ async def _handle_kakao_callback(code: str):
             display_name=nickname or 'Unknown',
         )
 
+        now = datetime.now(timezone.utc)
         payload = {
             'sub': str(kakao_id),
             'email': email,
             'nickname': nickname,
             'user_id': user_id,
+            'iat': int(now.timestamp()),
+            'exp': int((now + timedelta(hours=JWT_EXPIRES_HOURS)).timestamp()),
         }
         token = jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 

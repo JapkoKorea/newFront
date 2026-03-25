@@ -4,8 +4,7 @@ import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
 import { CheckCircle2, Loader2 } from 'lucide-react'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
 
 function PaymentSuccessPage() {
   const navigate = useNavigate()
@@ -31,17 +30,15 @@ function PaymentSuccessPage() {
       return
     }
 
-    let userId = ''
     try {
-      const parsed = JSON.parse(userRaw)
-      userId = (parsed?.user_id || '').trim()
+      JSON.parse(userRaw)
     } catch {
       setState('error')
       setMessage('로그인 정보가 올바르지 않습니다.')
       return
     }
 
-    if (!paymentKey || !orderId || !amount || !userId) {
+    if (!paymentKey || !orderId || !amount) {
       setState('error')
       setMessage('결제 승인에 필요한 정보가 누락되었습니다.')
       return
@@ -49,9 +46,9 @@ function PaymentSuccessPage() {
 
     const confirm = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/payments/confirm?user_id=${encodeURIComponent(userId)}`, {
+        const response = await fetch(`${API_BASE_URL}/api/payments/confirm`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ paymentKey, orderId, amount }),
         })
         const data = await response.json()

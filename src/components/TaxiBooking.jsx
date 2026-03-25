@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Input } from '@/components/ui/input.jsx'
@@ -6,10 +6,11 @@ import { Label } from '@/components/ui/label.jsx'
 import { Textarea } from '@/components/ui/textarea.jsx'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx'
-import { Calendar, Clock, Users, MapPin, CreditCard, X, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react'
+import { Calendar, Clock, Users, MapPin, CreditCard, X, ChevronLeft, ChevronRight, AlertTriangle, Sun, Snowflake, Leaf } from 'lucide-react'
 import { Toaster } from 'react-hot-toast'
 import MapContainer, { COORDS_DICT } from '@/components/MapContainer.jsx'
 import { useNavigate } from 'react-router-dom'
+import { tourCourses, popularDestinations, spotGuideData, detectSeason, SEASON_LABEL, SEASON_MONTHS } from '@/data/tourCourses.js'
 
 const BOOKING_DRAFT_STORAGE_KEY = 'booking_draft_v1'
 
@@ -36,6 +37,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
   const [currentStep, setCurrentStep] = useState(1)
   const [hoveredSpot, setHoveredSpot] = useState(null)
   const [showValidation, setShowValidation] = useState(false)
+  const [seasonFilter, setSeasonFilter] = useState('auto') // 'auto' | 'winter' | 'summer' | 'all_season'
   const [draggedSpotIndex, setDraggedSpotIndex] = useState(null)
   const [dragOverSpotIndex, setDragOverSpotIndex] = useState(null)
   const [selectionModeRequest, setSelectionModeRequest] = useState(null)
@@ -47,6 +49,17 @@ const TaxiBooking = ({ isOpen, onClose }) => {
 
   const popularDepartureChips = ['비에이역', '지요가오카역', '후라노역', '아사히카와역']
   const popularDestinationChips = ['비에이역', '지요가오카역', '후라노역', '아사히카와역']
+
+  // 날짜 기반 시즌 자동 감지
+  const detectedSeason = useMemo(() => detectSeason(bookingData.date), [bookingData.date])
+  const activeSeason = seasonFilter === 'auto' ? detectedSeason : seasonFilter
+
+  // 활성 시즌에 맞는 코스 필터링 (all_season 코스는 항상 포함)
+  const filteredCourses = useMemo(() => {
+    return tourCourses.filter((course) =>
+      course.season.includes(activeSeason) || course.season.includes('all_season')
+    )
+  }, [activeSeason])
 
   const passengerOptions = [
     { value: '1', label: '1명', helper: '개인 여행' },
@@ -97,138 +110,6 @@ const TaxiBooking = ({ isOpen, onClose }) => {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
 
-  const popularDestinations = [
-    '크리스마스 나무',
-    '세븐스타 나무',
-    '켄과 메리 나무',
-    '마일드세븐 언덕',
-    '탁신관',
-    '흰수염폭포',
-    '청의 호수',
-    '패치워크의 길',
-    '닝구르 테라스',
-    '팜 토미타'
-  ]
-
-  const spotGuideData = {
-    '크리스마스 나무': {
-      stayMinutes: 20,
-      photoPoint: '정면 도로 쪽에서 단독 트리 구도를 잡기 좋아요.',
-      nearby: ['세븐스타 나무', '패치워크의 길'],
-    },
-    '세븐스타 나무': {
-      stayMinutes: 20,
-      photoPoint: '일몰 전 역광 타이밍이 사진 색감이 가장 좋아요.',
-      nearby: ['켄과 메리 나무', '마일드세븐 언덕'],
-    },
-    '켄과 메리 나무': {
-      stayMinutes: 15,
-      photoPoint: '길을 배경으로 나무를 세로 프레임으로 담기 좋습니다.',
-      nearby: ['세븐스타 나무', '마일드세븐 언덕'],
-    },
-    '마일드세븐 언덕': {
-      stayMinutes: 20,
-      photoPoint: '언덕 라인이 보이는 높은 지점에서 촬영 추천.',
-      nearby: ['켄과 메리 나무', '패치워크의 길'],
-    },
-    '탁신관': {
-      stayMinutes: 30,
-      photoPoint: '라벤더 시즌에는 입구 주변 색감이 가장 선명합니다.',
-      nearby: ['크리스마스 나무', '청의 호수'],
-    },
-    '흰수염폭포': {
-      stayMinutes: 25,
-      photoPoint: '다리 중앙 지점에서 폭포 전경을 넓게 담아보세요.',
-      nearby: ['청의 호수', '닝구르 테라스'],
-    },
-    '청의 호수': {
-      stayMinutes: 35,
-      photoPoint: '산책로 첫 포인트가 호수 색을 가장 진하게 볼 수 있어요.',
-      nearby: ['흰수염폭포', '탁신관'],
-    },
-    '패치워크의 길': {
-      stayMinutes: 25,
-      photoPoint: '넓은 화각으로 구릉지 패턴을 담으면 대표 컷이 됩니다.',
-      nearby: ['세븐스타 나무', '크리스마스 나무'],
-    },
-    '닝구르 테라스': {
-      stayMinutes: 40,
-      photoPoint: '해 질 무렵 조명 켜지는 시간대 방문을 추천합니다.',
-      nearby: ['흰수염폭포', '팜 토미타'],
-    },
-    '팜 토미타': {
-      stayMinutes: 50,
-      photoPoint: '라벤더 밭 중앙 동선에서 파노라마 촬영 추천.',
-      nearby: ['닝구르 테라스', '후라노역'],
-    },
-    '사계채언덕 (四季彩の丘)': {
-      stayMinutes: 45,
-      photoPoint: '전망 포인트에서 꽃밭 층을 배경으로 촬영하기 좋아요.',
-      nearby: ['비에이역', '팜 토미타'],
-    },
-    '아사히야마 동물원': {
-      stayMinutes: 70,
-      photoPoint: '펭귄/물개 관찰관 앞 대기 시간을 고려해 주세요.',
-      nearby: ['아사히카와역', '세븐스타 나무'],
-    },
-  }
-
-  const tourCourses = [
-    { 
-      id: 'standard', 
-      name: '스탠다드 비에이 명소 코스', 
-      duration: '3시간',
-      departure: '아사히카와역',
-      destination: '비에이역',
-      spots: ['크리스마스 나무', '탁신관', '흰수염폭포'],
-      description: '가장 인기 있는 정석 루트. 짧은 시간 안에 비에이의 대표 명소를 둘러보는 코스.'
-    },
-    { 
-      id: 'nature', 
-      name: '비에이 자연 감성 코스', 
-      duration: '3시간',
-      departure: '아사히카와역',
-      destination: '비에이역',
-      spots: ['세븐스타 나무', '켄과 메리 나무', '마일드세븐 언덕', '청의 호수'],
-      description: '사진 촬영을 좋아하거나 자연경관 중심의 여유로운 투어를 원하는 분께 추천.'
-    },
-    { 
-      id: 'family', 
-      name: '가족 맞춤 코스', 
-      duration: '3시간',
-      departure: '아사히카와역',
-      destination: '아사히카와역',
-      spots: ['크리스마스 나무', '사계채언덕 (四季彩の丘)', '아사히야마 동물원'],
-      description: '아이가 있는 가족에게 적합한 코스. 동물원 + 가벼운 자연 관광 조합.'
-    },
-    { 
-      id: 'extended', 
-      name: '비에이~후라노 확장 코스', 
-      duration: '4-6시간',
-      departure: '비에이역 또는 후라노역',
-      destination: '아사히카와역',
-      spots: ['청의 호수', '흰수염폭포', '닝구르 테라스', '팜 토미타 (계절 따라 선택)'],
-      description: '꽃이 피는 계절(6~8월)에는 후라노까지 연결된 장거리 루트로 추천.'
-    },
-    { 
-      id: 'photo', 
-      name: '감성 사진 명소 투어', 
-      duration: '4-6시간',
-      departure: '아사히카와역',
-      destination: '아사히카와역',
-      spots: ['세븐스타 나무', '켄과 메리 나무', '마일드세븐 언덕', '패치워크의 길', '크리스마스트리의 나무'],
-      description: '사진 찍기 좋은 장소들만 모아 구성. 인스타 감성 코스로 인기.'
-    },
-    { 
-      id: 'custom', 
-      name: '커스텀 코스 구성하기', 
-      duration: '협의',
-      departure: '',
-      destination: '',
-      spots: [],
-      description: '원하는 장소와 시간으로 맞춤 제작'
-    }
-  ]
 
   const availableSpots = Array.from(
     new Set([
@@ -253,6 +134,17 @@ const TaxiBooking = ({ isOpen, onClose }) => {
       ]
     })
   )
+
+  const SEASON_ICON = {
+    winter: <Snowflake className="h-3.5 w-3.5" />,
+    summer: <Sun className="h-3.5 w-3.5" />,
+    all_season: <Leaf className="h-3.5 w-3.5" />,
+  }
+  const SEASON_COLOR = {
+    winter: 'bg-blue-100 text-blue-700 border-blue-200',
+    summer: 'bg-green-100 text-green-700 border-green-200',
+    all_season: 'bg-gray-100 text-gray-600 border-gray-200',
+  }
 
   const handleInputChange = (field, value, coords = null) => {
     const nextDeparture = field === 'departure' ? value : bookingData.departure
@@ -288,7 +180,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
   }
 
   const handleCourseSelect = (courseId) => {
-    const selectedCourse = tourCourses.find(c => c.id === courseId)
+    const selectedCourse = filteredCourses.find(c => c.id === courseId)
     const normalizedDeparture = (() => {
       const departure = selectedCourse.departure || ''
       if (departure.includes('비에이') || departure.includes('후라노')) {
@@ -413,7 +305,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
       return
     }
 
-    const selectedCourse = tourCourses.find((course) => course.id === bookingData.course)
+    const selectedCourse = filteredCourses.find((course) => course.id === bookingData.course)
     const desiredCourse = selectedCourse
       ? `${selectedCourse.name}${bookingData.selectedSpots?.length ? `: ${bookingData.selectedSpots.join(' > ')}` : ''}`
       : bookingData.selectedSpots.join(' > ')
@@ -428,11 +320,14 @@ const TaxiBooking = ({ isOpen, onClose }) => {
       departure: bookingData.departure,
       destination: bookingData.destination,
       desired_course: desiredCourse,
+      service_type: 'tour',
+      season: activeSeason,
     }
 
-    const selectedCourseName = tourCourses.find((course) => course.id === bookingData.course)?.name || '미선택'
+    const selectedCourseName = filteredCourses.find((course) => course.id === bookingData.course)?.name || '미선택'
     const draft = {
       reservationPayload: payload,
+      serviceType: 'tour',
       summary: {
         courseName: selectedCourseName,
         departure: bookingData.departure,
@@ -500,7 +395,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
 
   const canSubmit = () => getStepErrors(3).length === 0
   const progressPercent = Math.round((currentStep / totalSteps) * 100)
-  const selectedCourse = tourCourses.find(c => c.id === bookingData.course)
+  const selectedCourse = filteredCourses.find(c => c.id === bookingData.course)
   const currentStepErrors = getStepErrors(currentStep)
 
   return (
@@ -595,29 +490,64 @@ const TaxiBooking = ({ isOpen, onClose }) => {
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold mb-4">투어 코스를 선택해주세요</h3>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                  <h3 className="text-lg font-semibold">투어 코스를 선택해주세요</h3>
+                  {/* 시즌 필터 토글 */}
+                  <div className="flex items-center gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1">
+                    {[
+                      { key: 'auto', label: `자동 (${SEASON_LABEL[detectedSeason]})` },
+                      { key: 'winter', label: '겨울', icon: <Snowflake className="h-3 w-3" /> },
+                      { key: 'summer', label: '여름', icon: <Sun className="h-3 w-3" /> },
+                      { key: 'all_season', label: '사계절', icon: <Leaf className="h-3 w-3" /> },
+                    ].map(({ key, label, icon }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => {
+                          setSeasonFilter(key)
+                          setBookingData(prev => ({ ...prev, course: '', selectedSpots: [] }))
+                        }}
+                        className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                          seasonFilter === key
+                            ? 'bg-white shadow-sm text-gray-900'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        {icon}{label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {tourCourses.map((course) => (
-                    <Card 
-                      key={course.id} 
+                  {filteredCourses.map((course) => (
+                    <Card
+                      key={course.id}
                       className={`cursor-pointer transition-all ${
                         bookingData.course === course.id ? 'ring-2 ring-yellow-500 bg-yellow-50' : 'hover:shadow-md'
                       }`}
                       onClick={() => handleCourseSelect(course.id)}
                     >
                       <CardHeader className="pb-3">
-                        <div className="flex justify-between items-start">
-                          <CardTitle className="text-base">{course.name}</CardTitle>
-                          <span className="text-sm font-medium text-gray-600">{course.duration}</span>
+                        <div className="flex justify-between items-start gap-2">
+                          <CardTitle className="text-base leading-snug">{course.name}</CardTitle>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span className="text-sm font-medium text-gray-600">{course.duration}</span>
+                            {course.badge && (
+                              <span className="text-xs rounded-full bg-yellow-100 text-yellow-700 px-2 py-0.5 font-medium">
+                                {course.badge}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <div className="flex items-center text-sm text-gray-600">
-                          <MapPin className="h-4 w-4 mr-1" />
+                          <MapPin className="h-4 w-4 mr-1 shrink-0" />
                           <span>출발: {course.departure}</span>
                         </div>
                         <div className="flex items-center text-sm text-gray-600">
-                          <MapPin className="h-4 w-4 mr-1" />
+                          <MapPin className="h-4 w-4 mr-1 shrink-0" />
                           <span>도착: {course.destination}</span>
                         </div>
                         <p className="text-sm text-gray-600">{course.description}</p>

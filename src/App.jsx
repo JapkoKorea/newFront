@@ -14,6 +14,8 @@ import PaymentPage from './components/PaymentPage.jsx'
 import PaymentSuccessPage from './components/PaymentSuccessPage.jsx'
 import PaymentFailPage from './components/PaymentFailPage.jsx'
 import PricingDepositPage from './components/PricingDepositPage.jsx'
+import ServiceSelector from './components/ServiceSelector.jsx'
+import TransferBooking from './components/TransferBooking.jsx'
 
 // 이미지 import
 import biei1 from './assets/xpGwZKvsyDaZ.webp'
@@ -27,13 +29,15 @@ function App() {
   const [currentSection, setCurrentSection] = useState(0)
   const [isScrolling, setIsScrolling] = useState(false)
   const [isBookingOpen, setIsBookingOpen] = useState(false)
+  const [isServiceSelectorOpen, setIsServiceSelectorOpen] = useState(false)
+  const [isTransferOpen, setIsTransferOpen] = useState(false)
   const [isFAQOpen, setIsFAQOpen] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [nickname, setNickname] = useState('')
   const navigate = useNavigate();
-  const anyModalOpen = isBookingOpen || isFAQOpen || isChatOpen
+  const anyModalOpen = isBookingOpen || isServiceSelectorOpen || isTransferOpen || isFAQOpen || isChatOpen
 
   useEffect(() => {
     const jwtToken = localStorage.getItem('jwt')
@@ -64,10 +68,30 @@ function App() {
     navigate('/')
   }
 
-  const openBooking = () => {
+  const openServiceSelector = () => {
     setIsFAQOpen(false)
     setIsChatOpen(false)
+    setIsBookingOpen(false)
+    setIsTransferOpen(false)
+    setIsServiceSelectorOpen(true)
+    setIsMobileMenuOpen(false)
+  }
+
+  const openBooking = () => {
+    setIsServiceSelectorOpen(false)
+    setIsFAQOpen(false)
+    setIsChatOpen(false)
+    setIsTransferOpen(false)
     setIsBookingOpen(true)
+    setIsMobileMenuOpen(false)
+  }
+
+  const openTransfer = () => {
+    setIsServiceSelectorOpen(false)
+    setIsFAQOpen(false)
+    setIsChatOpen(false)
+    setIsBookingOpen(false)
+    setIsTransferOpen(true)
     setIsMobileMenuOpen(false)
   }
 
@@ -128,7 +152,7 @@ function App() {
                   택시투어
                 </button>
                 <button
-                  onClick={openBooking}
+                  onClick={openServiceSelector}
                   className="text-gray-500 hover:text-yellow-500 px-3 py-2 rounded-md text-sm font-medium"
                 >
                   예약하기
@@ -197,7 +221,7 @@ function App() {
                 택시투어
               </button>
               <button
-                onClick={openBooking}
+                onClick={openServiceSelector}
                 className="block w-full text-left px-3 py-2 text-sm font-medium text-gray-700 hover:bg-yellow-50 rounded"
               >
                 예약하기
@@ -368,10 +392,10 @@ function App() {
                       </div>
 
                       <div className="flex flex-col sm:flex-row gap-4">
-                        <Button 
-                          size="lg" 
+                        <Button
+                          size="lg"
                           className="bg-yellow-500 hover:bg-yellow-600 text-white px-8 py-3"
-                          onClick={openBooking}
+                          onClick={openServiceSelector}
                         >
                           택시투어 예약하기
                         </Button>
@@ -467,10 +491,24 @@ function App() {
               ))}
             </div>
 
-            {/* 택시 예약 모달 */}
-            <TaxiBooking 
-              isOpen={isBookingOpen} 
-              onClose={() => setIsBookingOpen(false)} 
+            {/* 서비스 선택 모달 */}
+            <ServiceSelector
+              isOpen={isServiceSelectorOpen}
+              onClose={() => setIsServiceSelectorOpen(false)}
+              onSelectTour={openBooking}
+              onSelectTransfer={openTransfer}
+            />
+
+            {/* 택시투어 예약 모달 */}
+            <TaxiBooking
+              isOpen={isBookingOpen}
+              onClose={() => setIsBookingOpen(false)}
+            />
+
+            {/* 송영서비스 예약 모달 */}
+            <TransferBooking
+              isOpen={isTransferOpen}
+              onClose={() => setIsTransferOpen(false)}
             />
 
             {/* FAQ 모달 */}

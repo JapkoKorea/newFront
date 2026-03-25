@@ -13,6 +13,8 @@ def ensure_reservation_tables() -> None:
                     reservation_number CHAR(36) NOT NULL,
                     user_id CHAR(36) NOT NULL,
                     status VARCHAR(32) NOT NULL,
+                    service_type VARCHAR(16) NOT NULL DEFAULT 'tour',
+                    season VARCHAR(16) NULL,
                     english_name VARCHAR(100) NOT NULL,
                     contact_number VARCHAR(32) NOT NULL,
                     tour_date DATE NOT NULL,
@@ -35,9 +37,23 @@ def ensure_reservation_tables() -> None:
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                 """
             )
+            # 기존 테이블에 신규 컬럼 추가 (이미 존재하면 무시)
+            for ddl in [
+                "ALTER TABLE reservations ADD COLUMN service_type VARCHAR(16) NOT NULL DEFAULT 'tour'",
+                "ALTER TABLE reservations ADD COLUMN season VARCHAR(16) NULL",
+                "ALTER TABLE reservations ADD COLUMN quoted_price_jpy INT UNSIGNED NULL",
+                "ALTER TABLE reservations ADD COLUMN deposit_krw INT UNSIGNED NULL",
+                "ALTER TABLE reservations ADD COLUMN quoted_at DATETIME(6) NULL",
+                "ALTER TABLE reservations ADD COLUMN quote_expires_at DATETIME(6) NULL",
+                "ALTER TABLE reservations ADD COLUMN quote_note TEXT NULL",
+            ]:
+                try:
+                    cursor.execute(ddl)
+                except Exception:
+                    pass  # 컬럼이 이미 존재하는 경우 무시
             cursor.execute(
                 """
-                CREATE TABLE reservation_payments (
+                CREATE TABLE IF NOT EXISTS reservation_payments (
                     order_id VARCHAR(64) NOT NULL,
                     reservation_number CHAR(36) NOT NULL,
                     user_id CHAR(36) NOT NULL,
@@ -74,6 +90,8 @@ def save_reservation_mysql(data: dict[str, Any]) -> None:
                     reservation_number,
                     user_id,
                     status,
+                    service_type,
+                    season,
                     english_name,
                     contact_number,
                     tour_date,
@@ -85,13 +103,15 @@ def save_reservation_mysql(data: dict[str, Any]) -> None:
                     desired_course,
                     created_at_source
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 )
                 """,
                 (
                     data["reservationNumber"],
                     data["pk"],
                     data["status"],
+                    data.get("serviceType", "tour"),
+                    data.get("season"),
                     data["englishName"],
                     data["phoneNumber"],
                     data["tourDate"],

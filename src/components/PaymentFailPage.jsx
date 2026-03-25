@@ -3,8 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { AlertTriangle } from 'lucide-react'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
 
 function PaymentFailPage() {
   const navigate = useNavigate()
@@ -22,20 +21,16 @@ function PaymentFailPage() {
     const userRaw = localStorage.getItem('user')
     if (!userRaw) return
 
-    let userId = ''
     try {
-      const parsed = JSON.parse(userRaw)
-      userId = (parsed?.user_id || '').trim()
+      JSON.parse(userRaw)
     } catch {
       return
     }
 
-    if (!userId) return
-
     const markFailed = async () => {
-      await fetch(`${API_BASE_URL}/api/payments/fail?user_id=${encodeURIComponent(userId)}`, {
+      await fetch(`${API_BASE_URL}/api/payments/fail`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ orderId, code, message }),
       })
     }

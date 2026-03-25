@@ -1,10 +1,11 @@
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from dependencies.auth import get_current_user
 from services.mysql_reservation_service import save_reservation_mysql
 from services.mysql_user_service import _connect
 
@@ -22,6 +23,8 @@ class ReservationPayload(BaseModel):
     departure: str
     destination: str
     desired_course: str
+    service_type: Literal["tour", "transfer"] = "tour"
+    season: Literal["winter", "summer", "all_season"] | None = None
 
 
 def _user_exists(user_id: str) -> bool:
@@ -62,9 +65,16 @@ def _find_reservation(user_id: str, reservation_number: str):
 
 
 @router.post("")
-async def create_reservation(payload: ReservationPayload, user_id: str):
+async def create_reservation(
+    payload: ReservationPayload,
+    current_user: dict[str, Any] = Depends(get_current_user),
+):
+    user_id = str(current_user.get("user_id") or "").strip()
     if not _user_exists(user_id):
         raise HTTPException(status_code=404, detail="User not found")
+
+    if payload.service_type == "transfer" and payload.season is not None:
+        raise HTTPException(status_code=400, detail="송영서비스는 season 값을 받을 수 없습니다")
 
     reservation_number = str(uuid.uuid4())
     record = {
@@ -80,13 +90,19 @@ async def create_reservation(payload: ReservationPayload, user_id: str):
         "tourCourse": payload.desired_course,
         "reservationNumber": reservation_number,
         "status": "pending",
+        "serviceType": payload.service_type,
+        "season": payload.season,
     }
     save_reservation_mysql(record)
     return {"message": "Reservation successful", "reservationNumber": reservation_number}
 
 
 @router.get("")
-async def list_reservations(user_id: str, reservation_number: str | None = None):
+async def list_reservations(
+    reservation_number: str | None = None,
+    current_user: dict[str, Any] = Depends(get_current_user),
+):
+    user_id = str(current_user.get("user_id") or "").strip()
     if not _user_exists(user_id):
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -99,6 +115,7 @@ async def list_reservations(user_id: str, reservation_number: str | None = None)
                     SELECT reservation_number, status, english_name, contact_number,
                            tour_date, tour_start_time, tour_duration_hours, number_of_people,
                            departure, destination, desired_course,
+                           service_type, season,
                            payment_status, payment_amount_krw, payment_updated_at,
                            created_at, updated_at
                     FROM reservations
@@ -117,6 +134,7 @@ async def list_reservations(user_id: str, reservation_number: str | None = None)
                 SELECT reservation_number, status, english_name, contact_number,
                        tour_date, tour_start_time, tour_duration_hours, number_of_people,
                        departure, destination, desired_course,
+                       service_type, season,
                        payment_status, payment_amount_krw, payment_updated_at,
                        created_at, updated_at
                 FROM reservations
@@ -132,7 +150,11 @@ async def list_reservations(user_id: str, reservation_number: str | None = None)
 
 
 @router.patch("/{reservation_number}/cancel")
-async def request_cancel_reservation(reservation_number: str, user_id: str):
+async def request_cancel_reservation(
+    reservation_number: str,
+    current_user: dict[str, Any] = Depends(get_current_user),
+):
+    user_id = str(current_user.get("user_id") or "").strip()
     if not _user_exists(user_id):
         raise HTTPException(status_code=404, detail="User not found")
 

@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
 import { CreditCard, Loader2, MapPin, ShieldCheck, Wallet } from 'lucide-react'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
 
 function PaymentPage() {
   const navigate = useNavigate()
@@ -58,7 +57,10 @@ function PaymentPage() {
       setErrorMessage('')
       try {
         const reservationResponse = await fetch(
-          `${API_BASE_URL}/api/reservations?user_id=${encodeURIComponent(userId)}&reservation_number=${encodeURIComponent(reservationNumber)}`
+          `${API_BASE_URL}/api/reservations?reservation_number=${encodeURIComponent(reservationNumber)}`,
+          {
+            headers: getAuthHeaders(),
+          }
         )
         const reservationJson = await reservationResponse.json()
         if (!reservationResponse.ok) {
@@ -72,8 +74,11 @@ function PaymentPage() {
         setReservation(targetReservation)
 
         const prepareResponse = await fetch(
-          `${API_BASE_URL}/api/payments/prepare?user_id=${encodeURIComponent(userId)}&reservation_number=${encodeURIComponent(reservationNumber)}`,
-          { method: 'POST' }
+          `${API_BASE_URL}/api/payments/prepare?reservation_number=${encodeURIComponent(reservationNumber)}`,
+          {
+            method: 'POST',
+            headers: getAuthHeaders(),
+          }
         )
         const prepareJson = await prepareResponse.json()
         if (!prepareResponse.ok) {

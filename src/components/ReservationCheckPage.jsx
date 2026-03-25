@@ -4,8 +4,7 @@ import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
 import { Calendar, Clock, CreditCard, MapPin, RefreshCcw, UserRound } from 'lucide-react'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
 
 const statusLabel = {
   pending: '접수 완료',
@@ -40,7 +39,6 @@ const paymentTone = {
 function ReservationCheckPage() {
   const navigate = useNavigate()
   const [nickname, setNickname] = useState('')
-  const [userId, setUserId] = useState('')
   const [reservations, setReservations] = useState([])
   const [selectedReservationNumber, setSelectedReservationNumber] = useState('')
   const [loading, setLoading] = useState(true)
@@ -54,11 +52,13 @@ function ReservationCheckPage() {
 
   const canCancel = selectedReservation && !['cancelled', 'rejected', 'completed'].includes(selectedReservation.status)
 
-  const loadReservations = async (id) => {
+  const loadReservations = async () => {
     setLoading(true)
     setErrorMessage('')
     try {
-      const response = await fetch(`${API_BASE_URL}/api/reservations?user_id=${encodeURIComponent(id)}`)
+      const response = await fetch(`${API_BASE_URL}/api/reservations`, {
+        headers: getAuthHeaders(),
+      })
       const data = await response.json()
       if (!response.ok) {
         throw new Error(data?.detail || `HTTP ${response.status}`)
@@ -85,15 +85,8 @@ function ReservationCheckPage() {
 
     try {
       const user = JSON.parse(userRaw)
-      const id = (user?.user_id || '').trim()
       setNickname(user?.nickname || user?.userName || '')
-      setUserId(id)
-      if (!id) {
-        setLoading(false)
-        setErrorMessage('로그인 정보에 사용자 식별자가 없습니다. 다시 로그인해 주세요.')
-        return
-      }
-      loadReservations(id)
+      loadReservations()
     } catch {
       setLoading(false)
       setErrorMessage('로그인 정보를 읽을 수 없습니다. 다시 로그인해 주세요.')
@@ -101,7 +94,7 @@ function ReservationCheckPage() {
   }, [])
 
   const handleCancelRequest = async () => {
-    if (!selectedReservation || !userId || !canCancel) return
+    if (!selectedReservation || !canCancel) return
 
     const confirmed = window.confirm('정말 이 예약의 취소 요청을 진행할까요?')
     if (!confirmed) return
@@ -109,8 +102,11 @@ function ReservationCheckPage() {
     setCanceling(true)
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/reservations/${encodeURIComponent(selectedReservation.reservation_number)}/cancel?user_id=${encodeURIComponent(userId)}`,
-        { method: 'PATCH' }
+        `${API_BASE_URL}/api/reservations/${encodeURIComponent(selectedReservation.reservation_number)}/cancel`,
+        {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+        }
       )
       const data = await response.json()
       if (!response.ok) {
@@ -118,7 +114,7 @@ function ReservationCheckPage() {
       }
 
       alert('취소 요청이 접수되었습니다.')
-      await loadReservations(userId)
+      await loadReservations()
     } catch (error) {
       alert(`취소 요청 실패: ${error?.message || error}`)
     } finally {
@@ -158,7 +154,7 @@ function ReservationCheckPage() {
             {nickname && <p className="text-gray-600 mt-1">{nickname}님, 예약 상태를 한눈에 확인해 보세요.</p>}
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => userId && loadReservations(userId)}>
+            <Button variant="outline" onClick={() => loadReservations()}>
               <RefreshCcw className="h-4 w-4 mr-2" />새로고침
             </Button>
             <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => navigate('/')}>

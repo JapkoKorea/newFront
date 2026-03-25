@@ -6,9 +6,10 @@ from datetime import datetime
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from dependencies.auth import get_current_user
 from services.mysql_user_service import _connect
 
 
@@ -67,7 +68,8 @@ def _find_reservation_for_payment(user_id: str, reservation_number: str):
                 """
                 SELECT reservation_number, user_id, status, payment_status,
                        english_name, contact_number, tour_duration_hours, number_of_people,
-                       departure, destination, tour_date, tour_start_time
+                       departure, destination, tour_date, tour_start_time,
+                       service_type, desired_course, deposit_krw
                 FROM reservations
                 WHERE user_id = %s AND reservation_number = %s
                 LIMIT 1
@@ -80,6 +82,17 @@ def _find_reservation_for_payment(user_id: str, reservation_number: str):
 
 
 def _calculate_amount_krw(reservation: dict[str, Any]) -> int:
+    service_type = reservation.get("service_type", "tour")
+
+    if service_type == "transfer":
+        amount = reservation.get("deposit_krw")
+        if not amount:
+            raise HTTPException(
+                status_code=400,
+                detail="아직 견적이 확정되지 않은 송영 예약입니다. 기사님의 견적 안내를 기다려 주세요.",
+            )
+        return int(amount)
+
     base_per_hour = int(os.getenv("PAYMENT_BASE_RATE_PER_HOUR", "25000"))
     extra_per_person = int(os.getenv("PAYMENT_EXTRA_PERSON_RATE", "5000"))
 
@@ -129,6 +142,25 @@ def _create_or_replace_payment_order(user_id: str, reservation_number: str, amou
         conn.close()
 
 
+def _find_latest_payment_order(user_id: str, reservation_number: str):
+    conn = _connect()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT order_id, amount_krw, status
+                FROM reservation_payments
+                WHERE user_id = %s AND reservation_number = %s
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (user_id, reservation_number),
+            )
+            return cursor.fetchone()
+    finally:
+        conn.close()
+
+
 def _mark_payment_failed(order_id: str, user_id: str, code: str, message: str) -> None:
     conn = _connect()
     try:
@@ -160,20 +192,34 @@ def _mark_payment_failed(order_id: str, user_id: str, code: str, message: str) -
 
 
 @router.post("/prepare", response_model=PaymentPrepareResponse)
-async def prepare_payment(user_id: str, reservation_number: str):
+async def prepare_payment(
+    reservation_number: str,
+    current_user: dict[str, Any] = Depends(get_current_user),
+):
+    user_id = str(current_user.get("user_id") or "").strip()
     reservation = _find_reservation_for_payment(user_id=user_id, reservation_number=reservation_number)
     if not reservation:
         raise HTTPException(status_code=404, detail="Reservation not found")
 
     if reservation.get("status") in {"cancelled", "rejected"}:
         raise HTTPException(status_code=400, detail="해당 예약은 결제를 진행할 수 없는 상태입니다")
+    if reservation.get("payment_status") == "paid":
+        raise HTTPException(status_code=400, detail="이미 결제가 완료된 예약입니다")
 
     amount = _calculate_amount_krw(reservation)
-    order_id = _create_or_replace_payment_order(
-        user_id=user_id,
-        reservation_number=reservation_number,
-        amount=amount,
-    )
+    latest_order = _find_latest_payment_order(user_id=user_id, reservation_number=reservation_number)
+    if (
+        latest_order
+        and latest_order.get("status") == "ready"
+        and int(latest_order.get("amount_krw") or 0) == amount
+    ):
+        order_id = latest_order.get("order_id")
+    else:
+        order_id = _create_or_replace_payment_order(
+            user_id=user_id,
+            reservation_number=reservation_number,
+            amount=amount,
+        )
 
     client_key = _require_env("TOSS_CLIENT_KEY")
     frontend_base_url = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173").rstrip("/")
@@ -193,7 +239,11 @@ async def prepare_payment(user_id: str, reservation_number: str):
 
 
 @router.post("/confirm")
-async def confirm_payment(payload: PaymentConfirmPayload, user_id: str):
+async def confirm_payment(
+    payload: PaymentConfirmPayload,
+    current_user: dict[str, Any] = Depends(get_current_user),
+):
+    user_id = str(current_user.get("user_id") or "").strip()
     secret_key = _require_env("TOSS_SECRET_KEY")
 
     conn = _connect()
@@ -298,7 +348,11 @@ async def confirm_payment(payload: PaymentConfirmPayload, user_id: str):
 
 
 @router.post("/fail")
-async def mark_payment_fail(payload: PaymentFailPayload, user_id: str):
+async def mark_payment_fail(
+    payload: PaymentFailPayload,
+    current_user: dict[str, Any] = Depends(get_current_user),
+):
+    user_id = str(current_user.get("user_id") or "").strip()
     _mark_payment_failed(
         order_id=payload.orderId,
         user_id=user_id,
@@ -309,7 +363,11 @@ async def mark_payment_fail(payload: PaymentFailPayload, user_id: str):
 
 
 @router.get("/status")
-async def payment_status(user_id: str, reservation_number: str):
+async def payment_status(
+    reservation_number: str,
+    current_user: dict[str, Any] = Depends(get_current_user),
+):
+    user_id = str(current_user.get("user_id") or "").strip()
     conn = _connect()
     try:
         with conn.cursor() as cursor:
