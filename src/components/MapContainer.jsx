@@ -10,6 +10,11 @@ import toast from 'react-hot-toast';
 import MarkerWithLabel from './MarkerWithLabel';
 import RouteRenderer from './RouteRenderer';
 
+const normalizeLocationKey = (value) => {
+  if (typeof value !== 'string') return '';
+  return value.replace(/\s*\([^)]*\)\s*/g, '').trim();
+};
+
 // 아사히카와-비에이 지역 중심점
 const centerAsahikawa = { lat: 43.7709, lng: 142.3650 };
 
@@ -20,7 +25,6 @@ const allowedRegionBounds = {
   west: 142.2,
   east: 142.7,
 };
-43.34708565187582, 142.39165800924965
 // 관광지 좌표 사전
 export const COORDS_DICT = {
   "크리스마스 나무": { lat: 43.5546, lng: 142.4445 },
@@ -39,6 +43,7 @@ export const COORDS_DICT = {
   "비에이역": { lat: 43.5913, lng: 142.4622 },
   "지요가오카역": { lat: 43.5695, lng: 142.4886 },
   "후라노역": { lat: 43.3471, lng: 142.3917 },
+  "아사히카와 공항": { lat: 43.6708, lng: 142.4473 },
 };
 
 const MapContainer = ({
@@ -65,6 +70,7 @@ const MapContainer = ({
   const [activeCandidateSpot, setActiveCandidateSpot] = useState(null);
   const [placeSearchInput, setPlaceSearchInput] = useState('');
   const [placePredictions, setPlacePredictions] = useState([]);
+  const handleRouteChange = useCallback(() => {}, []);
 
   useEffect(() => {
     if (!selectionModeRequest?.mode) return;
@@ -193,7 +199,8 @@ const MapContainer = ({
 
     // 출발지 마커
     if (departure) {
-      const coords = departureCoordinate || COORDS_DICT[departure] || 
+      const normalizedDeparture = normalizeLocationKey(departure)
+      const coords = departureCoordinate || COORDS_DICT[normalizedDeparture] || 
         (departure.includes(',') ? {
           lat: parseFloat(departure.split(',')[0]),
           lng: parseFloat(departure.split(',')[1])
@@ -214,7 +221,8 @@ const MapContainer = ({
 
     // 도착지 마커
     if (destination) {
-      const coords = destinationCoordinate || COORDS_DICT[destination] || 
+      const normalizedDestination = normalizeLocationKey(destination)
+      const coords = destinationCoordinate || COORDS_DICT[normalizedDestination] || 
         (destination.includes(',') ? {
           lat: parseFloat(destination.split(',')[0]),
           lng: parseFloat(destination.split(',')[1])
@@ -235,7 +243,8 @@ const MapContainer = ({
 
     // 관광지 마커들
     spots.forEach((spot, index) => {
-      const coords = COORDS_DICT[spot] || 
+      const normalizedSpot = normalizeLocationKey(spot)
+      const coords = COORDS_DICT[normalizedSpot] || 
         (spot.includes(',') ? {
           lat: parseFloat(spot.split(',')[0]),
           lng: parseFloat(spot.split(',')[1])
@@ -244,7 +253,7 @@ const MapContainer = ({
       if (coords) {
         markers.push(
           <MarkerWithLabel
-            key={`spot-${index}`}
+            key={`spot-${spot}-${index}`}
             position={coords}
             label={`${index + 1}`}
             color="#f59e0b"
@@ -423,12 +432,13 @@ const MapContainer = ({
         
         {/* 경로 렌더링 */}
         <RouteRenderer
+          key={`${departure || ''}|${destination || ''}|${spots.join('>')}`}
           departure={departure}
           destination={destination}
           departureCoordinate={departureCoordinate}
           destinationCoordinate={destinationCoordinate}
           spots={spots}
-          onRouteChange={() => {}} // 빈 함수로 처리
+          onRouteChange={handleRouteChange}
         />
       </GoogleMap>
 

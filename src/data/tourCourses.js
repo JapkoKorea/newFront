@@ -216,6 +216,19 @@ export const tourCourses = [
   },
 ]
 
+export const fixedRouteProfiles = {
+  'snow-drive': {
+    departure: '아사히카와역',
+    destination: '비에이역',
+    spots: ['크리스마스 나무', '켄과 메리 나무', '마일드세븐 언덕'],
+  },
+  'winter-falls': {
+    departure: '아사히카와역',
+    destination: '아사히카와역',
+    spots: ['청의 호수', '흰수염폭포', '크리스마스 나무'],
+  },
+}
+
 export const SEASON_LABEL = {
   winter: '겨울',
   summer: '여름',

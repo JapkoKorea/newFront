@@ -1,4 +1,4 @@
-import { tourCourses, spotGuideData, SEASON_LABEL, SEASON_MONTHS } from '@/data/tourCourses.js'
+import { tourCourses, spotGuideData, SEASON_LABEL, SEASON_MONTHS, fixedRouteProfiles } from '@/data/tourCourses.js'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Clock, MapPin, ChevronRight, ArrowLeft } from 'lucide-react'
@@ -108,9 +108,11 @@ export default async function TourDetailPage({ params }) {
         {/* 인터랙티브 루트 에디터 (지도 + 명소 순서 변경) */}
         {course.spots.length > 0 && (
           <TourRouteEditor
+            courseId={course.id}
             initialDeparture={course.departure}
             initialDestination={course.destination}
             initialSpots={course.spots}
+            fixedRouteProfile={fixedRouteProfiles[course.id] || null}
             spotGuideData={spotGuideData}
           />
         )}

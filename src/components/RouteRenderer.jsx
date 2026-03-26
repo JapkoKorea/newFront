@@ -2,6 +2,11 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { DirectionsRenderer } from '@react-google-maps/api';
 import { COORDS_DICT } from './MapContainer';
 
+const normalizeLocationKey = (location) => {
+  if (typeof location !== 'string') return '';
+  return location.replace(/\s*\([^)]*\)\s*/g, '').trim();
+};
+
 const RouteRenderer = ({
   departure,
   destination,
@@ -11,6 +16,7 @@ const RouteRenderer = ({
   onRouteChange,
 }) => {
   const directionsService = useRef(null);
+  const requestSequenceRef = useRef(0);
   const [directionsResult, setDirectionsResult] = useState(null);
   const debounceTimeoutRef = useRef(null);
 
@@ -24,15 +30,16 @@ const RouteRenderer = ({
   // 좌표 변환 유틸리티
   const getCoordinates = useCallback((location) => {
     if (!location) return null;
+    const normalizedLocation = normalizeLocationKey(location);
     
     // 좌표 사전에서 찾기
-    if (COORDS_DICT[location]) {
-      return COORDS_DICT[location];
+    if (COORDS_DICT[normalizedLocation]) {
+      return COORDS_DICT[normalizedLocation];
     }
     
     // 직접 입력된 좌표인지 확인
-    if (location.includes(',')) {
-      const [lat, lng] = location.split(',').map(coord => parseFloat(coord.trim()));
+    if (normalizedLocation.includes(',')) {
+      const [lat, lng] = normalizedLocation.split(',').map(coord => parseFloat(coord.trim()));
       if (!isNaN(lat) && !isNaN(lng)) {
         return { lat, lng };
       }
@@ -44,7 +51,9 @@ const RouteRenderer = ({
   // 경로 계산 (디바운싱 적용)
   const calculateRoute = useCallback(() => {
     if (!directionsService.current || !departure || !destination) {
+      requestSequenceRef.current += 1;
       setDirectionsResult(null);
+      onRouteChange?.(null);
       return;
     }
 
@@ -52,7 +61,9 @@ const RouteRenderer = ({
     const destinationCoords = destinationCoordinate || getCoordinates(destination);
 
     if (!departureCoords || !destinationCoords) {
+      requestSequenceRef.current += 1;
       setDirectionsResult(null);
+      onRouteChange?.(null);
       return;
     }
 
@@ -70,6 +81,8 @@ const RouteRenderer = ({
       clearTimeout(debounceTimeoutRef.current);
     }
 
+    const requestSeq = ++requestSequenceRef.current;
+
     debounceTimeoutRef.current = setTimeout(() => {
       directionsService.current.route(
         {
@@ -77,9 +90,12 @@ const RouteRenderer = ({
           destination: destinationCoords,
           waypoints: waypoints,
           travelMode: window.google.maps.TravelMode.DRIVING,
-          optimizeWaypoints: true,
+          optimizeWaypoints: false,
         },
         (result, status) => {
+          if (requestSeq !== requestSequenceRef.current) {
+            return;
+          }
           if (status === 'OK') {
             setDirectionsResult(result);
             onRouteChange?.(result);
@@ -98,6 +114,7 @@ const RouteRenderer = ({
     calculateRoute();
     
     return () => {
+      requestSequenceRef.current += 1;
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }

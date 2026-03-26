@@ -102,7 +102,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
     { id: 'standard', name: '스탠다드 비에이 명소 코스', duration: '3시간', departure: '아사히카와역', destination: '비에이역', spots: ['크리스마스 나무', '탁신관', '흰수염폭포'], description: '가장 인기 있는 정석 루트. 짧은 시간 안에 비에이의 대표 명소를 둘러보는 코스.' },
     { id: 'nature', name: '비에이 자연 감성 코스', duration: '3시간', departure: '아사히카와역', destination: '비에이역', spots: ['세븐스타 나무', '켄과 메리 나무', '마일드세븐 언덕', '청의 호수'], description: '사진 촬영을 좋아하거나 자연경관 중심의 여유로운 투어를 원하는 분께 추천.' },
     { id: 'family', name: '가족 맞춤 코스', duration: '3시간', departure: '아사히카와역', destination: '아사히카와역', spots: ['크리스마스 나무', '사계채언덕 (四季彩の丘)', '아사히야마 동물원'], description: '아이가 있는 가족에게 적합한 코스. 동물원 + 가벼운 자연 관광 조합.' },
-    { id: 'extended', name: '비에이~후라노 확장 코스', duration: '4-6시간', departure: '비에이역 또는 후라노역', destination: '아사히카와역', spots: ['청의 호수', '흰수염폭포', '닝구르 테라스', '팜 토미타 (계절 따라 선택)'], description: '꽃이 피는 계절(6~8월)에는 후라노까지 연결된 장거리 루트로 추천.' },
+    { id: 'extended', name: '비에이~후라노 확장 코스', duration: '4-6시간', departure: '비에이역', destination: '아사히카와역', spots: ['청의 호수', '흰수염폭포', '닝구르 테라스', '팜 토미타'], description: '꽃이 피는 계절(6~8월)에는 후라노까지 연결된 장거리 루트로 추천.' },
     { id: 'photo', name: '감성 사진 명소 투어', duration: '4-6시간', departure: '아사히카와역', destination: '아사히카와역', spots: ['세븐스타 나무', '켄과 메리 나무', '마일드세븐 언덕', '패치워크의 길', '크리스마스 나무'], description: '사진 찍기 좋은 장소들만 모아 구성. 인스타 감성 코스로 인기.' },
     { id: 'custom', name: '커스텀 코스 구성하기', duration: '협의', departure: '', destination: '', spots: [], description: '원하는 장소와 시간으로 맞춤 제작' }
   ]
