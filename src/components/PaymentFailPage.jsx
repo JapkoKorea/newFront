@@ -1,12 +1,14 @@
+'use client'
+
 import { useEffect, useRef } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { AlertTriangle } from 'lucide-react'
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
 
 function PaymentFailPage() {
-  const navigate = useNavigate()
+  const router = useRouter()
   const [searchParams] = useSearchParams()
   const code = searchParams.get('code') || 'PAYMENT_FAILED'
   const message = searchParams.get('message') || '결제 요청이 취소되었거나 실패했습니다.'
@@ -56,10 +58,10 @@ function PaymentFailPage() {
             </div>
 
             <div className="flex gap-2">
-              <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => navigate(`/payments?reservation_number=${encodeURIComponent(reservationNumber)}`)}>
+              <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => router.push(`/payments?reservation_number=${encodeURIComponent(reservationNumber)}`)}>
                 결제 페이지로 돌아가기
               </Button>
-              <Button variant="outline" onClick={() => navigate('/reservations')}>예약 확인으로</Button>
+              <Button variant="outline" onClick={() => router.push('/reservations')}>예약 확인으로</Button>
             </div>
           </CardContent>
         </Card>

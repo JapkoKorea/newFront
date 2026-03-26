@@ -1,5 +1,7 @@
+'use client'
+
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
@@ -8,7 +10,7 @@ import { CreditCard, Loader2, MapPin, ShieldCheck, Wallet } from 'lucide-react'
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
 
 function PaymentPage() {
-  const navigate = useNavigate()
+  const router = useRouter()
   const [searchParams] = useSearchParams()
   const reservationNumber = searchParams.get('reservation_number') || ''
 
@@ -201,8 +203,8 @@ function PaymentPage() {
               <CardTitle className="text-xl text-gray-900">결제를 위해 로그인이 필요해요</CardTitle>
             </CardHeader>
             <CardContent className="flex gap-3">
-              <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => navigate('/login')}>카카오 로그인</Button>
-              <Button variant="outline" onClick={() => navigate('/reservations')}>예약 확인으로</Button>
+              <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => router.push('/login')}>카카오 로그인</Button>
+              <Button variant="outline" onClick={() => router.push('/reservations')}>예약 확인으로</Button>
             </CardContent>
           </Card>
         </div>
@@ -249,7 +251,7 @@ function PaymentPage() {
               결제 승인 검증은 서버에서 시크릿 키로 처리됩니다.
             </div>
 
-            <Button variant="outline" className="w-full" onClick={() => navigate('/reservations')}>예약 확인으로 돌아가기</Button>
+            <Button variant="outline" className="w-full" onClick={() => router.push('/reservations')}>예약 확인으로 돌아가기</Button>
           </CardContent>
         </Card>
 
@@ -266,7 +268,7 @@ function PaymentPage() {
               <CardContent className="py-10 space-y-4">
                 <p className="text-rose-700">{errorMessage}</p>
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => navigate('/reservations')}>예약 확인으로</Button>
+                  <Button variant="outline" onClick={() => router.push('/reservations')}>예약 확인으로</Button>
                   <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => window.location.reload()}>다시 시도</Button>
                 </div>
               </CardContent>

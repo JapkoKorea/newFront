@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent } from '@/components/ui/card.jsx'
@@ -6,7 +8,7 @@ import { Label } from '@/components/ui/label.jsx'
 import { Textarea } from '@/components/ui/textarea.jsx'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx'
 import { X, ChevronLeft, ChevronRight, Navigation, MapPin, Clock, Users, AlertTriangle, Loader2, Luggage } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useRouter } from 'next/navigation'
 import MapContainer, { COORDS_DICT } from '@/components/MapContainer.jsx'
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
 
@@ -35,7 +37,7 @@ const totalSteps = 3
 const stepLabels = ['경로 설정', '일정·인원', '예약자 정보']
 
 export default function TransferBooking({ isOpen, onClose }) {
-  const navigate = useNavigate()
+  const router = useRouter()
   const today = new Date().toISOString().split('T')[0]
 
   const getInitialData = () => ({
@@ -154,7 +156,7 @@ export default function TransferBooking({ isOpen, onClose }) {
 
     const userRaw = localStorage.getItem('user')
     if (!userRaw) {
-      navigate('/login')
+      router.push('/login')
       return
     }
 
@@ -206,7 +208,7 @@ export default function TransferBooking({ isOpen, onClose }) {
       setData(getInitialData())
       setPlaceCoordinates({ departure: null, destination: null })
       onClose()
-      navigate('/reservations')
+      router.push('/reservations')
     } catch (error) {
       setSubmitError(error?.message || '송영 요청에 실패했습니다.')
     } finally {

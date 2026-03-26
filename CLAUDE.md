@@ -6,7 +6,7 @@
 
 | 레이어 | 기술 | 포트 |
 |--------|------|------|
-| Frontend | React 19 + Vite + React Router | 5173 |
+| Frontend | Next.js 15 + App Router | 3000 |
 | Backend | FastAPI + Uvicorn | 8000 |
 | UI | Tailwind CSS + Radix UI (`@/components/ui/`) | — |
 | 지도 | Google Maps JavaScript API | — |
@@ -17,14 +17,14 @@
 
 ```bash
 # 프론트엔드
-pnpm dev          # Vite 개발 서버 (port 5173)
-pnpm build        # 프로덕션 빌드 → dist/
+pnpm dev          # Next.js 개발 서버 (port 3000)
+pnpm build        # 프로덕션 빌드 → .next/
+pnpm start        # 프로덕션 서버 실행
 pnpm lint         # ESLint 검사
-pnpm preview      # 빌드 결과 미리보기
 
 # 백엔드
-uvicorn app.main:app --reload --port 8000
-python app/main.py   # 대안 실행 (port 5000)
+uvicorn backend.main:app --reload --port 8000
+python backend/main.py   # 대안 실행 (port 5000)
 ```
 
 ## 절대 금지 사항
@@ -37,21 +37,23 @@ python app/main.py   # 대안 실행 (port 5000)
 
 ## 필수 준수 사항
 
-- 프론트엔드 환경변수: `VITE_*` 접두어 + `import.meta.env`
+- 프론트엔드 환경변수: `NEXT_PUBLIC_*` 접두어 + `process.env.NEXT_PUBLIC_*`
 - 백엔드 환경변수: `python-dotenv` 사용
 - Google Maps API 응답은 좌표 사용 전 반드시 유효성 검사
 - Kakao OAuth 리디렉션 URI: 프론트/백 양쪽 동기화 유지
 
 ## 코딩 규칙
 
-### Frontend (React/Vite)
+### Frontend (Next.js App Router)
 - 함수형 컴포넌트 + 훅만 사용 (클래스 컴포넌트 금지)
-- 컴포넌트 역할 분리: Presentational vs Container
+- 브라우저 API / 훅 사용 컴포넌트는 파일 상단에 `'use client'` 추가 필수
+- SSG 대상 페이지(tours, guide)는 서버 컴포넌트로 유지
+- 클라이언트 전용 페이지(payments, reservations)는 `dynamic({ ssr: false })` 사용
 - 스타일링: Tailwind CSS만 사용 (인라인 스타일 금지)
 - UI 컴포넌트: `@/components/ui/`에서 import (Radix 기반)
 - 아이콘: `lucide-react` 일관 사용
-- 폼 상태: React `useState`로 직접 관리 (React Hook Form 미사용)
-- 백엔드 Python 코드를 `src/` 디렉토리에 두지 말 것
+- 폼 상태: React `useState`로 직접 관리
+- 라우팅: `next/link`, `next/navigation` 사용 (react-router-dom 금지)
 
 ### Backend (FastAPI)
 - PEP 8 스타일 준수

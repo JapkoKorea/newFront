@@ -1,23 +1,12 @@
-import { useState, useEffect } from 'react'
+'use client'
+
+import { useState } from 'react'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { ChevronDown, ChevronUp, X, HelpCircle, Clock, CreditCard, MapPin, Phone } from 'lucide-react'
 
-const FAQ = ({ isOpen, onClose, onStartChat }) => {
+const FAQ = ({ isOpen, onClose }) => {
   const [openItems, setOpenItems] = useState({})
-
-  useEffect(() => {
-    if (!isOpen) return
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        onClose()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose])
 
   const faqData = [
     {
@@ -121,15 +110,8 @@ const FAQ = ({ isOpen, onClose, onStartChat }) => {
   if (!isOpen) return null
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose()
-        }
-      }}
-    >
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto" onMouseDown={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center p-6 border-b">
           <div className="flex items-center gap-3">
             <HelpCircle className="h-6 w-6 text-yellow-500" />
@@ -187,7 +169,7 @@ const FAQ = ({ isOpen, onClose, onStartChat }) => {
               위에서 답을 찾지 못하셨다면 언제든지 채팅 상담을 통해 문의해주세요. 
               전문 상담원이 친절하게 답변해드립니다.
             </p>
-            <Button className="bg-green-500 hover:bg-green-600 text-white" onClick={onStartChat || onClose}>
+            <Button className="bg-green-500 hover:bg-green-600 text-white">
               채팅 상담 시작하기
             </Button>
           </div>
@@ -198,3 +180,4 @@ const FAQ = ({ isOpen, onClose, onStartChat }) => {
 }
 
 export default FAQ
+

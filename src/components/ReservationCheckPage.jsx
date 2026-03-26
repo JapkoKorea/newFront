@@ -1,5 +1,7 @@
+'use client'
+
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
@@ -37,7 +39,7 @@ const paymentTone = {
 }
 
 function ReservationCheckPage() {
-  const navigate = useNavigate()
+  const router = useRouter()
   const [nickname, setNickname] = useState('')
   const [reservations, setReservations] = useState([])
   const [selectedReservationNumber, setSelectedReservationNumber] = useState('')
@@ -131,10 +133,10 @@ function ReservationCheckPage() {
               <CardTitle className="text-xl text-gray-900">예약 확인을 위해 로그인이 필요해요</CardTitle>
             </CardHeader>
             <CardContent className="flex gap-3">
-              <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => navigate('/login')}>
+              <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => router.push('/login')}>
                 카카오 로그인
               </Button>
-              <Button variant="outline" onClick={() => navigate('/')}>
+              <Button variant="outline" onClick={() => router.push('/')}>
                 홈으로 이동
               </Button>
             </CardContent>
@@ -157,7 +159,7 @@ function ReservationCheckPage() {
             <Button variant="outline" onClick={() => loadReservations()}>
               <RefreshCcw className="h-4 w-4 mr-2" />새로고침
             </Button>
-            <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => navigate('/')}>
+            <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => router.push('/')}>
               홈으로 이동
             </Button>
           </div>
@@ -175,7 +177,7 @@ function ReservationCheckPage() {
           <Card className="border-gray-200">
             <CardContent className="py-10 text-center space-y-4">
               <p className="text-gray-600">아직 접수된 예약이 없습니다.</p>
-              <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => navigate('/')}>택시투어 예약하기</Button>
+              <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => router.push('/')}>택시투어 예약하기</Button>
             </CardContent>
           </Card>
         ) : (
@@ -261,14 +263,14 @@ function ReservationCheckPage() {
                 <div className="flex gap-2">
                   <Button
                     className="bg-yellow-500 hover:bg-yellow-600"
-                    onClick={() => navigate(`/payments?reservation_number=${encodeURIComponent(selectedReservation.reservation_number)}`)}
+                    onClick={() => router.push(`/payments?reservation_number=${encodeURIComponent(selectedReservation.reservation_number)}`)}
                     disabled={selectedReservation.payment_status === 'paid' || selectedReservation.status === 'cancelled'}
                   >
                     <CreditCard className="h-4 w-4 mr-2" />
                     {selectedReservation.payment_status === 'paid' ? '결제 완료' : '결제하기'}
                   </Button>
-                  <Button variant="outline" onClick={() => navigate('/')}>문의하기</Button>
-                  <Button variant="outline" onClick={() => navigate('/')}>변경 요청</Button>
+                  <Button variant="outline" onClick={() => router.push('/')}>문의하기</Button>
+                  <Button variant="outline" onClick={() => router.push('/')}>변경 요청</Button>
                   <Button variant="outline" onClick={handleCancelRequest} disabled={!canCancel || canceling}>
                     {canceling ? '요청 중...' : '취소 요청'}
                   </Button>

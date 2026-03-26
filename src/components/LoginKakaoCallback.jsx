@@ -1,10 +1,12 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+'use client'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 
 function LoginKakaoCallback() {
-  const navigate = useNavigate();
+  const router = useRouter();
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -14,13 +16,13 @@ function LoginKakaoCallback() {
 
     if (error) {
       alert(`카카오 로그인 실패: ${errorDescription || error}`);
-      navigate('/');
+      router.push('/');
       return;
     }
 
     if (!code) {
       alert('카카오 인증 코드가 없습니다.');
-      navigate('/');
+      router.push('/');
       return;
     }
 
@@ -30,7 +32,7 @@ function LoginKakaoCallback() {
       return
     }
     if (callbackState === 'done') {
-      navigate('/')
+      router.push('/')
       return
     }
     sessionStorage.setItem(callbackStateKey, 'processing')
@@ -55,19 +57,19 @@ function LoginKakaoCallback() {
           localStorage.setItem('user', JSON.stringify(data.user));
           sessionStorage.setItem(callbackStateKey, 'done')
           alert('로그인 성공!');
-          navigate('/');
+          router.push('/');
         } else {
           sessionStorage.removeItem(callbackStateKey)
           alert('로그인 실패: ' + (data.detail || '알 수 없는 오류'));
-          navigate('/');
+          router.push('/');
         }
       })
       .catch(err => {
         sessionStorage.removeItem(callbackStateKey)
         alert('로그인 중 오류 발생: ' + (err?.message || err));
-        navigate('/');
+        router.push('/');
       });
-  }, [navigate]);
+  }, [router]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen">

@@ -61,7 +61,7 @@ Radix UI 기반. **직접 수정 금지** — 새 스타일이 필요하면 `var
 
 ## Google Maps 작업 시 주의
 
-- API 키: `import.meta.env.VITE_GOOGLE_MAPS_API_KEY`
+- API 키: `process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY`
 - 응답 좌표는 사용 전 항상 null/undefined 체크
 - 지도 로드 전 API 응답 사용 시 에러 발생 → `isLoaded` 상태 확인
 - 지역 제한: 비에이(美瑛) / 아사히카와(旭川) 주변
@@ -73,5 +73,5 @@ LoginKakao.jsx → 카카오 인가 URL 리디렉션
 → /login?code=xxx 로 돌아옴
 → LoginKakaoCallback.jsx → POST /api/auth/kakao/callback
 → JWT + user 정보 localStorage 저장
-→ navigate('/')
+→ router.push('/')
 ```

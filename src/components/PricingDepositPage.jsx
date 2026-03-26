@@ -1,5 +1,7 @@
+'use client'
+
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
@@ -35,7 +37,7 @@ const VEHICLE_OPTIONS = [
 ]
 
 function PricingDepositPage() {
-  const navigate = useNavigate()
+  const router = useRouter()
   const [bookingDraft, setBookingDraft] = useState(null)
   const [createError, setCreateError] = useState('')
   const [isCreatingReservation, setIsCreatingReservation] = useState(false)
@@ -90,7 +92,7 @@ function PricingDepositPage() {
 
     const userRaw = localStorage.getItem('user')
     if (!userRaw) {
-      navigate('/login')
+      router.push('/login')
       return
     }
 
@@ -125,7 +127,7 @@ function PricingDepositPage() {
       }
 
       sessionStorage.removeItem(BOOKING_DRAFT_STORAGE_KEY)
-      navigate(`/payments?reservation_number=${encodeURIComponent(reservationNumber)}`)
+      router.push(`/payments?reservation_number=${encodeURIComponent(reservationNumber)}`)
     } catch (error) {
       setCreateError(error?.message || '예약 생성에 실패했습니다.')
     } finally {
@@ -134,6 +136,7 @@ function PricingDepositPage() {
   }
 
   return (
+    <>
     <div className={`min-h-screen bg-gradient-to-b ${isTransfer ? 'from-blue-50/60' : 'from-yellow-50/60'} via-white to-white py-24 px-4`}>
       <div className="max-w-6xl mx-auto space-y-6">
         <section className={`rounded-3xl border ${isTransfer ? 'border-blue-200' : 'border-yellow-200'} bg-white/90 backdrop-blur-sm shadow-sm p-6 md:p-8`}>
@@ -150,7 +153,7 @@ function PricingDepositPage() {
               </p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => navigate('/')}>홈으로</Button>
+              <Button variant="outline" onClick={() => router.push('/')}>홈으로</Button>
               <Button
                 className={isTransfer ? 'bg-blue-500 hover:bg-blue-600' : 'bg-yellow-500 hover:bg-yellow-600'}
                 onClick={handleProceedPayment}
@@ -167,7 +170,7 @@ function PricingDepositPage() {
           <Card className="border-amber-300 bg-amber-50">
             <CardContent className="py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-sm">
               <p className="text-amber-900">예약 입력 정보가 없습니다. 홈에서 예약 정보를 입력하면 결제 흐름이 이어집니다.</p>
-              <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => navigate('/')}>예약 입력하러 가기</Button>
+              <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => router.push('/')}>예약 입력하러 가기</Button>
             </CardContent>
           </Card>
         )}
@@ -180,7 +183,7 @@ function PricingDepositPage() {
             <section className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">입력 정보 재확인</h2>
-                <Button variant="outline" size="sm" onClick={() => navigate('/')}>정보 다시 입력</Button>
+                <Button variant="outline" size="sm" onClick={() => router.push('/')}>정보 다시 입력</Button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card className="border-gray-200 bg-white">
@@ -358,6 +361,7 @@ function PricingDepositPage() {
         )}
       </div>
     </div>
+    </>
   )
 }
 

@@ -1,5 +1,7 @@
+'use client'
+
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
@@ -7,7 +9,7 @@ import { CheckCircle2, Loader2 } from 'lucide-react'
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
 
 function PaymentSuccessPage() {
-  const navigate = useNavigate()
+  const router = useRouter()
   const [searchParams] = useSearchParams()
   const paymentKey = searchParams.get('paymentKey') || ''
   const orderId = searchParams.get('orderId') || ''
@@ -94,8 +96,8 @@ function PaymentSuccessPage() {
             </div>
 
             <div className="flex gap-2">
-              <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => navigate('/reservations')}>예약 확인으로 이동</Button>
-              <Button variant="outline" onClick={() => navigate('/')}>홈으로 이동</Button>
+              <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => router.push('/reservations')}>예약 확인으로 이동</Button>
+              <Button variant="outline" onClick={() => router.push('/')}>홈으로 이동</Button>
             </div>
           </CardContent>
         </Card>

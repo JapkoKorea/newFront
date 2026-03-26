@@ -7,6 +7,7 @@ from routers.auth import kakao
 from services.mysql_user_service import ensure_user_tables
 from routers import reservations
 from routers import payments
+from routers import seo
 from services.mysql_reservation_service import ensure_reservation_tables
 
 app = FastAPI()
@@ -26,9 +27,10 @@ app.add_middleware(
 )
 
 # 카카오 인증 라우터 포함
-app.include_router(kakao.router) 
+app.include_router(kakao.router)
 app.include_router(reservations.router)
 app.include_router(payments.router)
+app.include_router(seo.router)
 
 
 @app.on_event("startup")

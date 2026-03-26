@@ -1,4 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+'use client'
+
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Input } from '@/components/ui/input.jsx'
@@ -6,16 +8,15 @@ import { Label } from '@/components/ui/label.jsx'
 import { Textarea } from '@/components/ui/textarea.jsx'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx'
-import { Calendar, Clock, Users, MapPin, CreditCard, X, ChevronLeft, ChevronRight, AlertTriangle, Sun, Snowflake, Leaf } from 'lucide-react'
+import { Clock, MapPin, CreditCard, X, AlertTriangle } from 'lucide-react'
 import { Toaster } from 'react-hot-toast'
 import MapContainer, { COORDS_DICT } from '@/components/MapContainer.jsx'
-import { useNavigate } from 'react-router-dom'
-import { tourCourses, popularDestinations, spotGuideData, detectSeason, SEASON_LABEL, SEASON_MONTHS } from '@/data/tourCourses.js'
+import { useRouter } from 'next/navigation'
 
 const BOOKING_DRAFT_STORAGE_KEY = 'booking_draft_v1'
 
 const TaxiBooking = ({ isOpen, onClose }) => {
-  const navigate = useNavigate()
+  const router = useRouter()
   const today = new Date().toISOString().split('T')[0]
   const totalSteps = 3
   const stepLabels = ['코스 선택', '일정 설정', '예약자 정보']
@@ -37,7 +38,6 @@ const TaxiBooking = ({ isOpen, onClose }) => {
   const [currentStep, setCurrentStep] = useState(1)
   const [hoveredSpot, setHoveredSpot] = useState(null)
   const [showValidation, setShowValidation] = useState(false)
-  const [seasonFilter, setSeasonFilter] = useState('auto') // 'auto' | 'winter' | 'summer' | 'all_season'
   const [draggedSpotIndex, setDraggedSpotIndex] = useState(null)
   const [dragOverSpotIndex, setDragOverSpotIndex] = useState(null)
   const [selectionModeRequest, setSelectionModeRequest] = useState(null)
@@ -49,17 +49,6 @@ const TaxiBooking = ({ isOpen, onClose }) => {
 
   const popularDepartureChips = ['비에이역', '지요가오카역', '후라노역', '아사히카와역']
   const popularDestinationChips = ['비에이역', '지요가오카역', '후라노역', '아사히카와역']
-
-  // 날짜 기반 시즌 자동 감지
-  const detectedSeason = useMemo(() => detectSeason(bookingData.date), [bookingData.date])
-  const activeSeason = seasonFilter === 'auto' ? detectedSeason : seasonFilter
-
-  // 활성 시즌에 맞는 코스 필터링 (all_season 코스는 항상 포함)
-  const filteredCourses = useMemo(() => {
-    return tourCourses.filter((course) =>
-      course.season.includes(activeSeason) || course.season.includes('all_season')
-    )
-  }, [activeSeason])
 
   const passengerOptions = [
     { value: '1', label: '1명', helper: '개인 여행' },
@@ -81,122 +70,97 @@ const TaxiBooking = ({ isOpen, onClose }) => {
     { value: '8', label: '8시간', helper: '풀데이' },
   ]
 
-  const shouldBlockBieiPair = (nextDeparture, nextDestination) => (
-    nextDeparture === '비에이역' && nextDestination === '비에이역'
+  const popularDestinations = [
+    '크리스마스 나무',
+    '세븐스타 나무',
+    '켄과 메리 나무',
+    '마일드세븐 언덕',
+    '탁신관',
+    '흰수염폭포',
+    '청의 호수',
+    '패치워크의 길',
+    '닝구르 테라스',
+    '팜 토미타'
+  ]
+
+  const spotGuideData = {
+    '크리스마스 나무': { stayMinutes: 20, photoPoint: '정면 도로 쪽에서 단독 트리 구도를 잡기 좋아요.', nearby: ['세븐스타 나무', '패치워크의 길'] },
+    '세븐스타 나무': { stayMinutes: 20, photoPoint: '일몰 전 역광 타이밍이 사진 색감이 가장 좋아요.', nearby: ['켄과 메리 나무', '마일드세븐 언덕'] },
+    '켄과 메리 나무': { stayMinutes: 15, photoPoint: '길을 배경으로 나무를 세로 프레임으로 담기 좋습니다.', nearby: ['세븐스타 나무', '마일드세븐 언덕'] },
+    '마일드세븐 언덕': { stayMinutes: 20, photoPoint: '언덕 라인이 보이는 높은 지점에서 촬영 추천.', nearby: ['켄과 메리 나무', '패치워크의 길'] },
+    '탁신관': { stayMinutes: 30, photoPoint: '라벤더 시즌에는 입구 주변 색감이 가장 선명합니다.', nearby: ['크리스마스 나무', '청의 호수'] },
+    '흰수염폭포': { stayMinutes: 25, photoPoint: '다리 중앙 지점에서 폭포 전경을 넓게 담아보세요.', nearby: ['청의 호수', '닝구르 테라스'] },
+    '청의 호수': { stayMinutes: 35, photoPoint: '산책로 첫 포인트가 호수 색을 가장 진하게 볼 수 있어요.', nearby: ['흰수염폭포', '탁신관'] },
+    '패치워크의 길': { stayMinutes: 25, photoPoint: '넓은 화각으로 구릉지 패턴을 담으면 대표 컷이 됩니다.', nearby: ['세븐스타 나무', '크리스마스 나무'] },
+    '닝구르 테라스': { stayMinutes: 40, photoPoint: '해 질 무렵 조명 켜지는 시간대 방문을 추천합니다.', nearby: ['흰수염폭포', '팜 토미타'] },
+    '팜 토미타': { stayMinutes: 50, photoPoint: '라벤더 밭 중앙 동선에서 파노라마 촬영 추천.', nearby: ['닝구르 테라스', '후라노역'] },
+    '사계채언덕 (四季彩の丘)': { stayMinutes: 45, photoPoint: '전망 포인트에서 꽃밭 층을 배경으로 촬영하기 좋아요.', nearby: ['비에이역', '팜 토미타'] },
+    '아사히야마 동물원': { stayMinutes: 70, photoPoint: '펭귄/물개 관찰관 앞 대기 시간을 고려해 주세요.', nearby: ['아사히카와역', '세븐스타 나무'] },
+  }
+
+  const tourCourses = [
+    { id: 'standard', name: '스탠다드 비에이 명소 코스', duration: '3시간', departure: '아사히카와역', destination: '비에이역', spots: ['크리스마스 나무', '탁신관', '흰수염폭포'], description: '가장 인기 있는 정석 루트. 짧은 시간 안에 비에이의 대표 명소를 둘러보는 코스.' },
+    { id: 'nature', name: '비에이 자연 감성 코스', duration: '3시간', departure: '아사히카와역', destination: '비에이역', spots: ['세븐스타 나무', '켄과 메리 나무', '마일드세븐 언덕', '청의 호수'], description: '사진 촬영을 좋아하거나 자연경관 중심의 여유로운 투어를 원하는 분께 추천.' },
+    { id: 'family', name: '가족 맞춤 코스', duration: '3시간', departure: '아사히카와역', destination: '아사히카와역', spots: ['크리스마스 나무', '사계채언덕 (四季彩の丘)', '아사히야마 동물원'], description: '아이가 있는 가족에게 적합한 코스. 동물원 + 가벼운 자연 관광 조합.' },
+    { id: 'extended', name: '비에이~후라노 확장 코스', duration: '4-6시간', departure: '비에이역 또는 후라노역', destination: '아사히카와역', spots: ['청의 호수', '흰수염폭포', '닝구르 테라스', '팜 토미타 (계절 따라 선택)'], description: '꽃이 피는 계절(6~8월)에는 후라노까지 연결된 장거리 루트로 추천.' },
+    { id: 'photo', name: '감성 사진 명소 투어', duration: '4-6시간', departure: '아사히카와역', destination: '아사히카와역', spots: ['세븐스타 나무', '켄과 메리 나무', '마일드세븐 언덕', '패치워크의 길', '크리스마스 나무'], description: '사진 찍기 좋은 장소들만 모아 구성. 인스타 감성 코스로 인기.' },
+    { id: 'custom', name: '커스텀 코스 구성하기', duration: '협의', departure: '', destination: '', spots: [], description: '원하는 장소와 시간으로 맞춤 제작' }
+  ]
+
+  const availableSpots = Array.from(new Set([...popularDestinations, ...tourCourses.flatMap((c) => c.spots)]))
+
+  const spotMeta = Object.fromEntries(
+    availableSpots.map((spot) => {
+      const includedCourses = tourCourses.filter((c) => c.spots.includes(spot)).map((c) => c.name)
+      return [spot, { isPopular: popularDestinations.includes(spot), includedCourses, guide: spotGuideData[spot] || null }]
+    })
   )
 
-  // 모달이 열릴 때 body 스크롤 방지
+  const shouldBlockBieiPair = (dep, dest) => dep === '비에이역' && dest === '비에이역'
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = 'unset'
     }
-
-    return () => {
-      document.body.style.overflow = 'unset'
-    }
+    return () => { document.body.style.overflow = 'unset' }
   }, [isOpen])
 
-  // ESC 키로 닫기
   useEffect(() => {
     if (!isOpen) return
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        onClose()
-      }
-    }
+    const handleKeyDown = (e) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
 
-
-  const availableSpots = Array.from(
-    new Set([
-      ...popularDestinations,
-      ...tourCourses.flatMap((course) => course.spots),
-    ])
-  )
-
-  const spotMeta = Object.fromEntries(
-    availableSpots.map((spot) => {
-      const includedCourses = tourCourses
-        .filter((course) => course.spots.includes(spot))
-        .map((course) => course.name)
-
-      return [
-        spot,
-        {
-          isPopular: popularDestinations.includes(spot),
-          includedCourses,
-          guide: spotGuideData[spot] || null,
-        },
-      ]
-    })
-  )
-
-  const SEASON_ICON = {
-    winter: <Snowflake className="h-3.5 w-3.5" />,
-    summer: <Sun className="h-3.5 w-3.5" />,
-    all_season: <Leaf className="h-3.5 w-3.5" />,
-  }
-  const SEASON_COLOR = {
-    winter: 'bg-blue-100 text-blue-700 border-blue-200',
-    summer: 'bg-green-100 text-green-700 border-green-200',
-    all_season: 'bg-gray-100 text-gray-600 border-gray-200',
-  }
-
   const handleInputChange = (field, value, coords = null) => {
     const nextDeparture = field === 'departure' ? value : bookingData.departure
     const nextDestination = field === 'destination' ? value : bookingData.destination
-    const shouldResetLastSelection =
-      (field === 'departure' || field === 'destination') &&
-      shouldBlockBieiPair(nextDeparture, nextDestination)
-
-    const finalValue = shouldResetLastSelection ? '' : value
+    const shouldReset = (field === 'departure' || field === 'destination') && shouldBlockBieiPair(nextDeparture, nextDestination)
+    const finalValue = shouldReset ? '' : value
     setBookingData(prev => ({ ...prev, [field]: finalValue }))
-
-    if (shouldResetLastSelection) {
-      setShowBieiPairWarning(true)
-    }
+    if (shouldReset) setShowBieiPairWarning(true)
 
     if (field === 'departure' || field === 'destination') {
       let resolved = coords
-      if (!resolved && COORDS_DICT[finalValue]) {
-        resolved = COORDS_DICT[finalValue]
-      }
+      if (!resolved && COORDS_DICT[finalValue]) resolved = COORDS_DICT[finalValue]
       if (!resolved && typeof finalValue === 'string' && finalValue.includes(',')) {
-        const [lat, lng] = finalValue.split(',').map((coord) => parseFloat(coord.trim()))
-        if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
-          resolved = { lat, lng }
-        }
+        const [lat, lng] = finalValue.split(',').map((c) => parseFloat(c.trim()))
+        if (!Number.isNaN(lat) && !Number.isNaN(lng)) resolved = { lat, lng }
       }
-
-      setPlaceCoordinates((prev) => ({
-        ...prev,
-        [field]: shouldResetLastSelection ? null : resolved,
-      }))
+      setPlaceCoordinates((prev) => ({ ...prev, [field]: shouldReset ? null : resolved }))
     }
   }
 
   const handleCourseSelect = (courseId) => {
-    const selectedCourse = filteredCourses.find(c => c.id === courseId)
+    const selectedCourse = tourCourses.find(c => c.id === courseId)
     const normalizedDeparture = (() => {
-      const departure = selectedCourse.departure || ''
-      if (departure.includes('비에이') || departure.includes('후라노')) {
-        return '비에이역'
-      }
-      return departure
+      const dep = selectedCourse.departure || ''
+      if (dep.includes('비에이') || dep.includes('후라노')) return '비에이역'
+      return dep
     })()
-
-    setBookingData(prev => ({
-      ...prev,
-      course: courseId,
-      departure: normalizedDeparture,
-      destination: selectedCourse.destination,
-      selectedSpots: selectedCourse.spots
-    }))
-
+    setBookingData(prev => ({ ...prev, course: courseId, departure: normalizedDeparture, destination: selectedCourse.destination, selectedSpots: selectedCourse.spots }))
     setPlaceCoordinates((prev) => ({
       ...prev,
       departure: COORDS_DICT[normalizedDeparture] || prev.departure,
@@ -207,30 +171,19 @@ const TaxiBooking = ({ isOpen, onClose }) => {
   const handleSpotToggle = (spot) => {
     setBookingData(prev => {
       const spots = prev.selectedSpots || []
-      const newSpots = spots.includes(spot) 
-        ? spots.filter(s => s !== spot)
-        : [...spots, spot]
-      return { ...prev, selectedSpots: newSpots }
+      return { ...prev, selectedSpots: spots.includes(spot) ? spots.filter(s => s !== spot) : [...spots, spot] }
     })
   }
 
   const handleSpotAdd = (spotName) => {
-    setBookingData(prev => ({
-      ...prev,
-      selectedSpots: [...(prev.selectedSpots || []), spotName]
-    }))
+    setBookingData(prev => ({ ...prev, selectedSpots: [...(prev.selectedSpots || []), spotName] }))
   }
 
   const handleSpotRemove = (spot) => {
-    setBookingData(prev => ({
-      ...prev,
-      selectedSpots: (prev.selectedSpots || []).filter(s => s !== spot)
-    }))
+    setBookingData(prev => ({ ...prev, selectedSpots: (prev.selectedSpots || []).filter(s => s !== spot) }))
   }
 
-  const handleSpotDragStart = (index) => {
-    setDraggedSpotIndex(index)
-  }
+  const handleSpotDragStart = (index) => { setDraggedSpotIndex(index) }
 
   const handleSpotDragOver = (event, index) => {
     event.preventDefault()
@@ -238,27 +191,17 @@ const TaxiBooking = ({ isOpen, onClose }) => {
   }
 
   const handleSpotDrop = (dropIndex) => {
-    if (
-      draggedSpotIndex === null ||
-      dropIndex === null ||
-      draggedSpotIndex === dropIndex
-    ) {
+    if (draggedSpotIndex === null || dropIndex === null || draggedSpotIndex === dropIndex) {
       setDraggedSpotIndex(null)
       setDragOverSpotIndex(null)
       return
     }
-
     setBookingData(prev => {
       const currentSpots = [...(prev.selectedSpots || [])]
       const [movedSpot] = currentSpots.splice(draggedSpotIndex, 1)
       currentSpots.splice(dropIndex, 0, movedSpot)
-
-      return {
-        ...prev,
-        selectedSpots: currentSpots,
-      }
+      return { ...prev, selectedSpots: currentSpots }
     })
-
     setDraggedSpotIndex(null)
     setDragOverSpotIndex(null)
   }
@@ -272,27 +215,43 @@ const TaxiBooking = ({ isOpen, onClose }) => {
     setSelectionModeRequest({ mode, requestedAt: Date.now() })
   }
 
+  const getStepErrors = (step) => {
+    if (step === 1) return bookingData.course ? [] : ['투어 코스를 하나 선택해 주세요.']
+    if (step === 2) {
+      const errors = []
+      if (!bookingData.date) errors.push('투어 날짜를 선택해 주세요.')
+      if (!bookingData.time) errors.push('투어 시작 시간을 선택해 주세요.')
+      if (!bookingData.passengers) errors.push('탑승 인원을 선택해 주세요.')
+      if (!bookingData.departure) errors.push('출발지를 입력해 주세요.')
+      if (!bookingData.destination) errors.push('도착지를 입력해 주세요.')
+      return errors
+    }
+    if (step === 3) {
+      const errors = []
+      if (!bookingData.name) errors.push('예약자 이름을 입력해 주세요.')
+      return errors
+    }
+    return []
+  }
+
+  const canProceedToNext = () => getStepErrors(currentStep).length === 0
+  const canSubmit = () => getStepErrors(3).length === 0
+
   const handleNext = () => {
     if (currentStep < totalSteps && canProceedToNext()) {
       setShowValidation(false)
       setCurrentStep(currentStep + 1)
       return
     }
-
     setShowValidation(true)
   }
 
   const handlePrev = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
-    }
+    if (currentStep > 1) setCurrentStep(currentStep - 1)
   }
 
   const handleSubmit = async () => {
-    if (!canSubmit()) {
-      setShowValidation(true)
-      return
-    }
+    if (!canSubmit()) { setShowValidation(true); return }
 
     const durationNumber = Number(bookingData.duration)
     const passengersNumber = Number(bookingData.passengers)
@@ -305,7 +264,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
       return
     }
 
-    const selectedCourse = filteredCourses.find((course) => course.id === bookingData.course)
+    const selectedCourse = tourCourses.find((c) => c.id === bookingData.course)
     const desiredCourse = selectedCourse
       ? `${selectedCourse.name}${bookingData.selectedSpots?.length ? `: ${bookingData.selectedSpots.join(' > ')}` : ''}`
       : bookingData.selectedSpots.join(' > ')
@@ -320,16 +279,12 @@ const TaxiBooking = ({ isOpen, onClose }) => {
       departure: bookingData.departure,
       destination: bookingData.destination,
       desired_course: desiredCourse,
-      service_type: 'tour',
-      season: activeSeason,
     }
 
-    const selectedCourseName = filteredCourses.find((course) => course.id === bookingData.course)?.name || '미선택'
     const draft = {
       reservationPayload: payload,
-      serviceType: 'tour',
       summary: {
-        courseName: selectedCourseName,
+        courseName: tourCourses.find((c) => c.id === bookingData.course)?.name || '미선택',
         departure: bookingData.departure,
         destination: bookingData.destination,
         date: bookingData.date,
@@ -353,59 +308,21 @@ const TaxiBooking = ({ isOpen, onClose }) => {
     setDraggedSpotIndex(null)
     setDragOverSpotIndex(null)
     setBookingData(getInitialBookingData())
-    setPlaceCoordinates({
-      departure: COORDS_DICT['비에이역'] || null,
-      destination: null,
-    })
+    setPlaceCoordinates({ departure: COORDS_DICT['비에이역'] || null, destination: null })
     onClose()
-    navigate('/pricing')
+    router.push('/pricing')
   }
 
-  const getStepErrors = (step) => {
-    if (step === 1) {
-      return bookingData.course ? [] : ['투어 코스를 하나 선택해 주세요.']
-    }
-
-    if (step === 2) {
-      const errors = []
-
-      if (!bookingData.date) errors.push('투어 날짜를 선택해 주세요.')
-      if (!bookingData.time) errors.push('투어 시작 시간을 선택해 주세요.')
-      if (!bookingData.passengers) errors.push('탑승 인원을 선택해 주세요.')
-      if (!bookingData.departure) errors.push('출발지를 입력해 주세요.')
-      if (!bookingData.destination) errors.push('도착지를 입력해 주세요.')
-
-      return errors
-    }
-
-    if (step === 3) {
-      const errors = []
-
-      if (!bookingData.name) errors.push('예약자 이름을 입력해 주세요.')
-
-      return errors
-    }
-
-    return []
-  }
-
-  const canProceedToNext = () => {
-    return getStepErrors(currentStep).length === 0
-  }
-
-  const canSubmit = () => getStepErrors(3).length === 0
   const progressPercent = Math.round((currentStep / totalSteps) * 100)
-  const selectedCourse = filteredCourses.find(c => c.id === bookingData.course)
+  const selectedCourse = tourCourses.find(c => c.id === bookingData.course)
   const currentStepErrors = getStepErrors(currentStep)
 
+  if (!isOpen) return null
+
   return (
-    <div 
-      className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 ${isOpen ? '' : 'hidden'}`}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose()
-        }
-      }}
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto" onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center p-6 border-b">
@@ -430,19 +347,17 @@ const TaxiBooking = ({ isOpen, onClose }) => {
             </div>
           </div>
           <div className="flex items-center justify-center">
-          {[1, 2, 3].map((step) => (
-            <div key={step} className="flex items-center">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                currentStep >= step ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-600'
-              }`}>
-                {step}
+            {[1, 2, 3].map((step) => (
+              <div key={step} className="flex items-center">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${currentStep >= step ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                  {step}
+                </div>
+                <div className={`ml-2 text-sm ${currentStep >= step ? 'text-yellow-600' : 'text-gray-400'}`}>
+                  {stepLabels[step - 1]}
+                </div>
+                {step < 3 && <div className="w-12 h-px bg-gray-300 mx-4" />}
               </div>
-              <div className={`ml-2 text-sm ${currentStep >= step ? 'text-yellow-600' : 'text-gray-400'}`}>
-                {stepLabels[step - 1]}
-              </div>
-              {step < 3 && <div className="w-12 h-px bg-gray-300 mx-4" />}
-            </div>
-          ))}
+            ))}
           </div>
         </div>
 
@@ -451,9 +366,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
             <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-4">
               <p className="text-sm font-semibold text-amber-800">입력 확인이 필요해요</p>
               <ul className="mt-2 list-disc pl-5 text-sm text-amber-700 space-y-1">
-                {currentStepErrors.map((error, index) => (
-                  <li key={index}>{error}</li>
-                ))}
+                {currentStepErrors.map((error, index) => <li key={index}>{error}</li>)}
               </ul>
             </div>
           )}
@@ -474,15 +387,14 @@ const TaxiBooking = ({ isOpen, onClose }) => {
           {/* 1단계: 코스 선택 */}
           {currentStep === 1 && (
             <div className="space-y-6">
-              {/* 지역 안내 */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-start">
                   <AlertTriangle className="h-5 w-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
                   <div>
                     <h4 className="font-semibold text-blue-800 mb-1">투어 지역 안내</h4>
                     <p className="text-sm text-blue-700">
-                      비에이·아사히카와 지역에서의 탑승을 권장합니다. 삿포로에서의 출발은 
-                      일본 교통권, 톨비, 타지역 이동비용 등의 문제로 권장하지 않습니다. 
+                      비에이·아사히카와 지역에서의 탑승을 권장합니다. 삿포로에서의 출발은
+                      일본 교통권, 톨비, 타지역 이동비용 등의 문제로 권장하지 않습니다.
                       필요하시면 별도 문의해 주세요.
                     </p>
                   </div>
@@ -490,73 +402,34 @@ const TaxiBooking = ({ isOpen, onClose }) => {
               </div>
 
               <div>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                  <h3 className="text-lg font-semibold">투어 코스를 선택해주세요</h3>
-                  {/* 시즌 필터 토글 */}
-                  <div className="flex items-center gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1">
-                    {[
-                      { key: 'auto', label: `자동 (${SEASON_LABEL[detectedSeason]})` },
-                      { key: 'winter', label: '겨울', icon: <Snowflake className="h-3 w-3" /> },
-                      { key: 'summer', label: '여름', icon: <Sun className="h-3 w-3" /> },
-                      { key: 'all_season', label: '사계절', icon: <Leaf className="h-3 w-3" /> },
-                    ].map(({ key, label, icon }) => (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => {
-                          setSeasonFilter(key)
-                          setBookingData(prev => ({ ...prev, course: '', selectedSpots: [] }))
-                        }}
-                        className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
-                          seasonFilter === key
-                            ? 'bg-white shadow-sm text-gray-900'
-                            : 'text-gray-500 hover:text-gray-700'
-                        }`}
-                      >
-                        {icon}{label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
+                <h3 className="text-lg font-semibold mb-4">투어 코스를 선택해주세요</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {filteredCourses.map((course) => (
+                  {tourCourses.map((course) => (
                     <Card
                       key={course.id}
-                      className={`cursor-pointer transition-all ${
-                        bookingData.course === course.id ? 'ring-2 ring-yellow-500 bg-yellow-50' : 'hover:shadow-md'
-                      }`}
+                      className={`cursor-pointer transition-all ${bookingData.course === course.id ? 'ring-2 ring-yellow-500 bg-yellow-50' : 'hover:shadow-md'}`}
                       onClick={() => handleCourseSelect(course.id)}
                     >
                       <CardHeader className="pb-3">
-                        <div className="flex justify-between items-start gap-2">
-                          <CardTitle className="text-base leading-snug">{course.name}</CardTitle>
-                          <div className="flex flex-col items-end gap-1 shrink-0">
-                            <span className="text-sm font-medium text-gray-600">{course.duration}</span>
-                            {course.badge && (
-                              <span className="text-xs rounded-full bg-yellow-100 text-yellow-700 px-2 py-0.5 font-medium">
-                                {course.badge}
-                              </span>
-                            )}
-                          </div>
+                        <div className="flex justify-between items-start">
+                          <CardTitle className="text-base">{course.name}</CardTitle>
+                          <span className="text-sm font-medium text-gray-600">{course.duration}</span>
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <div className="flex items-center text-sm text-gray-600">
-                          <MapPin className="h-4 w-4 mr-1 shrink-0" />
+                          <MapPin className="h-4 w-4 mr-1" />
                           <span>출발: {course.departure}</span>
                         </div>
                         <div className="flex items-center text-sm text-gray-600">
-                          <MapPin className="h-4 w-4 mr-1 shrink-0" />
+                          <MapPin className="h-4 w-4 mr-1" />
                           <span>도착: {course.destination}</span>
                         </div>
                         <p className="text-sm text-gray-600">{course.description}</p>
                         {course.spots.length > 0 && (
                           <div className="flex flex-wrap gap-1">
                             {course.spots.map((spot, index) => (
-                              <span key={index} className="text-xs bg-gray-100 px-2 py-1 rounded">
-                                {spot}
-                              </span>
+                              <span key={index} className="text-xs bg-gray-100 px-2 py-1 rounded">{spot}</span>
                             ))}
                           </div>
                         )}
@@ -568,12 +441,12 @@ const TaxiBooking = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {/* 2단계: 일정 설정 */}
+          {/* 2단계: 일정 설정 + 지도 */}
           {currentStep === 2 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="space-y-6">
                 <h3 className="text-lg font-semibold">투어 일정을 설정해주세요</h3>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="date">투어 날짜</Label>
@@ -606,7 +479,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="rounded-xl border border-yellow-200 bg-yellow-50/40 p-4">
                     <div className="mb-3 flex items-center justify-between">
-                      <Label htmlFor="passengers" className="text-sm font-semibold text-gray-900">탑승 인원 선택</Label>
+                      <Label className="text-sm font-semibold text-gray-900">탑승 인원 선택</Label>
                       <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">필수</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
@@ -617,11 +490,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                             key={option.value}
                             type="button"
                             onClick={() => handleInputChange('passengers', option.value)}
-                            className={`rounded-lg border px-3 py-2 text-left transition ${
-                              isSelected
-                                ? 'border-yellow-500 bg-yellow-100 shadow-sm'
-                                : 'border-gray-200 bg-white hover:border-yellow-300'
-                            }`}
+                            className={`rounded-lg border px-3 py-2 text-left transition ${isSelected ? 'border-yellow-500 bg-yellow-100 shadow-sm' : 'border-gray-200 bg-white hover:border-yellow-300'}`}
                           >
                             <p className="text-sm font-semibold text-gray-900">{option.label}</p>
                             <p className="text-xs text-gray-500">{option.helper}</p>
@@ -629,14 +498,12 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                         )
                       })}
                     </div>
-                    {!bookingData.passengers && (
-                      <p className="mt-2 text-xs text-rose-600">탑승 인원을 먼저 선택해 주세요.</p>
-                    )}
+                    {!bookingData.passengers && <p className="mt-2 text-xs text-rose-600">탑승 인원을 먼저 선택해 주세요.</p>}
                   </div>
 
                   <div className="rounded-xl border border-yellow-200 bg-yellow-50/40 p-4">
                     <div className="mb-3 flex items-center justify-between">
-                      <Label htmlFor="duration" className="text-sm font-semibold text-gray-900">예상 소요 시간 선택</Label>
+                      <Label className="text-sm font-semibold text-gray-900">예상 소요 시간 선택</Label>
                       <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">필수</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
@@ -647,11 +514,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                             key={option.value}
                             type="button"
                             onClick={() => handleInputChange('duration', option.value)}
-                            className={`rounded-lg border px-3 py-2 text-left transition ${
-                              isSelected
-                                ? 'border-yellow-500 bg-yellow-100 shadow-sm'
-                                : 'border-gray-200 bg-white hover:border-yellow-300'
-                            }`}
+                            className={`rounded-lg border px-3 py-2 text-left transition ${isSelected ? 'border-yellow-500 bg-yellow-100 shadow-sm' : 'border-gray-200 bg-white hover:border-yellow-300'}`}
                           >
                             <p className="text-sm font-semibold text-gray-900">{option.label}</p>
                             <p className="text-xs text-gray-500">{option.helper}</p>
@@ -659,9 +522,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                         )
                       })}
                     </div>
-                    {!bookingData.duration && (
-                      <p className="mt-2 text-xs text-rose-600">예상 소요 시간을 선택해 주세요.</p>
-                    )}
+                    {!bookingData.duration && <p className="mt-2 text-xs text-rose-600">예상 소요 시간을 선택해 주세요.</p>}
                   </div>
                 </div>
 
@@ -670,19 +531,12 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                   <div>
                     <div className="flex items-center justify-between">
                       <Label htmlFor="departure">출발지</Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 px-3 text-xs"
-                        onClick={() => requestMapSelectionMode('departure')}
-                      >
+                      <Button type="button" variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => requestMapSelectionMode('departure')}>
                         지도에서 선택
                       </Button>
                     </div>
                     <button
                       type="button"
-                      id="departure"
                       onClick={() => requestMapSelectionMode('departure')}
                       className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm hover:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                     >
@@ -707,19 +561,12 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                   <div>
                     <div className="flex items-center justify-between">
                       <Label htmlFor="destination">도착지</Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 px-3 text-xs"
-                        onClick={() => requestMapSelectionMode('destination')}
-                      >
+                      <Button type="button" variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => requestMapSelectionMode('destination')}>
                         지도에서 선택
                       </Button>
                     </div>
                     <button
                       type="button"
-                      id="destination"
                       onClick={() => requestMapSelectionMode('destination')}
                       className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm hover:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                     >
@@ -743,24 +590,22 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                   </div>
                 </div>
 
-                {/* 커스텀 코스인 경우 관광지 선택 */}
+                {/* 커스텀 코스 관광지 선택 */}
                 {bookingData.course === 'custom' && (
-                  <div className="space-y-4">
-                    <div>
-                      <Label>방문하고 싶은 장소 선택</Label>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-                        {popularDestinations.map((dest) => (
-                          <Button
-                            key={dest}
-                            variant={bookingData.selectedSpots?.includes(dest) ? "default" : "outline"}
-                            size="sm"
-                            className="text-xs"
-                            onClick={() => handleSpotToggle(dest)}
-                          >
-                            {dest}
-                          </Button>
-                        ))}
-                      </div>
+                  <div>
+                    <Label>방문하고 싶은 장소 선택</Label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
+                      {popularDestinations.map((dest) => (
+                        <Button
+                          key={dest}
+                          variant={bookingData.selectedSpots?.includes(dest) ? 'default' : 'outline'}
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => handleSpotToggle(dest)}
+                        >
+                          {dest}
+                        </Button>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -795,7 +640,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                     destinationCoordinate={placeCoordinates.destination}
                   />
                 </div>
-                
+
                 {/* 선택된 관광지 목록 */}
                 {bookingData.selectedSpots && bookingData.selectedSpots.length > 0 && (
                   <div className="space-y-2">
@@ -805,25 +650,19 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                     </div>
                     <div className="space-y-1">
                       {bookingData.selectedSpots.map((spot, index) => (
-                        <div 
-                          key={index} 
+                        <div
+                          key={index}
                           draggable
                           onDragStart={() => handleSpotDragStart(index)}
                           onDragOver={(event) => handleSpotDragOver(event, index)}
                           onDrop={() => handleSpotDrop(index)}
                           onDragEnd={handleSpotDragEnd}
-                          className={`flex items-center justify-between bg-gray-50 p-2 rounded hover:bg-gray-100 transition-colors cursor-move ${
-                            dragOverSpotIndex === index ? 'ring-2 ring-blue-300 bg-blue-50' : ''
-                          }`}
+                          className={`flex items-center justify-between bg-gray-50 p-2 rounded hover:bg-gray-100 transition-colors cursor-move ${dragOverSpotIndex === index ? 'ring-2 ring-blue-300 bg-blue-50' : ''}`}
                           onMouseEnter={() => setHoveredSpot(spot)}
                           onMouseLeave={() => setHoveredSpot(null)}
                         >
                           <span className="text-sm">{spot}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleSpotRemove(spot)}
-                          >
+                          <Button variant="ghost" size="sm" onClick={() => handleSpotRemove(spot)}>
                             <X className="h-3 w-3" />
                           </Button>
                         </div>
@@ -852,7 +691,6 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                   />
                   <p className="mt-1 text-xs text-gray-600">예약 확인을 위해 이름은 필수 입력입니다.</p>
                 </div>
-
                 <div>
                   <Label htmlFor="phone">연락처</Label>
                   <Input
@@ -870,12 +708,10 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                 <CardHeader>
                   <CardTitle className="text-base">예약 요약</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span>선택 코스:</span>
-                    <span className="font-medium">
-                      {tourCourses.find(c => c.id === bookingData.course)?.name || '미선택'}
-                    </span>
+                    <span className="font-medium">{tourCourses.find(c => c.id === bookingData.course)?.name || '미선택'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>출발지:</span>
@@ -900,9 +736,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                   {bookingData.selectedSpots && bookingData.selectedSpots.length > 0 && (
                     <div className="flex justify-between">
                       <span>방문 장소:</span>
-                      <span className="font-medium text-right max-w-xs">
-                        {bookingData.selectedSpots.join(', ')}
-                      </span>
+                      <span className="font-medium text-right max-w-xs">{bookingData.selectedSpots.join(', ')}</span>
                     </div>
                   )}
                 </CardContent>
@@ -913,29 +747,16 @@ const TaxiBooking = ({ isOpen, onClose }) => {
 
         {/* 하단 버튼 */}
         <div className="flex justify-between items-center p-6 border-t bg-gray-50">
-          <Button 
-            variant="outline" 
-            onClick={handlePrev}
-            disabled={currentStep === 1}
-          >
+          <Button variant="outline" onClick={handlePrev} disabled={currentStep === 1}>
             이전
           </Button>
-          
           <div className="flex gap-2">
             {currentStep < 3 ? (
-              <Button 
-                onClick={handleNext}
-                className="bg-yellow-500 hover:bg-yellow-600"
-                disabled={!canProceedToNext()}
-              >
+              <Button onClick={handleNext} className="bg-yellow-500 hover:bg-yellow-600" disabled={!canProceedToNext()}>
                 다음
               </Button>
             ) : (
-              <Button 
-                onClick={handleSubmit}
-                className="bg-yellow-500 hover:bg-yellow-600"
-                disabled={!canSubmit()}
-              >
+              <Button onClick={handleSubmit} className="bg-yellow-500 hover:bg-yellow-600" disabled={!canSubmit()}>
                 <CreditCard className="mr-2 h-4 w-4" />
                 요금 확인 및 결제
               </Button>
