@@ -5,16 +5,12 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button.jsx'
 import { MessageCircle, HelpCircle, Menu, X } from 'lucide-react'
-import TaxiBooking from './TaxiBooking.jsx'
 import FAQ from './FAQ.jsx'
 import ChatSupport from './ChatSupport.jsx'
 import ServiceSelector from './ServiceSelector.jsx'
-import TransferBooking from './TransferBooking.jsx'
 
 export default function Navigation() {
-  const [isBookingOpen, setIsBookingOpen] = useState(false)
   const [isServiceSelectorOpen, setIsServiceSelectorOpen] = useState(false)
-  const [isTransferOpen, setIsTransferOpen] = useState(false)
   const [isFAQOpen, setIsFAQOpen] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -51,23 +47,24 @@ export default function Navigation() {
 
   const openServiceSelector = () => {
     setIsFAQOpen(false); setIsChatOpen(false)
-    setIsBookingOpen(false); setIsTransferOpen(false)
     setIsServiceSelectorOpen(true); setIsMobileMenuOpen(false)
   }
   const openBooking = () => {
     setIsServiceSelectorOpen(false)
-    setIsBookingOpen(true); setIsMobileMenuOpen(false)
+    setIsMobileMenuOpen(false)
+    router.push('/booking')
   }
   const openTransfer = () => {
     setIsServiceSelectorOpen(false)
-    setIsTransferOpen(true); setIsMobileMenuOpen(false)
+    setIsMobileMenuOpen(false)
+    router.push('/transfer-booking')
   }
   const openFAQ = () => {
-    setIsBookingOpen(false); setIsChatOpen(false)
+    setIsChatOpen(false)
     setIsFAQOpen(true); setIsMobileMenuOpen(false)
   }
   const openChat = () => {
-    setIsBookingOpen(false); setIsFAQOpen(false)
+    setIsFAQOpen(false)
     setIsChatOpen(true); setIsMobileMenuOpen(false)
   }
 
@@ -157,8 +154,6 @@ export default function Navigation() {
 
       {/* 모달들 */}
       <ServiceSelector isOpen={isServiceSelectorOpen} onClose={() => setIsServiceSelectorOpen(false)} onSelectTour={openBooking} onSelectTransfer={openTransfer} />
-      <TaxiBooking isOpen={isBookingOpen} onClose={() => setIsBookingOpen(false)} />
-      <TransferBooking isOpen={isTransferOpen} onClose={() => setIsTransferOpen(false)} />
       <FAQ isOpen={isFAQOpen} onClose={() => setIsFAQOpen(false)} onStartChat={openChat} />
       <ChatSupport isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
     </>

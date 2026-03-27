@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button.jsx'
 import { ChevronDown, MapPin, Clock, Users, Star, MessageCircle } from 'lucide-react'
-import TaxiBooking from '@/components/TaxiBooking.jsx'
 import ChatSupport from '@/components/ChatSupport.jsx'
 
 import biei1 from '@/assets/xpGwZKvsyDaZ.webp'
@@ -13,9 +13,9 @@ import biei5 from '@/assets/HGsZN8MV1MIb.jpg'
 import biei6 from '@/assets/Mg1bQjbINPBk.jpg'
 
 export default function HomePage() {
+  const router = useRouter()
   const [currentSection, setCurrentSection] = useState(0)
   const [isScrolling, setIsScrolling] = useState(false)
-  const [isBookingOpen, setIsBookingOpen] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
 
   useEffect(() => {
@@ -145,7 +145,7 @@ export default function HomePage() {
                   <Button
                     size="lg"
                     className="bg-yellow-500 hover:bg-yellow-600 text-white px-8 py-3"
-                    onClick={() => setIsBookingOpen(true)}
+                    onClick={() => router.push('/booking')}
                   >
                     택시투어 예약하기
                   </Button>
@@ -220,12 +220,6 @@ export default function HomePage() {
           />
         ))}
       </div>
-
-      {/* 택시 예약 모달 */}
-      <TaxiBooking
-        isOpen={isBookingOpen}
-        onClose={() => setIsBookingOpen(false)}
-      />
 
       {/* 채팅 상담 모달 */}
       <ChatSupport

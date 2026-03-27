@@ -59,6 +59,7 @@ const MapContainer = ({
   onSpotRemove,
   hoveredSpot,
   selectionModeRequest,
+  controlsEnabled = true,
 }) => {
   const { isLoaded } = useLoadScript({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY,
@@ -73,12 +74,19 @@ const MapContainer = ({
   const handleRouteChange = useCallback(() => {}, []);
 
   useEffect(() => {
+    if (!controlsEnabled) {
+      setSelectionMode(null)
+      setActiveCandidateSpot(null)
+      setPlaceSearchInput('')
+      setPlacePredictions([])
+      return
+    }
     if (!selectionModeRequest?.mode) return;
     setSelectionMode(selectionModeRequest.mode);
     if (selectionModeRequest.mode !== 'spot') {
       setActiveCandidateSpot(null);
     }
-  }, [selectionModeRequest]);
+  }, [selectionModeRequest, controlsEnabled]);
 
   useEffect(() => {
     if (selectionMode !== 'departure' && selectionMode !== 'destination') {
@@ -134,7 +142,7 @@ const MapContainer = ({
 
           if (location && mapRef.current) {
             mapRef.current.panTo(location);
-            mapRef.current.setZoom(13);
+            mapRef.current.setZoom(12);
           }
 
           setSelectionMode(null);
@@ -166,6 +174,7 @@ const MapContainer = ({
 
   // 지도 클릭 핸들러
   const handleMapClick = useCallback((event) => {
+    if (!controlsEnabled) return;
     if (activeCandidateSpot) {
       setActiveCandidateSpot(null);
     }
@@ -191,7 +200,7 @@ const MapContainer = ({
       setSelectionMode(null);
       toast.success("위치가 선택되었습니다");
     }
-  }, [activeCandidateSpot, selectionMode, isInAllowedRegion, onPlaceChange]);
+  }, [activeCandidateSpot, selectionMode, isInAllowedRegion, onPlaceChange, controlsEnabled]);
 
   // 마커 생성
   const renderMarkers = useCallback(() => {
@@ -302,7 +311,7 @@ const MapContainer = ({
   return (
     <div className="h-full w-full relative">
       {/* 상단 컨트롤 패널 */}
-      <div className="absolute top-2 left-2 right-2 z-10 bg-white rounded-lg shadow-md p-3">
+      {controlsEnabled && <div className="absolute top-2 left-2 right-2 z-10 bg-white rounded-lg shadow-md p-3">
         <div className="flex flex-wrap gap-2 mb-2">
           <button
             onClick={() => {
@@ -379,13 +388,13 @@ const MapContainer = ({
               : `지도를 클릭하여 ${selectionMode === 'departure' ? '출발지' : '도착지'}를 선택하세요`}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* 지도 */}
       <GoogleMap
         mapContainerStyle={{ width: "100%", height: "100%" }}
         center={centerAsahikawa}
-        zoom={11}
+        zoom={10}
         onLoad={(map) => (mapRef.current = map)}
         onClick={handleMapClick}
         options={{
@@ -401,7 +410,7 @@ const MapContainer = ({
         {/* 마커들 */}
         {renderMarkers()}
 
-        {selectionMode === 'spot' &&
+        {controlsEnabled && selectionMode === 'spot' &&
           selectableSpotNames.map((spotName) => {
             const coords = COORDS_DICT[spotName];
             const isSelected = spots.includes(spotName);
@@ -442,7 +451,7 @@ const MapContainer = ({
         />
       </GoogleMap>
 
-      {selectionMode === 'spot' && activeCandidateSpot && (
+      {controlsEnabled && selectionMode === 'spot' && activeCandidateSpot && (
         <div className="absolute bottom-3 left-3 right-3 z-20 md:left-auto md:max-w-sm">
           <div className="rounded-xl border bg-white p-4 shadow-xl">
             <div className="flex items-start justify-between gap-2">

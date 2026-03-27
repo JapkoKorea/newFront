@@ -16,7 +16,7 @@ export default function ServiceSelector({ isOpen, onClose, onSelectTour, onSelec
         <div className="flex justify-between items-center p-6 border-b">
           <div>
             <h2 className="text-xl font-bold text-gray-900">서비스 선택</h2>
-            <p className="text-sm text-gray-500 mt-1">이용하실 서비스를 선택해주세요.</p>
+            <p className="text-sm text-gray-500 mt-1">선택한 서비스의 예약 페이지로 이동합니다.</p>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <X className="h-5 w-5" />
@@ -38,6 +38,7 @@ export default function ServiceSelector({ isOpen, onClose, onSelectTour, onSelec
               <p className="mt-1 text-sm text-gray-500 leading-relaxed">
                 비에이·후라노 관광 명소를<br />코스로 둘러보는 투어 서비스
               </p>
+              <p className="mt-2 text-xs font-medium text-yellow-700">택시투어 예약 페이지로 이동</p>
               <div className="mt-3 flex flex-wrap justify-center gap-1">
                 <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">겨울 코스</span>
                 <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">여름 코스</span>
@@ -60,6 +61,7 @@ export default function ServiceSelector({ isOpen, onClose, onSelectTour, onSelec
               <p className="mt-1 text-sm text-gray-500 leading-relaxed">
                 공항·역에서 숙소까지<br />구간 고정 요금 직행 이동
               </p>
+              <p className="mt-2 text-xs font-medium text-blue-700">송영서비스 예약 페이지로 이동</p>
               <div className="mt-3 flex flex-wrap justify-center gap-1">
                 <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-700">✈️ 공항 픽업/드롭</span>
                 <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-700">🚉 역 이동</span>

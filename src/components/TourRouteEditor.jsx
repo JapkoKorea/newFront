@@ -143,7 +143,7 @@ function markerAppearance(items) {
   return { label: '', color: '#f59e0b' }
 }
 
-export default function TourRouteEditor({ initialDeparture, initialDestination, initialSpots, fixedRouteProfile, spotGuideData }) {
+export default function TourRouteEditor({ initialDeparture, initialDestination, initialSpots, fixedRouteProfile, spotGuideData, onRouteStateChange }) {
   const routePreset = getInitialRoutePreset(fixedRouteProfile, initialDeparture, initialDestination, initialSpots || [])
 
   const { isLoaded } = useLoadScript({
@@ -208,7 +208,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
 
     if (debounceRef.current) clearTimeout(debounceRef.current)
     const requestSeq = ++requestSeqRef.current
-    const routeSpotCoords = spots.map((spot) => resolveCoord(spot))
+    const routeSpotCoords = spots.map((spot) => resolveCoord(spot) || customSpotCoords[normalizePlaceName(spot)] || null)
 
     debounceRef.current = setTimeout(() => {
       const waypoints = routeSpotCoords
@@ -238,7 +238,15 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
       requestSeqRef.current += 1
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [isLoaded, depCoord, destCoord, spots, clearRouteOverlay])
+  }, [isLoaded, depCoord, destCoord, spots, customSpotCoords, clearRouteOverlay])
+
+  useEffect(() => {
+    onRouteStateChange?.({
+      departure: departure.name,
+      destination: destination.name,
+      spots,
+    })
+  }, [departure.name, destination.name, spots, onRouteStateChange])
 
   useEffect(() => {
     if (!isLoaded || !mapRef.current || !window.google?.maps) return
@@ -332,11 +340,19 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
     setPlace({ name, coord })
     if (mapRef.current) {
       mapRef.current.panTo(coord)
-      mapRef.current.setZoom(12)
+      mapRef.current.setZoom(11)
     }
     setInput('')
     setPredictions([])
   }, [departure.name, destination.name, setDeparture, setDestination])
+
+  const setDepartureSafely = useCallback((name) => {
+    selectPlaceName(name, setDeparture, setDepInput, setDepPredictions)
+  }, [selectPlaceName])
+
+  const setDestinationSafely = useCallback((name) => {
+    selectPlaceName(name, setDestination, setDestInput, setDestPredictions)
+  }, [selectPlaceName])
 
   const addWaypoint = useCallback((name) => {
     const normalized = normalizePlaceName(name)
@@ -359,7 +375,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
     setCustomSpotCoords((prev) => ({ ...prev, [normalizePlaceName(name)]: finalCoord }))
     if (mapRef.current) {
       mapRef.current.panTo(finalCoord)
-      mapRef.current.setZoom(12)
+      mapRef.current.setZoom(11)
     }
     setWaypointInput('')
     setWaypointPredictions([])
@@ -417,7 +433,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
         setPredictions([])
         if (mapRef.current) {
           mapRef.current.panTo(coord)
-          mapRef.current.setZoom(12)
+          mapRef.current.setZoom(11)
         }
       }
     )
@@ -563,7 +579,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
               {STATION_CHIPS.map((chip) => (
                 <button
                   key={`dep-${chip}`}
-                  onClick={() => setDeparture({ name: chip, coord: resolveCoord(chip) })}
+                  onClick={() => setDepartureSafely(chip)}
                   className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
                     normalizePlaceName(departure.name) === normalizePlaceName(chip)
                       ? 'bg-yellow-500 border-yellow-500 text-white font-medium'
@@ -617,7 +633,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
               {STATION_CHIPS.map((chip) => (
                 <button
                   key={`dest-${chip}`}
-                  onClick={() => setDestination({ name: chip, coord: resolveCoord(chip) })}
+                  onClick={() => setDestinationSafely(chip)}
                   className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
                     normalizePlaceName(destination.name) === normalizePlaceName(chip)
                       ? 'bg-yellow-500 border-yellow-500 text-white font-medium'
@@ -696,7 +712,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
             <GoogleMap
               mapContainerStyle={{ width: '100%', height: '100%' }}
               center={center}
-              zoom={11}
+              zoom={10}
               onLoad={(map) => { mapRef.current = map }}
               onClick={handleMapClick}
               options={{ streetViewControl: false, mapTypeControl: false, fullscreenControl: false }}

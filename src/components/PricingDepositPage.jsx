@@ -169,8 +169,8 @@ function PricingDepositPage() {
         {!bookingDraft && (
           <Card className="border-amber-300 bg-amber-50">
             <CardContent className="py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-sm">
-              <p className="text-amber-900">예약 입력 정보가 없습니다. 홈에서 예약 정보를 입력하면 결제 흐름이 이어집니다.</p>
-              <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => router.push('/')}>예약 입력하러 가기</Button>
+              <p className="text-amber-900">예약 입력 정보가 없습니다. 예약 입력 페이지에서 정보를 먼저 입력해 주세요.</p>
+              <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => router.push('/booking')}>예약 입력하러 가기</Button>
             </CardContent>
           </Card>
         )}

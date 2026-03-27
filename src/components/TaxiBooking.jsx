@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Input } from '@/components/ui/input.jsx'
@@ -15,27 +15,31 @@ import { useRouter } from 'next/navigation'
 
 const BOOKING_DRAFT_STORAGE_KEY = 'booking_draft_v1'
 
-const TaxiBooking = ({ isOpen, onClose }) => {
+const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode = 'modal' }) => {
   const router = useRouter()
+  const isPageMode = displayMode === 'page'
   const today = new Date().toISOString().split('T')[0]
-  const totalSteps = 3
-  const stepLabels = ['코스 선택', '일정 설정', '예약자 정보']
-  const getInitialBookingData = () => ({
+  const flowSteps = [1, 2, 3]
+  const stepLabels = isPageMode
+    ? ['코스 선택(완료)', '예약 입력', '예약자 정보']
+    : ['코스 선택', '일정 설정', '예약자 정보']
+  const totalSteps = flowSteps.length
+  const getInitialBookingData = useCallback(() => ({
     departure: '비에이역',
     destination: '',
     date: new Date().toISOString().split('T')[0],
     time: '',
     duration: '',
     passengers: '',
-    course: '',
+    course: isPageMode ? 'custom' : '',
     specialRequests: '',
     name: '',
     phone: '',
     selectedSpots: []
-  })
+  }), [isPageMode])
   const [bookingData, setBookingData] = useState(getInitialBookingData)
 
-  const [currentStep, setCurrentStep] = useState(1)
+  const [currentStep, setCurrentStep] = useState(isPageMode ? 2 : 1)
   const [hoveredSpot, setHoveredSpot] = useState(null)
   const [showValidation, setShowValidation] = useState(false)
   const [draggedSpotIndex, setDraggedSpotIndex] = useState(null)
@@ -119,20 +123,62 @@ const TaxiBooking = ({ isOpen, onClose }) => {
   const shouldBlockBieiPair = (dep, dest) => dep === '비에이역' && dest === '비에이역'
 
   useEffect(() => {
+    if (displayMode !== 'modal') {
+      document.body.style.overflow = 'unset'
+      return
+    }
     if (isOpen) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = 'unset'
     }
     return () => { document.body.style.overflow = 'unset' }
-  }, [isOpen])
+  }, [isOpen, displayMode])
 
   useEffect(() => {
-    if (!isOpen) return
+    if (displayMode !== 'modal' || !isOpen) return
     const handleKeyDown = (e) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, displayMode])
+
+  useEffect(() => {
+    if (!(displayMode === 'page' || isOpen) || !initialDraft) return
+
+    const nextDeparture = initialDraft.departure || '비에이역'
+    const nextDestination = initialDraft.destination || ''
+    const blockedPair = shouldBlockBieiPair(nextDeparture, nextDestination)
+    const safeDestination = blockedPair ? '' : nextDestination
+    const selectedSpots = Array.isArray(initialDraft.selectedSpots)
+      ? initialDraft.selectedSpots
+      : (Array.isArray(initialDraft.spots) ? initialDraft.spots : [])
+
+    setBookingData((prev) => ({
+      ...getInitialBookingData(),
+      course: 'custom',
+      departure: nextDeparture,
+      destination: safeDestination,
+      selectedSpots,
+      specialRequests: initialDraft.specialRequests || prev.specialRequests || '',
+    }))
+
+    setPlaceCoordinates({
+      departure: COORDS_DICT[nextDeparture] || null,
+      destination: blockedPair ? null : (COORDS_DICT[safeDestination] || null),
+    })
+
+    const requestedStep = Number.isFinite(initialDraft.startStep) ? initialDraft.startStep : 2
+    const nextStep = isPageMode ? Math.max(2, Math.min(3, requestedStep)) : Math.max(1, Math.min(3, requestedStep))
+    setCurrentStep(nextStep)
+    setShowValidation(false)
+    if (blockedPair) setShowBieiPairWarning(true)
+  }, [displayMode, isOpen, initialDraft, isPageMode, getInitialBookingData])
+
+  useEffect(() => {
+    if (!isPageMode) return
+    setBookingData((prev) => (prev.course ? prev : { ...prev, course: 'custom' }))
+    if (currentStep < 2) setCurrentStep(2)
+  }, [isPageMode, currentStep])
 
   const handleInputChange = (field, value, coords = null) => {
     const nextDeparture = field === 'departure' ? value : bookingData.departure
@@ -216,6 +262,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
   }
 
   const getStepErrors = (step) => {
+    if (isPageMode && step === 1) return []
     if (step === 1) return bookingData.course ? [] : ['투어 코스를 하나 선택해 주세요.']
     if (step === 2) {
       const errors = []
@@ -238,7 +285,8 @@ const TaxiBooking = ({ isOpen, onClose }) => {
   const canSubmit = () => getStepErrors(3).length === 0
 
   const handleNext = () => {
-    if (currentStep < totalSteps && canProceedToNext()) {
+    const maxStep = flowSteps[flowSteps.length - 1]
+    if (currentStep < maxStep && canProceedToNext()) {
       setShowValidation(false)
       setCurrentStep(currentStep + 1)
       return
@@ -247,6 +295,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
   }
 
   const handlePrev = () => {
+    if (isPageMode && currentStep <= 2) return
     if (currentStep > 1) setCurrentStep(currentStep - 1)
   }
 
@@ -303,7 +352,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
       return
     }
 
-    setCurrentStep(1)
+    setCurrentStep(isPageMode ? 2 : 1)
     setShowValidation(false)
     setDraggedSpotIndex(null)
     setDragOverSpotIndex(null)
@@ -313,22 +362,34 @@ const TaxiBooking = ({ isOpen, onClose }) => {
     router.push('/pricing')
   }
 
-  const progressPercent = Math.round((currentStep / totalSteps) * 100)
+  const visibleStepIndex = Math.max(0, flowSteps.indexOf(currentStep))
+  const progressPercent = Math.round(((visibleStepIndex + 1) / totalSteps) * 100)
   const selectedCourse = tourCourses.find(c => c.id === bookingData.course)
   const currentStepErrors = getStepErrors(currentStep)
 
-  if (!isOpen) return null
+  const shouldRender = displayMode === 'page' || isOpen
+  if (!shouldRender) return null
+
+  const outerClassName = displayMode === 'modal'
+    ? 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4'
+    : 'w-full'
+
+  const contentClassName = displayMode === 'modal'
+    ? 'bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto'
+    : 'bg-white rounded-lg w-full border shadow-sm'
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
+      className={outerClassName}
+      onMouseDown={(e) => {
+        if (displayMode === 'modal' && e.target === e.currentTarget) onClose()
+      }}
     >
-      <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto" onMouseDown={(e) => e.stopPropagation()}>
+      <div className={contentClassName} onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center p-6 border-b">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">택시 투어 예약</h2>
-            <p className="text-sm text-gray-500 mt-1">3단계로 간단하게 예약을 완료할 수 있어요.</p>
+            <p className="text-sm text-gray-500 mt-1">{isPageMode ? '코스 선택은 완료되었습니다. 남은 2단계를 입력해 주세요.' : '3단계로 간단하게 예약을 완료할 수 있어요.'}</p>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <X className="h-5 w-5" />
@@ -347,15 +408,15 @@ const TaxiBooking = ({ isOpen, onClose }) => {
             </div>
           </div>
           <div className="flex items-center justify-center">
-            {[1, 2, 3].map((step) => (
+            {flowSteps.map((step, index) => (
               <div key={step} className="flex items-center">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${currentStep >= step ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
-                  {step}
+                  {index + 1}
                 </div>
                 <div className={`ml-2 text-sm ${currentStep >= step ? 'text-yellow-600' : 'text-gray-400'}`}>
-                  {stepLabels[step - 1]}
+                  {stepLabels[index]}
                 </div>
-                {step < 3 && <div className="w-12 h-px bg-gray-300 mx-4" />}
+                {index < flowSteps.length - 1 && <div className="w-12 h-px bg-gray-300 mx-4" />}
               </div>
             ))}
           </div>
@@ -384,9 +445,8 @@ const TaxiBooking = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {/* 1단계: 코스 선택 */}
-          {currentStep === 1 && (
-            <div className="space-y-6">
+          {currentStep === 1 && !isPageMode && (
+             <div className="space-y-6">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-start">
                   <AlertTriangle className="h-5 w-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
@@ -447,9 +507,15 @@ const TaxiBooking = ({ isOpen, onClose }) => {
               <div className="space-y-6">
                 <h3 className="text-lg font-semibold">투어 일정을 설정해주세요</h3>
 
+                {isPageMode && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+                    경로는 투어 상세에서 확정된 상태입니다. 이 화면에서는 일정과 요청사항만 입력해 주세요.
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="date">투어 날짜</Label>
+                    <Label htmlFor="date" className="mb-1.5 block">투어 날짜</Label>
                     <Input
                       id="date"
                       type="date"
@@ -459,7 +525,7 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="time">투어 시작 시간</Label>
+                    <Label htmlFor="time" className="mb-1.5 block">투어 시작 시간</Label>
                     <Select value={bookingData.time} onValueChange={(value) => handleInputChange('time', value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="시간 선택" />
@@ -526,97 +592,111 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                   </div>
                 </div>
 
-                {/* 출발지/도착지 설정 */}
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="departure">출발지</Label>
-                      <Button type="button" variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => requestMapSelectionMode('departure')}>
-                        지도에서 선택
-                      </Button>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => requestMapSelectionMode('departure')}
-                      className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm hover:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                    >
-                      {bookingData.departure || '출발지를 선택해 주세요'}
-                    </button>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {popularDepartureChips.map((chip) => (
-                        <Button
-                          key={chip}
+                {isPageMode ? (
+                  <Card className="border-gray-200 bg-gray-50">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">확정된 경로</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 text-sm">
+                      <p><span className="text-gray-500">출발지:</span> <span className="font-medium text-gray-900">{bookingData.departure || '-'}</span></p>
+                      <p><span className="text-gray-500">도착지:</span> <span className="font-medium text-gray-900">{bookingData.destination || '-'}</span></p>
+                      <p><span className="text-gray-500">경유지:</span> <span className="font-medium text-gray-900">{bookingData.selectedSpots?.length ? bookingData.selectedSpots.join(', ') : '없음'}</span></p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <>
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="departure">출발지</Label>
+                          <Button type="button" variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => requestMapSelectionMode('departure')}>
+                            지도에서 선택
+                          </Button>
+                        </div>
+                        <button
                           type="button"
-                          variant={bookingData.departure === chip ? 'default' : 'outline'}
-                          size="sm"
-                          className={bookingData.departure === chip ? 'bg-yellow-500 hover:bg-yellow-600' : ''}
-                          onClick={() => handleInputChange('departure', chip)}
+                          onClick={() => requestMapSelectionMode('departure')}
+                          className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm hover:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                         >
-                          {chip}
-                        </Button>
-                      ))}
-                    </div>
-                    <p className="mt-1 text-xs text-gray-500">인기 출발지 칩을 선택하거나, 지도로 직접 고를 수 있어요.</p>
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="destination">도착지</Label>
-                      <Button type="button" variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => requestMapSelectionMode('destination')}>
-                        지도에서 선택
-                      </Button>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => requestMapSelectionMode('destination')}
-                      className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm hover:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                    >
-                      {bookingData.destination || '도착지를 선택해 주세요'}
-                    </button>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {popularDestinationChips.map((chip) => (
-                        <Button
-                          key={`destination-${chip}`}
+                          {bookingData.departure || '출발지를 선택해 주세요'}
+                        </button>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {popularDepartureChips.map((chip) => (
+                            <Button
+                              key={chip}
+                              type="button"
+                              variant={bookingData.departure === chip ? 'default' : 'outline'}
+                              size="sm"
+                              className={bookingData.departure === chip ? 'bg-yellow-500 hover:bg-yellow-600' : ''}
+                              onClick={() => handleInputChange('departure', chip)}
+                            >
+                              {chip}
+                            </Button>
+                          ))}
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500">인기 출발지 칩을 선택하거나, 지도로 직접 고를 수 있어요.</p>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="destination">도착지</Label>
+                          <Button type="button" variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => requestMapSelectionMode('destination')}>
+                            지도에서 선택
+                          </Button>
+                        </div>
+                        <button
                           type="button"
-                          variant={bookingData.destination === chip ? 'default' : 'outline'}
-                          size="sm"
-                          className={bookingData.destination === chip ? 'bg-yellow-500 hover:bg-yellow-600' : ''}
-                          onClick={() => handleInputChange('destination', chip, COORDS_DICT[chip] || null)}
+                          onClick={() => requestMapSelectionMode('destination')}
+                          className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm hover:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                         >
-                          {chip}
-                        </Button>
-                      ))}
+                          {bookingData.destination || '도착지를 선택해 주세요'}
+                        </button>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {popularDestinationChips.map((chip) => (
+                            <Button
+                              key={`destination-${chip}`}
+                              type="button"
+                              variant={bookingData.destination === chip ? 'default' : 'outline'}
+                              size="sm"
+                              className={bookingData.destination === chip ? 'bg-yellow-500 hover:bg-yellow-600' : ''}
+                              onClick={() => handleInputChange('destination', chip, COORDS_DICT[chip] || null)}
+                            >
+                              {chip}
+                            </Button>
+                          ))}
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500">직접 입력 대신 장소 검색 또는 지도 선택으로 지정됩니다.</p>
+                      </div>
                     </div>
-                    <p className="mt-1 text-xs text-gray-500">직접 입력 대신 장소 검색 또는 지도 선택으로 지정됩니다.</p>
-                  </div>
-                </div>
 
-                {/* 커스텀 코스 관광지 선택 */}
-                {bookingData.course === 'custom' && (
-                  <div>
-                    <Label>방문하고 싶은 장소 선택</Label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-                      {popularDestinations.map((dest) => (
-                        <Button
-                          key={dest}
-                          variant={bookingData.selectedSpots?.includes(dest) ? 'default' : 'outline'}
-                          size="sm"
-                          className="text-xs"
-                          onClick={() => handleSpotToggle(dest)}
-                        >
-                          {dest}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
+                    {bookingData.course === 'custom' && (
+                      <div>
+                        <Label>방문하고 싶은 장소 선택</Label>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
+                          {popularDestinations.map((dest) => (
+                            <Button
+                              key={dest}
+                              variant={bookingData.selectedSpots?.includes(dest) ? 'default' : 'outline'}
+                              size="sm"
+                              className="text-xs"
+                              onClick={() => handleSpotToggle(dest)}
+                            >
+                              {dest}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 <div>
-                  <Label htmlFor="specialRequests">특별 요청사항</Label>
+                  <Label htmlFor="specialRequests" className="mb-1.5 block">특별 요청사항</Label>
                   <Textarea
                     id="specialRequests"
                     placeholder="아이 동반, 휠체어 이용, 특별한 요청사항 등을 입력해주세요"
                     value={bookingData.specialRequests}
                     onChange={(e) => handleInputChange('specialRequests', e.target.value)}
+                    className="mt-1"
                   />
                 </div>
               </div>
@@ -631,11 +711,12 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                     spots={bookingData.selectedSpots || []}
                     availableSpots={availableSpots}
                     spotMeta={spotMeta}
-                    onPlaceChange={handleInputChange}
-                    onSpotAdd={handleSpotAdd}
-                    onSpotRemove={handleSpotRemove}
+                    onPlaceChange={isPageMode ? () => {} : handleInputChange}
+                    onSpotAdd={isPageMode ? () => {} : handleSpotAdd}
+                    onSpotRemove={isPageMode ? () => {} : handleSpotRemove}
                     hoveredSpot={hoveredSpot}
-                    selectionModeRequest={selectionModeRequest}
+                    selectionModeRequest={isPageMode ? null : selectionModeRequest}
+                    controlsEnabled={!isPageMode}
                     departureCoordinate={placeCoordinates.departure}
                     destinationCoordinate={placeCoordinates.destination}
                   />
@@ -646,23 +727,23 @@ const TaxiBooking = ({ isOpen, onClose }) => {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label>선택된 관광지</Label>
-                      <span className="text-xs text-gray-500">드래그로 순서를 변경할 수 있어요</span>
+                      <span className="text-xs text-gray-500">{isPageMode ? '확정된 경로 확인용입니다' : '드래그로 순서를 변경할 수 있어요'}</span>
                     </div>
                     <div className="space-y-1">
                       {bookingData.selectedSpots.map((spot, index) => (
                         <div
                           key={index}
-                          draggable
-                          onDragStart={() => handleSpotDragStart(index)}
-                          onDragOver={(event) => handleSpotDragOver(event, index)}
-                          onDrop={() => handleSpotDrop(index)}
+                          draggable={!isPageMode}
+                          onDragStart={() => !isPageMode && handleSpotDragStart(index)}
+                          onDragOver={(event) => !isPageMode && handleSpotDragOver(event, index)}
+                          onDrop={() => !isPageMode && handleSpotDrop(index)}
                           onDragEnd={handleSpotDragEnd}
-                          className={`flex items-center justify-between bg-gray-50 p-2 rounded hover:bg-gray-100 transition-colors cursor-move ${dragOverSpotIndex === index ? 'ring-2 ring-blue-300 bg-blue-50' : ''}`}
+                          className={`flex items-center justify-between bg-gray-50 p-2 rounded hover:bg-gray-100 transition-colors ${isPageMode ? 'cursor-default' : 'cursor-move'} ${dragOverSpotIndex === index ? 'ring-2 ring-blue-300 bg-blue-50' : ''}`}
                           onMouseEnter={() => setHoveredSpot(spot)}
                           onMouseLeave={() => setHoveredSpot(null)}
                         >
                           <span className="text-sm">{spot}</span>
-                          <Button variant="ghost" size="sm" onClick={() => handleSpotRemove(spot)}>
+                          <Button variant="ghost" size="sm" onClick={() => !isPageMode && handleSpotRemove(spot)} disabled={isPageMode}>
                             <X className="h-3 w-3" />
                           </Button>
                         </div>
@@ -677,77 +758,83 @@ const TaxiBooking = ({ isOpen, onClose }) => {
           {/* 3단계: 예약자 정보 */}
           {currentStep === 3 && (
             <div className="space-y-6">
-              <h3 className="text-lg font-semibold">예약자 정보를 입력해주세요</h3>
+              <h3 className="text-lg font-semibold">예약자 정보를 입력하고 내용을 확인해 주세요</h3>
 
-              <div className="rounded-lg border-2 border-yellow-200 bg-yellow-50/60 p-4 space-y-3">
-                <div>
-                  <Label htmlFor="name">이름 *</Label>
-                  <Input
-                    id="name"
-                    placeholder="홍길동"
-                    value={bookingData.name}
-                    onChange={(e) => handleInputChange('name', e.target.value)}
-                    className="mt-1 border-2 border-yellow-300 bg-white focus-visible:ring-yellow-500"
-                  />
-                  <p className="mt-1 text-xs text-gray-600">예약 확인을 위해 이름은 필수 입력입니다.</p>
-                </div>
-                <div>
-                  <Label htmlFor="phone">연락처</Label>
-                  <Input
-                    id="phone"
-                    placeholder="010-1234-5678"
-                    value={bookingData.phone}
-                    onChange={(e) => handleInputChange('phone', e.target.value)}
-                    className="mt-1 border-2 border-gray-200 bg-white focus-visible:ring-yellow-500"
-                  />
-                </div>
-              </div>
-
-              {/* 예약 요약 */}
-              <Card className="bg-gray-50">
-                <CardHeader>
-                  <CardTitle className="text-base">예약 요약</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>선택 코스:</span>
-                    <span className="font-medium">{tourCourses.find(c => c.id === bookingData.course)?.name || '미선택'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>출발지:</span>
-                    <span className="font-medium">{bookingData.departure || '미선택'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>도착지:</span>
-                    <span className="font-medium">{bookingData.destination || '미선택'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>투어 날짜:</span>
-                    <span className="font-medium">{bookingData.date || '미선택'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>시작 시간:</span>
-                    <span className="font-medium">{bookingData.time || '미선택'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>탑승 인원:</span>
-                    <span className="font-medium">{bookingData.passengers || '미선택'}명</span>
-                  </div>
-                  {bookingData.selectedSpots && bookingData.selectedSpots.length > 0 && (
-                    <div className="flex justify-between">
-                      <span>방문 장소:</span>
-                      <span className="font-medium text-right max-w-xs">{bookingData.selectedSpots.join(', ')}</span>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="border-yellow-200 bg-yellow-50/60">
+                  <CardHeader>
+                    <CardTitle className="text-base">예약자 정보</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div>
+                      <Label htmlFor="name">이름 *</Label>
+                      <Input
+                        id="name"
+                        placeholder="홍길동"
+                        value={bookingData.name}
+                        onChange={(e) => handleInputChange('name', e.target.value)}
+                        className="mt-1 border-2 border-yellow-300 bg-white focus-visible:ring-yellow-500"
+                      />
+                      <p className="mt-1 text-xs text-gray-600">예약 확인을 위해 이름은 필수 입력입니다.</p>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                    <div>
+                      <Label htmlFor="phone">연락처</Label>
+                      <Input
+                        id="phone"
+                        placeholder="010-1234-5678"
+                        value={bookingData.phone}
+                        onChange={(e) => handleInputChange('phone', e.target.value)}
+                        className="mt-1 border-2 border-gray-200 bg-white focus-visible:ring-yellow-500"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-gray-50">
+                  <CardHeader>
+                    <CardTitle className="text-base">예약 요약</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>선택 코스:</span>
+                      <span className="font-medium">{tourCourses.find(c => c.id === bookingData.course)?.name || '미선택'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>출발지:</span>
+                      <span className="font-medium">{bookingData.departure || '미선택'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>도착지:</span>
+                      <span className="font-medium">{bookingData.destination || '미선택'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>투어 날짜:</span>
+                      <span className="font-medium">{bookingData.date || '미선택'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>시작 시간:</span>
+                      <span className="font-medium">{bookingData.time || '미선택'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>탑승 인원:</span>
+                      <span className="font-medium">{bookingData.passengers || '미선택'}명</span>
+                    </div>
+                    {bookingData.selectedSpots && bookingData.selectedSpots.length > 0 && (
+                      <div className="flex justify-between">
+                        <span>방문 장소:</span>
+                        <span className="font-medium text-right max-w-xs">{bookingData.selectedSpots.join(', ')}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           )}
         </div>
 
         {/* 하단 버튼 */}
         <div className="flex justify-between items-center p-6 border-t bg-gray-50">
-          <Button variant="outline" onClick={handlePrev} disabled={currentStep === 1}>
+          <Button variant="outline" onClick={handlePrev} disabled={isPageMode ? currentStep <= 2 : currentStep === 1}>
             이전
           </Button>
           <div className="flex gap-2">

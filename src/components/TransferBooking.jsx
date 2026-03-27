@@ -36,7 +36,7 @@ const popularChips = ['아사히카와 공항', '아사히카와역', '비에이
 const totalSteps = 3
 const stepLabels = ['경로 설정', '일정·인원', '예약자 정보']
 
-export default function TransferBooking({ isOpen, onClose }) {
+export default function TransferBooking({ isOpen = false, onClose, displayMode = 'modal' }) {
   const router = useRouter()
   const today = new Date().toISOString().split('T')[0]
 
@@ -65,20 +65,24 @@ export default function TransferBooking({ isOpen, onClose }) {
   })
 
   useEffect(() => {
+    if (displayMode !== 'modal') {
+      document.body.style.overflow = 'unset'
+      return
+    }
     if (isOpen) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = 'unset'
     }
     return () => { document.body.style.overflow = 'unset' }
-  }, [isOpen])
+  }, [isOpen, displayMode])
 
   useEffect(() => {
-    if (!isOpen) return
+    if (displayMode !== 'modal' || !isOpen) return
     const handleKeyDown = (e) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, displayMode])
 
   const handleInputChange = (field, value, coords = null) => {
     setData(prev => ({ ...prev, [field]: value }))
@@ -207,7 +211,7 @@ export default function TransferBooking({ isOpen, onClose }) {
       setShowValidation(false)
       setData(getInitialData())
       setPlaceCoordinates({ departure: null, destination: null })
-      onClose()
+      onClose?.()
       router.push('/reservations')
     } catch (error) {
       setSubmitError(error?.message || '송영 요청에 실패했습니다.')
@@ -219,15 +223,24 @@ export default function TransferBooking({ isOpen, onClose }) {
   const progressPercent = Math.round((currentStep / totalSteps) * 100)
   const currentStepErrors = getStepErrors(currentStep)
 
-  if (!isOpen) return null
+  const shouldRender = displayMode === 'page' || isOpen
+  if (!shouldRender) return null
+
+  const outerClassName = displayMode === 'modal'
+    ? 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4'
+    : 'w-full'
+
+  const contentClassName = displayMode === 'modal'
+    ? 'bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto'
+    : 'bg-white rounded-lg w-full border shadow-sm'
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
+      className={outerClassName}
+      onMouseDown={(e) => { if (displayMode === 'modal' && e.target === e.currentTarget) onClose?.() }}
     >
       <div
-        className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto"
+        className={contentClassName}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* 헤더 */}
