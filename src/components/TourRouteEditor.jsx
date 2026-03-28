@@ -245,8 +245,9 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
       departure: departure.name,
       destination: destination.name,
       spots,
+      spotCoordinates: customSpotCoords,
     })
-  }, [departure.name, destination.name, spots, onRouteStateChange])
+  }, [departure.name, destination.name, spots, customSpotCoords, onRouteStateChange])
 
   useEffect(() => {
     if (!isLoaded || !mapRef.current || !window.google?.maps) return

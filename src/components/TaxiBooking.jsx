@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Input } from '@/components/ui/input.jsx'
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label.jsx'
 import { Textarea } from '@/components/ui/textarea.jsx'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx'
-import { Clock, MapPin, CreditCard, X, AlertTriangle } from 'lucide-react'
+import { Clock, MapPin, CreditCard, X, AlertTriangle, Loader2 } from 'lucide-react'
 import { Toaster } from 'react-hot-toast'
 import MapContainer, { COORDS_DICT } from '@/components/MapContainer.jsx'
 import { useRouter } from 'next/navigation'
@@ -31,6 +31,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
     time: '',
     duration: '',
     passengers: '',
+    luggage: 'none',
     course: isPageMode ? 'custom' : '',
     specialRequests: '',
     name: '',
@@ -46,10 +47,14 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
   const [dragOverSpotIndex, setDragOverSpotIndex] = useState(null)
   const [selectionModeRequest, setSelectionModeRequest] = useState(null)
   const [showBieiPairWarning, setShowBieiPairWarning] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const jumboByLuggageAlertedRef = useRef(false)
+  const winter4wdAlertedRef = useRef(false)
   const [placeCoordinates, setPlaceCoordinates] = useState({
     departure: COORDS_DICT['비에이역'] || null,
     destination: null,
   })
+  const [customSpotCoordinates, setCustomSpotCoordinates] = useState({})
 
   const popularDepartureChips = ['비에이역', '지요가오카역', '후라노역', '아사히카와역']
   const popularDestinationChips = ['비에이역', '지요가오카역', '후라노역', '아사히카와역']
@@ -122,6 +127,29 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
 
   const shouldBlockBieiPair = (dep, dest) => dep === '비에이역' && dest === '비에이역'
 
+  const passengerCount = Number(bookingData.passengers || 0)
+  const hasLuggage = bookingData.luggage !== 'none'
+  const isJumboByPassengers = passengerCount >= 5
+  const isJumboByLuggage = passengerCount > 0 && passengerCount <= 4 && hasLuggage
+
+  const isWinterMonth = useMemo(() => {
+    if (!bookingData.date) return false
+    const parsed = new Date(bookingData.date)
+    if (Number.isNaN(parsed.getTime())) return false
+    const month = parsed.getMonth() + 1
+    return month <= 3
+  }, [bookingData.date])
+
+  const includesBaegunjang = useMemo(() => {
+    const candidates = [bookingData.departure, bookingData.destination, ...(bookingData.selectedSpots || [])]
+    return candidates.some((value) => typeof value === 'string' && value.includes('백은장'))
+  }, [bookingData.departure, bookingData.destination, bookingData.selectedSpots])
+
+  const requiresWinter4wd = includesBaegunjang && isWinterMonth
+  const selectedVehicleType = includesBaegunjang
+    ? '사륜구동 차량'
+    : (isJumboByPassengers || isJumboByLuggage ? '점보택시' : '일반차량')
+
   useEffect(() => {
     if (displayMode !== 'modal') {
       document.body.style.overflow = 'unset'
@@ -152,6 +180,9 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
     const selectedSpots = Array.isArray(initialDraft.selectedSpots)
       ? initialDraft.selectedSpots
       : (Array.isArray(initialDraft.spots) ? initialDraft.spots : [])
+    const draftSpotCoordinates = initialDraft.spotCoordinates && typeof initialDraft.spotCoordinates === 'object'
+      ? initialDraft.spotCoordinates
+      : {}
 
     setBookingData((prev) => ({
       ...getInitialBookingData(),
@@ -166,6 +197,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
       departure: COORDS_DICT[nextDeparture] || null,
       destination: blockedPair ? null : (COORDS_DICT[safeDestination] || null),
     })
+    setCustomSpotCoordinates(draftSpotCoordinates)
 
     const requestedStep = Number.isFinite(initialDraft.startStep) ? initialDraft.startStep : 2
     const nextStep = isPageMode ? Math.max(2, Math.min(3, requestedStep)) : Math.max(1, Math.min(3, requestedStep))
@@ -179,6 +211,28 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
     setBookingData((prev) => (prev.course ? prev : { ...prev, course: 'custom' }))
     if (currentStep < 2) setCurrentStep(2)
   }, [isPageMode, currentStep])
+
+  useEffect(() => {
+    if (isJumboByLuggage && !jumboByLuggageAlertedRef.current) {
+      alert('4인 이하라도 캐리어가 있으면 점보택시로 배차됩니다.')
+      jumboByLuggageAlertedRef.current = true
+      return
+    }
+    if (!isJumboByLuggage) {
+      jumboByLuggageAlertedRef.current = false
+    }
+  }, [isJumboByLuggage])
+
+  useEffect(() => {
+    if (requiresWinter4wd && !winter4wdAlertedRef.current) {
+      alert('백은장이 경로에 포함되고 1~3월(3월 포함) 일정인 경우 4륜구동 차량으로 진행됩니다.')
+      winter4wdAlertedRef.current = true
+      return
+    }
+    if (!requiresWinter4wd) {
+      winter4wdAlertedRef.current = false
+    }
+  }, [requiresWinter4wd])
 
   const handleInputChange = (field, value, coords = null) => {
     const nextDeparture = field === 'departure' ? value : bookingData.departure
@@ -284,6 +338,29 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
   const canProceedToNext = () => getStepErrors(currentStep).length === 0
   const canSubmit = () => getStepErrors(3).length === 0
 
+  const handleStepClick = (targetStep) => {
+    if (!flowSteps.includes(targetStep) || targetStep === currentStep) return
+
+    if (isPageMode && targetStep === 1) {
+      router.push('/tours')
+      return
+    }
+
+    if (targetStep < currentStep) {
+      setCurrentStep(targetStep)
+      setShowValidation(false)
+      return
+    }
+
+    if (canProceedToNext()) {
+      setCurrentStep(targetStep)
+      setShowValidation(false)
+      return
+    }
+
+    setShowValidation(true)
+  }
+
   const handleNext = () => {
     const maxStep = flowSteps[flowSteps.length - 1]
     if (currentStep < maxStep && canProceedToNext()) {
@@ -300,6 +377,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
   }
 
   const handleSubmit = async () => {
+    if (isSubmitting) return
     if (!canSubmit()) { setShowValidation(true); return }
 
     const durationNumber = Number(bookingData.duration)
@@ -327,7 +405,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
       number_of_people: passengersNumber,
       departure: bookingData.departure,
       destination: bookingData.destination,
-      desired_course: desiredCourse,
+      desired_course: `${desiredCourse} [차량:${selectedVehicleType}${requiresWinter4wd ? ', 겨울4WD' : ''}]`,
     }
 
     const draft = {
@@ -340,26 +418,26 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
         time: bookingData.time,
         duration: durationNumber,
         passengers: passengersNumber,
+        vehicleType: selectedVehicleType,
+        requiresWinter4wd,
         selectedSpots: bookingData.selectedSpots || [],
       },
       createdAt: new Date().toISOString(),
     }
 
     try {
+      setIsSubmitting(true)
       sessionStorage.setItem(BOOKING_DRAFT_STORAGE_KEY, JSON.stringify(draft))
     } catch {
+      setIsSubmitting(false)
       alert('예약 정보를 저장하지 못했습니다. 브라우저 저장소 설정을 확인해 주세요.')
       return
     }
 
-    setCurrentStep(isPageMode ? 2 : 1)
-    setShowValidation(false)
-    setDraggedSpotIndex(null)
-    setDragOverSpotIndex(null)
-    setBookingData(getInitialBookingData())
-    setPlaceCoordinates({ departure: COORDS_DICT['비에이역'] || null, destination: null })
-    onClose()
-    router.push('/pricing')
+    if (displayMode === 'modal') {
+      onClose?.()
+    }
+    router.replace('/pricing')
   }
 
   const visibleStepIndex = Math.max(0, flowSteps.indexOf(currentStep))
@@ -410,12 +488,23 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
           <div className="flex items-center justify-center">
             {flowSteps.map((step, index) => (
               <div key={step} className="flex items-center">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${currentStep >= step ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                <button
+                  type="button"
+                  onClick={() => handleStepClick(step)}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all cursor-pointer ${currentStep >= step ? 'bg-yellow-500 text-white shadow-sm ring-2 ring-yellow-200' : 'bg-gray-200 text-gray-600 hover:bg-gray-300 hover:ring-2 hover:ring-gray-300'}`}
+                  aria-current={currentStep === step ? 'step' : undefined}
+                  title={`${stepLabels[index]} 단계로 이동`}
+                >
                   {index + 1}
-                </div>
-                <div className={`ml-2 text-sm ${currentStep >= step ? 'text-yellow-600' : 'text-gray-400'}`}>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStepClick(step)}
+                  className={`ml-2 text-sm transition-colors cursor-pointer ${currentStep >= step ? 'text-yellow-700 font-medium hover:text-yellow-800' : 'text-gray-400 hover:text-gray-500'}`}
+                  title={`${stepLabels[index]} 단계로 이동`}
+                >
                   {stepLabels[index]}
-                </div>
+                </button>
                 {index < flowSteps.length - 1 && <div className="w-12 h-px bg-gray-300 mx-4" />}
               </div>
             ))}
@@ -592,6 +681,32 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                   </div>
                 </div>
 
+                <div className="rounded-xl border border-yellow-200 bg-yellow-50/30 p-4 space-y-3">
+                  <div>
+                    <Label className="text-sm font-semibold text-gray-900">캐리어 유무</Label>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Button type="button" size="sm" variant={bookingData.luggage === 'none' ? 'default' : 'outline'} className={bookingData.luggage === 'none' ? 'bg-yellow-500 hover:bg-yellow-600' : ''} onClick={() => handleInputChange('luggage', 'none')}>
+                        없음
+                      </Button>
+                      <Button type="button" size="sm" variant={bookingData.luggage === 'has' ? 'default' : 'outline'} className={bookingData.luggage === 'has' ? 'bg-yellow-500 hover:bg-yellow-600' : ''} onClick={() => handleInputChange('luggage', 'has')}>
+                        있음
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border bg-white p-3 text-sm">
+                    <p><span className="text-gray-500">자동 배차 차량:</span> <span className="font-semibold text-gray-900">{selectedVehicleType}</span></p>
+                    {isJumboByPassengers && <p className="mt-1 text-xs text-blue-700">5인 이상은 점보택시가 자동 배정됩니다.</p>}
+                    {isJumboByLuggage && <p className="mt-1 text-xs text-blue-700">4인 이하라도 캐리어가 있으면 점보택시가 적용됩니다.</p>}
+                  </div>
+
+                  {requiresWinter4wd && (
+                    <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
+                      백은장이 경로에 포함되고 겨울 시즌(1~3월, 3월 포함)이므로 4륜구동 차량으로 진행됩니다.
+                    </div>
+                  )}
+                </div>
+
                 {isPageMode ? (
                   <Card className="border-gray-200 bg-gray-50">
                     <CardHeader className="pb-2">
@@ -717,6 +832,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                     hoveredSpot={hoveredSpot}
                     selectionModeRequest={isPageMode ? null : selectionModeRequest}
                     controlsEnabled={!isPageMode}
+                    customSpotCoords={customSpotCoordinates}
                     departureCoordinate={placeCoordinates.departure}
                     destinationCoordinate={placeCoordinates.destination}
                   />
@@ -819,6 +935,10 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                       <span>탑승 인원:</span>
                       <span className="font-medium">{bookingData.passengers || '미선택'}명</span>
                     </div>
+                    <div className="flex justify-between">
+                      <span>배차 차량:</span>
+                      <span className="font-medium">{selectedVehicleType}{requiresWinter4wd ? ' (겨울 4WD)' : ''}</span>
+                    </div>
                     {bookingData.selectedSpots && bookingData.selectedSpots.length > 0 && (
                       <div className="flex justify-between">
                         <span>방문 장소:</span>
@@ -843,9 +963,8 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                 다음
               </Button>
             ) : (
-              <Button onClick={handleSubmit} className="bg-yellow-500 hover:bg-yellow-600" disabled={!canSubmit()}>
-                <CreditCard className="mr-2 h-4 w-4" />
-                요금 확인 및 결제
+              <Button onClick={handleSubmit} className="bg-yellow-500 hover:bg-yellow-600" disabled={!canSubmit() || isSubmitting}>
+                {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />로딩 중...</> : <><CreditCard className="mr-2 h-4 w-4" />요금 확인 및 결제</>}
               </Button>
             )}
           </div>

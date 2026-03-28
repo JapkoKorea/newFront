@@ -52,7 +52,7 @@ export default function Navigation() {
   const openBooking = () => {
     setIsServiceSelectorOpen(false)
     setIsMobileMenuOpen(false)
-    router.push('/booking')
+    router.push('/tours')
   }
   const openTransfer = () => {
     setIsServiceSelectorOpen(false)

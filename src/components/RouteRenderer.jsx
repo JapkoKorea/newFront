@@ -13,6 +13,7 @@ const RouteRenderer = ({
   departureCoordinate,
   destinationCoordinate,
   spots = [],
+  customSpotCoords = {},
   onRouteChange,
 }) => {
   const directionsService = useRef(null);
@@ -32,6 +33,10 @@ const RouteRenderer = ({
     if (!location) return null;
     const normalizedLocation = normalizeLocationKey(location);
     
+    if (customSpotCoords[normalizedLocation]) {
+      return customSpotCoords[normalizedLocation];
+    }
+
     // 좌표 사전에서 찾기
     if (COORDS_DICT[normalizedLocation]) {
       return COORDS_DICT[normalizedLocation];
@@ -46,7 +51,7 @@ const RouteRenderer = ({
     }
     
     return null;
-  }, []);
+  }, [customSpotCoords]);
 
   // 경로 계산 (디바운싱 적용)
   const calculateRoute = useCallback(() => {

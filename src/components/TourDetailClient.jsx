@@ -37,6 +37,7 @@ export default function TourDetailClient({ course, spotGuideData, fixedRouteProf
     departure: routeDraft.departure,
     destination: routeDraft.destination,
     selectedSpots: routeDraft.spots,
+    spotCoordinates: routeDraft.spotCoordinates || {},
     startStep: 2,
     courseName: course.name,
     courseId: course.id,

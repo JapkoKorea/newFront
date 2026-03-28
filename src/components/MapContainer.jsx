@@ -60,6 +60,7 @@ const MapContainer = ({
   hoveredSpot,
   selectionModeRequest,
   controlsEnabled = true,
+  customSpotCoords = {},
 }) => {
   const { isLoaded } = useLoadScript({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY,
@@ -253,7 +254,7 @@ const MapContainer = ({
     // 관광지 마커들
     spots.forEach((spot, index) => {
       const normalizedSpot = normalizeLocationKey(spot)
-      const coords = COORDS_DICT[normalizedSpot] || 
+      const coords = customSpotCoords[normalizedSpot] || COORDS_DICT[normalizedSpot] || 
         (spot.includes(',') ? {
           lat: parseFloat(spot.split(',')[0]),
           lng: parseFloat(spot.split(',')[1])
@@ -274,7 +275,7 @@ const MapContainer = ({
     });
 
     return markers;
-  }, [departure, destination, departureCoordinate, destinationCoordinate, spots, hoveredSpot, onSpotRemove]);
+  }, [departure, destination, departureCoordinate, destinationCoordinate, spots, hoveredSpot, onSpotRemove, customSpotCoords]);
 
   const handleSelectableSpotClick = useCallback(
     (spotName) => {
@@ -447,6 +448,7 @@ const MapContainer = ({
           departureCoordinate={departureCoordinate}
           destinationCoordinate={destinationCoordinate}
           spots={spots}
+          customSpotCoords={customSpotCoords}
           onRouteChange={handleRouteChange}
         />
       </GoogleMap>

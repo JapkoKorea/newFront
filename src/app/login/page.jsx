@@ -25,8 +25,9 @@ function LoginCallbackHandler() {
         if (!response.ok) throw new Error('로그인 실패')
 
         const data = await response.json()
-        if (data.access_token) {
-          localStorage.setItem('jwt', data.access_token)
+        const token = data?.token || data?.access_token
+        if (token) {
+          localStorage.setItem('jwt', token)
           if (data.user) localStorage.setItem('user', JSON.stringify(data.user))
         }
         router.push('/')
