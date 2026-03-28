@@ -14,6 +14,23 @@ import MapContainer, { COORDS_DICT } from '@/components/MapContainer.jsx'
 import { useRouter } from 'next/navigation'
 
 const BOOKING_DRAFT_STORAGE_KEY = 'booking_draft_v1'
+const BASE_DEPOSIT_KRW = 15000
+const MINIMUM_HOURS = 2
+
+const TIME_OPTIONS = [
+  { value: '09:00', label: '오전 9:00' },
+  { value: '10:00', label: '오전 10:00' },
+  { value: '11:00', label: '오전 11:00' },
+  { value: '13:00', label: '오후 1:00' },
+  { value: '14:00', label: '오후 2:00' },
+  { value: '15:00', label: '오후 3:00' },
+]
+
+const RATE_BY_VEHICLE_TYPE = {
+  '일반차량': 7350,
+  '사륜구동 차량': 9000,
+  '점보택시': 10500,
+}
 
 const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode = 'modal' }) => {
   const router = useRouter()
@@ -149,6 +166,19 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
   const selectedVehicleType = includesBaegunjang
     ? '사륜구동 차량'
     : (isJumboByPassengers || isJumboByLuggage ? '점보택시' : '일반차량')
+
+  const normalizedHours = useMemo(() => {
+    const durationValue = Number(bookingData.duration)
+    if (!Number.isFinite(durationValue) || durationValue <= 0) return null
+    return Math.max(MINIMUM_HOURS, durationValue)
+  }, [bookingData.duration])
+
+  const hourlyRateJpy = RATE_BY_VEHICLE_TYPE[selectedVehicleType] || RATE_BY_VEHICLE_TYPE['일반차량']
+
+  const estimatedFareJpy = useMemo(() => {
+    if (!normalizedHours) return null
+    return normalizedHours * hourlyRateJpy
+  }, [hourlyRateJpy, normalizedHours])
 
   useEffect(() => {
     if (displayMode !== 'modal') {
@@ -410,20 +440,22 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
 
     const draft = {
       reservationPayload: payload,
-      summary: {
-        courseName: tourCourses.find((c) => c.id === bookingData.course)?.name || '미선택',
-        departure: bookingData.departure,
-        destination: bookingData.destination,
-        date: bookingData.date,
-        time: bookingData.time,
-        duration: durationNumber,
-        passengers: passengersNumber,
-        vehicleType: selectedVehicleType,
-        requiresWinter4wd,
-        selectedSpots: bookingData.selectedSpots || [],
-      },
-      createdAt: new Date().toISOString(),
-    }
+        summary: {
+          courseName: tourCourses.find((c) => c.id === bookingData.course)?.name || '미선택',
+          departure: bookingData.departure,
+          destination: bookingData.destination,
+          date: bookingData.date,
+          time: bookingData.time,
+          duration: durationNumber,
+          passengers: passengersNumber,
+          vehicleType: selectedVehicleType,
+          requiresWinter4wd,
+          estimatedFareJpy,
+          depositKrw: BASE_DEPOSIT_KRW,
+          selectedSpots: bookingData.selectedSpots || [],
+        },
+        createdAt: new Date().toISOString(),
+      }
 
     try {
       setIsSubmitting(true)
@@ -603,31 +635,45 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="date" className="mb-1.5 block">투어 날짜</Label>
+                  <div className="rounded-xl border border-yellow-200 bg-yellow-50/30 p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="date" className="text-sm font-semibold text-gray-900">투어 날짜</Label>
+                      <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">필수</span>
+                    </div>
                     <Input
                       id="date"
                       type="date"
                       min={today}
                       value={bookingData.date}
                       onChange={(e) => handleInputChange('date', e.target.value)}
+                      className="border-2 border-gray-200 bg-white focus-visible:ring-yellow-500"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="time" className="mb-1.5 block">투어 시작 시간</Label>
-                    <Select value={bookingData.time} onValueChange={(value) => handleInputChange('time', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="시간 선택" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="09:00">오전 9:00</SelectItem>
-                        <SelectItem value="10:00">오전 10:00</SelectItem>
-                        <SelectItem value="11:00">오전 11:00</SelectItem>
-                        <SelectItem value="13:00">오후 1:00</SelectItem>
-                        <SelectItem value="14:00">오후 2:00</SelectItem>
-                        <SelectItem value="15:00">오후 3:00</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="rounded-xl border border-yellow-200 bg-yellow-50/30 p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="time" className="text-sm font-semibold text-gray-900">투어 시작 시간</Label>
+                      <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">필수</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {TIME_OPTIONS.map((option) => {
+                        const isSelected = bookingData.time === option.value
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => handleInputChange('time', option.value)}
+                            className={`rounded-lg border px-3 py-2 text-left text-sm transition ${
+                              isSelected
+                                ? 'border-yellow-500 bg-yellow-100 text-yellow-900 shadow-sm'
+                                : 'border-gray-200 bg-white hover:border-yellow-300'
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {!bookingData.time && <p className="text-xs text-rose-600">투어 시작 시간을 선택해 주세요.</p>}
                   </div>
                 </div>
 
@@ -705,20 +751,27 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                       백은장이 경로에 포함되고 겨울 시즌(1~3월, 3월 포함)이므로 4륜구동 차량으로 진행됩니다.
                     </div>
                   )}
+
+                  <div className="rounded-xl border-2 border-yellow-300 bg-yellow-50 p-5 text-sm space-y-3 shadow-sm">
+                    <p className="text-xs tracking-[0.18em] font-semibold text-yellow-700">요금 계산 안내</p>
+                    <p className="text-gray-700">
+                      계산식: <span className="font-semibold text-gray-900">시간당 {hourlyRateJpy.toLocaleString()}엔 × {normalizedHours ? `${normalizedHours}시간` : '이용 시간'}</span>
+                    </p>
+                    <p className="text-gray-700">
+                      예상 총 택시비: <span className="font-semibold text-gray-900">{estimatedFareJpy ? `${estimatedFareJpy.toLocaleString()}엔` : '소요 시간 선택 후 확인'}</span>
+                    </p>
+                    <p className="text-gray-700">
+                      예약 요청 시 결제 금액(예약금): <span className="font-semibold text-gray-900">{BASE_DEPOSIT_KRW.toLocaleString()}원</span>
+                    </p>
+                    <div className="rounded-lg border border-yellow-200 bg-white p-3">
+                      <p className="text-xs text-yellow-700">최종 비용</p>
+                      <p className="text-2xl font-bold text-yellow-800">{BASE_DEPOSIT_KRW.toLocaleString()}원</p>
+                    </div>
+                    <p className="text-xs text-gray-500">※ 최소 2시간 기준으로 계산되며, 현장 결제 금액은 이용 조건에 따라 달라질 수 있습니다.</p>
+                  </div>
                 </div>
 
-                {isPageMode ? (
-                  <Card className="border-gray-200 bg-gray-50">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base">확정된 경로</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
-                      <p><span className="text-gray-500">출발지:</span> <span className="font-medium text-gray-900">{bookingData.departure || '-'}</span></p>
-                      <p><span className="text-gray-500">도착지:</span> <span className="font-medium text-gray-900">{bookingData.destination || '-'}</span></p>
-                      <p><span className="text-gray-500">경유지:</span> <span className="font-medium text-gray-900">{bookingData.selectedSpots?.length ? bookingData.selectedSpots.join(', ') : '없음'}</span></p>
-                    </CardContent>
-                  </Card>
-                ) : (
+                {!isPageMode && (
                   <>
                     <div className="space-y-4">
                       <div>
@@ -938,6 +991,14 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                     <div className="flex justify-between">
                       <span>배차 차량:</span>
                       <span className="font-medium">{selectedVehicleType}{requiresWinter4wd ? ' (겨울 4WD)' : ''}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>예상 택시비:</span>
+                      <span className="font-medium">{estimatedFareJpy ? `${estimatedFareJpy.toLocaleString()}엔` : '미선택'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>예약금:</span>
+                      <span className="font-medium">{BASE_DEPOSIT_KRW.toLocaleString()}원</span>
                     </div>
                     {bookingData.selectedSpots && bookingData.selectedSpots.length > 0 && (
                       <div className="flex justify-between">

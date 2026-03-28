@@ -1,40 +1,135 @@
-# Pricing and Deposit Policy
+# Pricing, Deposit, and Settlement Policy
 
-This document defines the reservation-time payment calculation policy for Japan Taxi Tour.
+This document defines reservation-time pricing and the **initial recommended settlement model** for Japan Taxi Tour.
 
-## 1) Base Deposit
+> Status: policy baseline for early-stage operation (before full payment integration).
+> This document is operational guidance, not legal/tax advice.
 
-- Base deposit fee: 15,000 KRW
-- This fee is charged during reservation/payment step.
+---
 
-## 2) Hourly Vehicle Fare (JPY)
+## 1) Reservation-Time Pricing Policy
 
-All vehicle fares are hourly and use the following rates:
+### 1.1 Base Deposit
 
-- Standard taxi: 7,350 JPY per hour
-- 4WD vehicle: 9,000 JPY per hour
-- Jumbo taxi (required for 5+ passengers): 10,500 JPY per hour
+- Base deposit fee: **15,000 KRW**
+- Charged at reservation request step.
 
-## 3) Minimum Bookable Duration
+### 1.2 Hourly Vehicle Fare (Reference, JPY)
 
-- Minimum duration: 2 hours
+- Standard taxi: **7,350 JPY / hour**
+- 4WD vehicle: **9,000 JPY / hour**
+- Jumbo taxi (mandatory for 5+ passengers): **10,500 JPY / hour**
+
+### 1.3 Minimum Bookable Duration
+
+- Minimum duration: **2 hours**
 - Reservations below 2 hours are not accepted.
 
-## 4) Vehicle Selection Rules
+### 1.4 Vehicle Selection Rules
 
-- For 1-4 passengers: Standard taxi or 4WD can be selected.
-- For 5+ passengers: Jumbo taxi is mandatory.
+- 1–4 passengers: Standard taxi or 4WD
+- 5+ passengers: Jumbo taxi mandatory
 
-## 5) Calculation Reference
+### 1.5 Calculation Reference
 
-At reservation/payment stage, use this reference:
+- Estimated vehicle fare (JPY) = `hourly_rate_jpy * booked_hours`
+- Reservation-time charge (KRW) = `base_deposit_krw (15,000 KRW)`
 
-- Estimated vehicle fare (JPY) = hourly_rate_jpy * booked_hours
-- Reservation-time charge (KRW) = base_deposit_krw (15,000 KRW)
+---
 
-If service policy changes to collect full/partial fare at reservation time, update this document and backend calculation logic together.
+## 2) Initial Recommended Collection & Settlement Model
 
-## 6) Constants (System)
+### 2.1 Model Summary (Early Stage)
+
+- **Customer collection currency:** KRW
+- **Operator payable currency:** JPY
+- **Remittance cycle:** monthly
+- **Business role:** Agent/Marketplace-style operation (net revenue recognition target)
+
+### 2.2 Why This Model
+
+1. Easier domestic card acceptance and CS operations in Korea.
+2. Simpler early-stage payment operations than full JPY acquiring.
+3. Matches current product UX (KRW deposit + JPY fare reference).
+
+---
+
+## 3) Settlement Ledger Rules (Operational)
+
+Use dual-ledger accounting from day 1:
+
+1. **Customer Ledger (KRW)**
+   - Track collected deposit/platform charges, refunds, chargebacks.
+
+2. **Operator Payable Ledger (JPY)**
+   - Track each booking’s operator-share payable in JPY.
+   - Monthly remittance is based on summed JPY payable minus approved offsets.
+
+3. **FX Execution Rule**
+   - Monthly KRW→JPY conversion follows predefined source and cutoff time.
+   - Save rate source, timestamp, and settlement batch ID for audit.
+
+---
+
+## 4) Card Settlement, Refund, and Chargeback Policy
+
+1. Platform acts as settlement owner (Merchant-of-Record style at payment layer).
+2. Platform handles customer refund/chargeback first.
+3. Related operator-side offsets are applied in next payout cycle by contract.
+4. Keep reserve/holdback policy to absorb late chargebacks.
+
+---
+
+## 5) Revenue Recognition & Tax Positioning (High-Level)
+
+### 5.1 Recommended accounting intent
+
+- Recognize **net platform revenue**:
+  - reservation fee + platform fee
+- Treat operator share as payable/pass-through (not platform gross sales target).
+
+### 5.2 Must-confirm items (before go-live with real payments)
+
+1. VAT handling per fee type (reservation fee / platform fee / pass-through amount)
+2. Cross-border remittance and withholding implications
+3. Invoice/receipt policy for platform fee vs operator service value
+4. Contract wording consistency (agent vs principal)
+
+---
+
+## 6) Data Required for Reconciliation
+
+For each booking/settlement batch, store:
+
+- booking_id, reservation_number
+- customer_charge_krw
+- platform_fee_krw
+- operator_payable_jpy
+- fx_rate_source, fx_rate, fx_timestamp
+- refund_krw, chargeback_krw, adjustment_reason
+- settlement_batch_id, payout_date
+
+---
+
+## 7) Customer-Facing Currency Display Rule
+
+1. Show fare estimate in JPY for service context.
+2. Show reservation-time payment in KRW clearly.
+3. Avoid ambiguous mixed-currency totals without labels.
+
+---
+
+## 8) Future Upgrade Triggers
+
+Review model when one of these happens:
+
+1. FX variance causes material margin loss.
+2. Chargeback/refund volume exceeds internal threshold.
+3. Need for multi-country customer acquisition requires JPY checkout.
+
+---
+
+## 9) Constants (System)
 
 - `base_deposit_krw = 15000`
 - `hourly_rate_jpy.standard = 7350`

@@ -5,16 +5,16 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
-import { AlertTriangle, Calculator, CheckCircle2, Clock3, Coins, Loader2, Route, ShieldCheck, Users, Wallet } from 'lucide-react'
+import { CheckCircle2, Clock3, Coins, Loader2, Route, ShieldCheck, Users, Wallet } from 'lucide-react'
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
 
 const BOOKING_DRAFT_STORAGE_KEY = 'booking_draft_v1'
 const BASE_DEPOSIT_KRW = 15000
-const MINIMUM_HOURS = 2
 
 const VEHICLE_OPTIONS = [
   {
     id: 'standard',
+    type: '일반차량',
     name: '일반 택시',
     capacity: '1-4인',
     hourlyRateJpy: 7350,
@@ -22,6 +22,7 @@ const VEHICLE_OPTIONS = [
   },
   {
     id: 'four_wd',
+    type: '사륜구동 차량',
     name: '사륜구동 차량',
     capacity: '1-4인',
     hourlyRateJpy: 9000,
@@ -29,6 +30,7 @@ const VEHICLE_OPTIONS = [
   },
   {
     id: 'jumbo',
+    type: '점보택시',
     name: '점보 택시',
     capacity: '5인 이상',
     hourlyRateJpy: 10500,
@@ -41,10 +43,7 @@ function PricingDepositPage() {
   const [bookingDraft, setBookingDraft] = useState(null)
   const [createError, setCreateError] = useState('')
   const [isCreatingReservation, setIsCreatingReservation] = useState(false)
-
-  const [passengers, setPassengers] = useState(4)
-  const [hours, setHours] = useState(4)
-  const [vehicleId, setVehicleId] = useState('standard')
+  const [proceedAgreement, setProceedAgreement] = useState(false)
 
   useEffect(() => {
     const raw = sessionStorage.getItem(BOOKING_DRAFT_STORAGE_KEY)
@@ -56,33 +55,47 @@ function PricingDepositPage() {
       if (!payload) return
 
       setBookingDraft(parsed)
-      setPassengers(Math.max(1, Number(payload.number_of_people) || 1))
-      setHours(Math.max(1, Number(payload.tour_duration) || 1))
     } catch {
       setBookingDraft(null)
     }
   }, [])
 
   const isTransfer = bookingDraft?.serviceType === 'transfer'
+  const summary = bookingDraft?.summary || {}
+  const reservationPayload = bookingDraft?.reservationPayload || {}
+  const duration = Number(summary.duration || 0)
+  const selectedVehicleType = summary.vehicleType || ''
 
-  const selectedVehicle = VEHICLE_OPTIONS.find((vehicle) => vehicle.id === vehicleId) || VEHICLE_OPTIONS[0]
-  const mustUseJumbo = passengers >= 5
+  const selectedVehicle = VEHICLE_OPTIONS.find((vehicle) => vehicle.type === selectedVehicleType) || VEHICLE_OPTIONS[0]
+  const hasValidSummary = useMemo(() => {
+    const allowedVehicleTypes = new Set(VEHICLE_OPTIONS.map((vehicle) => vehicle.type))
+    const durationNumber = Number(summary.duration)
+    const estimatedFareNumber = Number(summary.estimatedFareJpy)
+    const depositNumber = Number(summary.depositKrw)
+
+    return (
+      allowedVehicleTypes.has(selectedVehicleType)
+      && Number.isFinite(durationNumber)
+      && durationNumber > 0
+      && Number.isFinite(estimatedFareNumber)
+      && estimatedFareNumber > 0
+      && Number.isFinite(depositNumber)
+      && depositNumber > 0
+    )
+  }, [selectedVehicleType, summary.depositKrw, summary.duration, summary.estimatedFareJpy])
 
   const calculation = useMemo(() => {
-    const normalizedHours = Math.max(MINIMUM_HOURS, Number(hours) || MINIMUM_HOURS)
-    const effectiveVehicle = mustUseJumbo
-      ? VEHICLE_OPTIONS.find((vehicle) => vehicle.id === 'jumbo') || selectedVehicle
-      : selectedVehicle
-
-    const estimatedFareJpy = effectiveVehicle.hourlyRateJpy * normalizedHours
+    const normalizedHours = duration > 0 ? Math.max(2, duration) : 0
+    const fallbackFare = normalizedHours > 0 ? selectedVehicle.hourlyRateJpy * normalizedHours : null
+    const estimatedFareJpy = Number(summary.estimatedFareJpy) || fallbackFare
 
     return {
       normalizedHours,
-      effectiveVehicle,
+      effectiveVehicle: selectedVehicle,
       estimatedFareJpy,
-      baseDepositKrw: BASE_DEPOSIT_KRW,
+      baseDepositKrw: Number(summary.depositKrw) || BASE_DEPOSIT_KRW,
     }
-  }, [hours, mustUseJumbo, selectedVehicle])
+  }, [duration, selectedVehicle, summary.depositKrw, summary.estimatedFareJpy])
 
   const handleProceedPayment = async () => {
     if (!bookingDraft?.reservationPayload) {
@@ -153,17 +166,13 @@ function PricingDepositPage() {
               </p>
             </div>
             <div className="flex gap-2">
+              <Button variant="outline" onClick={() => router.push('/booking')}>이전 단계</Button>
               <Button variant="outline" onClick={() => router.push('/')}>홈으로</Button>
-              <Button
-                className={isTransfer ? 'bg-blue-500 hover:bg-blue-600' : 'bg-yellow-500 hover:bg-yellow-600'}
-                onClick={handleProceedPayment}
-                disabled={!bookingDraft || isCreatingReservation}
-              >
-                {isCreatingReservation ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Wallet className="h-4 w-4 mr-2" />}
-                예약금 결제 진행
-              </Button>
             </div>
           </div>
+          {!hasValidSummary && bookingDraft && (
+            <p className="text-sm text-rose-700 mt-2">예약 요약 정보가 유효하지 않습니다. 예약 입력 페이지로 돌아가 다시 진행해 주세요.</p>
+          )}
         </section>
 
         {!bookingDraft && (
@@ -175,6 +184,15 @@ function PricingDepositPage() {
           </Card>
         )}
 
+        {bookingDraft && !hasValidSummary && (
+          <Card className="border-rose-300 bg-rose-50">
+            <CardContent className="py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-sm">
+              <p className="text-rose-900">저장된 예약 요약 정보가 누락되었거나 만료되었습니다. 예약 입력 화면에서 다시 진행해 주세요.</p>
+              <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => router.push('/booking')}>예약 입력으로 이동</Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* 송영서비스는 견적 기반이므로 pricing 페이지를 거치지 않음 — 예약 확인 페이지에서 견적 수락 후 결제 */}
 
         {/* ── 택시투어 요금 안내 ──────────────────────────── */}
@@ -182,8 +200,8 @@ function PricingDepositPage() {
           <>
             <section className="space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">입력 정보 재확인</h2>
-                <Button variant="outline" size="sm" onClick={() => router.push('/')}>정보 다시 입력</Button>
+                <h2 className="text-lg font-semibold text-gray-900">예약 정보 최종 확인</h2>
+                <Button variant="outline" size="sm" onClick={() => router.push('/booking')}>예약 정보 수정</Button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card className="border-gray-200 bg-white">
@@ -196,8 +214,8 @@ function PricingDepositPage() {
                 <Card className="border-gray-200 bg-white">
                   <CardContent className="py-5 space-y-1">
                     <p className="text-xs text-gray-500">탑승 정보</p>
-                    <p className="text-base font-semibold text-gray-900">{bookingDraft?.summary?.passengers || '-'}명</p>
-                    <p className="text-xs text-gray-600">코스: {bookingDraft?.summary?.courseName || '-'}</p>
+                    <p className="text-base font-semibold text-gray-900">{summary?.passengers || '-'}명 / {summary?.vehicleType || '-'}</p>
+                    <p className="text-xs text-gray-600">코스: {summary?.courseName || '-'}</p>
                   </CardContent>
                 </Card>
                 <Card className="border-gray-200 bg-white">
@@ -220,7 +238,69 @@ function PricingDepositPage() {
             </section>
 
             <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <Card className="lg:col-span-2 border-yellow-200">
+              <Card className="lg:col-span-2 border-yellow-200 bg-white/95">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Wallet className="h-5 w-5 text-yellow-600" />
+                    결제 전 확인 정보
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="rounded-xl border-2 border-yellow-300 bg-yellow-50 p-4">
+                    <p className="text-xs tracking-[0.18em] text-yellow-700 font-semibold">최종 결제 금액</p>
+                    <p className="mt-1 text-3xl font-bold text-yellow-800">{calculation.baseDepositKrw.toLocaleString()}원</p>
+                    <p className="mt-1 text-xs text-gray-600">예약 요청 시 지금 결제되는 금액(예약금)입니다.</p>
+                    <p className="mt-2 text-sm text-gray-700">예상 총 택시비: <span className="font-semibold text-gray-900">{calculation.estimatedFareJpy ? `${calculation.estimatedFareJpy.toLocaleString()}엔` : '예약 입력에서 계산된 금액 없음'}</span></p>
+                  </div>
+
+                  <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    <p className="text-gray-700">예약자 성함: <span className="font-semibold text-gray-900">{reservationPayload.english_name || '-'}</span></p>
+                    <p className="text-gray-700">연락처: <span className="font-semibold text-gray-900">{reservationPayload.contact_number || '-'}</span></p>
+                    <p className="text-gray-700">투어 날짜: <span className="font-semibold text-gray-900">{summary.date || '-'}</span></p>
+                    <p className="text-gray-700">투어 시작 시간: <span className="font-semibold text-gray-900">{summary.time || '-'}</span></p>
+                    <p className="text-gray-700">출발지: <span className="font-semibold text-gray-900">{summary.departure || '-'}</span></p>
+                    <p className="text-gray-700">도착지: <span className="font-semibold text-gray-900">{summary.destination || '-'}</span></p>
+                    <p className="text-gray-700">탑승 인원: <span className="font-semibold text-gray-900">{summary.passengers || '-'}명</span></p>
+                    <p className="text-gray-700">배차 차량: <span className="font-semibold text-gray-900">{summary.vehicleType || calculation.effectiveVehicle.name}</span></p>
+                    <p className="text-gray-700">예상 이용 시간: <span className="font-semibold text-gray-900">{calculation.normalizedHours ? `${calculation.normalizedHours}시간` : '-'}</span></p>
+                    <p className="text-gray-700">예상 택시비: <span className="font-semibold text-gray-900">{calculation.estimatedFareJpy ? `${calculation.estimatedFareJpy.toLocaleString()}엔` : '예약 입력에서 계산된 금액 없음'}</span></p>
+                    <p className="text-gray-700">예약금: <span className="font-semibold text-gray-900">{calculation.baseDepositKrw.toLocaleString()}원</span></p>
+                    <p className="text-gray-700">요청사항: <span className="font-semibold text-gray-900">{reservationPayload.special_requests || '없음'}</span></p>
+                  </div>
+
+                  {summary.selectedSpots?.length > 0 && (
+                    <div className="rounded-xl border border-gray-200 bg-white p-3 text-sm">
+                      <p className="text-gray-700">방문지: <span className="font-semibold text-gray-900">{summary.selectedSpots.join(', ')}</span></p>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-gray-500">* 이 화면은 확인 전용입니다. 금액/차량 변경은 예약 입력 화면에서만 가능합니다.</p>
+
+                  <label className="flex items-start gap-2 rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={proceedAgreement}
+                      onChange={(event) => setProceedAgreement(event.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span>위 정보를 확인했으며, 예약금 결제를 진행합니다.</span>
+                  </label>
+
+                  <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+                    <Button variant="outline" onClick={() => router.push('/booking')}>이전 단계로</Button>
+                    <Button
+                      className={isTransfer ? 'bg-blue-500 hover:bg-blue-600' : 'bg-yellow-500 hover:bg-yellow-600'}
+                      onClick={handleProceedPayment}
+                      disabled={!bookingDraft || !hasValidSummary || isCreatingReservation || !proceedAgreement}
+                    >
+                      {isCreatingReservation ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Wallet className="h-4 w-4 mr-2" />}
+                      예약금 결제 진행
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-yellow-200">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Coins className="h-5 w-5 text-yellow-600" />
@@ -229,7 +309,7 @@ function PricingDepositPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {VEHICLE_OPTIONS.map((vehicle) => {
-                    const isSelected = calculation.effectiveVehicle.id === vehicle.id
+                    const isSelected = calculation.effectiveVehicle.type === vehicle.type
                     return (
                       <div
                         key={vehicle.id}
@@ -237,85 +317,19 @@ function PricingDepositPage() {
                           isSelected ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200 bg-white'
                         }`}
                       >
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div className="space-y-2">
                           <div>
                             <p className="font-semibold text-gray-900">{vehicle.name}</p>
                             <p className="text-sm text-gray-600 mt-1">{vehicle.description}</p>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center justify-between gap-2">
                             <Badge className="border border-yellow-200 bg-yellow-100 text-yellow-800">{vehicle.capacity}</Badge>
-                            <span className="font-bold text-lg text-gray-900">{vehicle.hourlyRateJpy.toLocaleString()}엔/시간</span>
+                            <span className="font-bold text-base text-gray-900">{vehicle.hourlyRateJpy.toLocaleString()}엔/시간</span>
                           </div>
                         </div>
                       </div>
                     )
                   })}
-                </CardContent>
-              </Card>
-
-              <Card className="border-yellow-200 bg-white/95">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Calculator className="h-5 w-5 text-yellow-600" />
-                    예상 금액 계산기
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="text-sm text-gray-700">인원</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={20}
-                      value={passengers}
-                      onChange={(event) => setPassengers(Math.max(1, Number(event.target.value) || 1))}
-                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-300"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm text-gray-700">이용 시간</label>
-                    <input
-                      type="number"
-                      min={2}
-                      max={24}
-                      value={hours}
-                      onChange={(event) => setHours(Math.max(1, Number(event.target.value) || 1))}
-                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-300"
-                    />
-                    {Number(hours) < MINIMUM_HOURS && (
-                      <p className="text-xs text-rose-600 mt-1">최소 2시간부터 예약할 수 있어요. 계산은 2시간 기준으로 반영됩니다.</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="text-sm text-gray-700">차량 선택</label>
-                    <select
-                      value={vehicleId}
-                      onChange={(event) => setVehicleId(event.target.value)}
-                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-300"
-                      disabled={mustUseJumbo}
-                    >
-                      {VEHICLE_OPTIONS.map((vehicle) => (
-                        <option key={vehicle.id} value={vehicle.id}>
-                          {vehicle.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {mustUseJumbo && (
-                    <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 flex gap-2">
-                      <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                      5인 이상은 점보 택시가 필수라 차량이 자동 적용됩니다.
-                    </div>
-                  )}
-
-                  <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 space-y-2">
-                    <p className="text-sm text-gray-700">적용 차량: <span className="font-semibold text-gray-900">{calculation.effectiveVehicle.name}</span></p>
-                    <p className="text-sm text-gray-700">예상 택시비: <span className="font-semibold text-gray-900">{calculation.estimatedFareJpy.toLocaleString()}엔</span></p>
-                    <p className="text-sm text-gray-700">예약금: <span className="font-semibold text-gray-900">{calculation.baseDepositKrw.toLocaleString()}원</span></p>
-                  </div>
                 </CardContent>
               </Card>
             </section>
@@ -345,9 +359,9 @@ function PricingDepositPage() {
                 </CardHeader>
                 <CardContent className="text-sm text-gray-700 space-y-2 leading-relaxed">
                   <p>예약금(15,000원)은 예약 요청 접수를 위한 선결제 금액입니다.</p>
-                  <p>차량 요금은 선택 차량의 시간당 요금(엔)과 이용 시간 기준으로 계산됩니다.</p>
-                  <p>5인 이상은 점보 택시가 필수로 적용됩니다.</p>
-                  <p>최소 이용 시간은 2시간이며, 2시간 미만 예약은 접수되지 않습니다.</p>
+                  <p>차량 요금은 예약 입력 단계에서 확정된 차량 및 이용 시간 기준으로 표시됩니다.</p>
+                  <p>이 화면에서는 결제 진행 여부만 선택할 수 있습니다.</p>
+                  <p>변경이 필요하면 예약 입력 화면으로 돌아가 수정해 주세요.</p>
                 </CardContent>
               </Card>
             </section>
