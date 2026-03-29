@@ -3,9 +3,13 @@ app/routers/auth/kakao.py
 카카오 OAuth 인증 처리를 위한 FastAPI Router
 """
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 import httpx
 import os
+from urllib.parse import urlencode, quote
+import json
+import base64
 from jose import jwt
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
@@ -16,6 +20,7 @@ load_dotenv()
 KAKAO_CLIENT_ID = os.getenv('KAKAO_CLIENT_ID') or os.getenv('VITE_KAKAO_CLIENT_ID')
 # KAKAO_CLIENT_SECRET = os.getenv('KAKAO_CLIENT_SECRET')
 KAKAO_REDIRECT_URI = os.getenv('KAKAO_REDIRECT_URI')
+MOBILE_APP_REDIRECT_URI = os.getenv('MOBILE_APP_REDIRECT_URI', 'japkotaxi://auth/callback').strip()
 JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', '').strip()
 JWT_ALGORITHM = 'HS256'
 JWT_EXPIRES_HOURS = int(os.getenv('JWT_EXPIRES_HOURS', '24'))
@@ -24,8 +29,9 @@ router = APIRouter(prefix="/api/auth/kakao", tags=["auth"])
 
 class KakaoCode(BaseModel):
     code: str
+    redirect_uri: str | None = None
 
-async def _handle_kakao_callback(code: str):
+async def _handle_kakao_callback(code: str, redirect_uri: str | None = None):
     if not KAKAO_CLIENT_ID or not KAKAO_REDIRECT_URI:
         raise HTTPException(status_code=500, detail="Kakao OAuth environment is not configured")
     if not JWT_SECRET_KEY:
@@ -35,7 +41,7 @@ async def _handle_kakao_callback(code: str):
         raise HTTPException(status_code=422, detail="카카오 인증 코드(code)가 필요합니다")
 
     kakao_client_id = KAKAO_CLIENT_ID
-    kakao_redirect_uri = KAKAO_REDIRECT_URI
+    kakao_redirect_uri = (redirect_uri or KAKAO_REDIRECT_URI).strip()
 
     token_url = "https://kauth.kakao.com/oauth/token"
     payload = {
@@ -94,11 +100,116 @@ async def _handle_kakao_callback(code: str):
         return {"token": token, "user": payload}
 
 
+def _encode_state(app_redirect: str) -> str:
+    payload = json.dumps({"app_redirect": app_redirect}, separators=(",", ":"))
+    return base64.urlsafe_b64encode(payload.encode("utf-8")).decode("utf-8")
+
+
+def _decode_state(state: str | None) -> str:
+    if not state:
+        return MOBILE_APP_REDIRECT_URI
+    try:
+        decoded = base64.urlsafe_b64decode(state.encode("utf-8") + b"==").decode("utf-8")
+        data = json.loads(decoded)
+        app_redirect = (data.get("app_redirect") or "").strip()
+        if app_redirect:
+            return app_redirect
+    except Exception:
+        pass
+    return MOBILE_APP_REDIRECT_URI
+
+
 @router.post("/callback")
 async def kakao_callback_post(data: KakaoCode):
-    return await _handle_kakao_callback(data.code)
+    return await _handle_kakao_callback(data.code, data.redirect_uri)
 
 
 @router.get("/callback")
-async def kakao_callback_get(code: str = Query(...)):
-    return await _handle_kakao_callback(code)
+async def kakao_callback_get(code: str = Query(...), redirect_uri: str | None = Query(None)):
+    return await _handle_kakao_callback(code, redirect_uri)
+
+
+@router.get("/authorize-url")
+async def kakao_authorize_url(redirect_uri: str | None = Query(None)):
+    if not KAKAO_CLIENT_ID or not KAKAO_REDIRECT_URI:
+        raise HTTPException(status_code=500, detail="Kakao OAuth environment is not configured")
+
+    resolved_redirect_uri = (redirect_uri or KAKAO_REDIRECT_URI).strip()
+
+    query = urlencode(
+        {
+            "client_id": KAKAO_CLIENT_ID,
+            "redirect_uri": resolved_redirect_uri,
+            "response_type": "code",
+        }
+    )
+    return {"auth_url": f"https://kauth.kakao.com/oauth/authorize?{query}"}
+
+
+@router.get("/mobile/start")
+async def kakao_mobile_start(app_redirect: str | None = Query(None)):
+    if not KAKAO_CLIENT_ID or not KAKAO_REDIRECT_URI:
+        raise HTTPException(status_code=500, detail="Kakao OAuth environment is not configured")
+
+    resolved_app_redirect = (app_redirect or MOBILE_APP_REDIRECT_URI).strip()
+    state = _encode_state(resolved_app_redirect)
+    query = urlencode(
+        {
+            "client_id": KAKAO_CLIENT_ID,
+            "redirect_uri": KAKAO_REDIRECT_URI,
+            "response_type": "code",
+            "state": state,
+        }
+    )
+    return {"auth_url": f"https://kauth.kakao.com/oauth/authorize?{query}"}
+
+
+@router.get("/mobile/callback")
+async def kakao_mobile_callback(
+    code: str | None = Query(None),
+    state: str | None = Query(None),
+    error: str | None = Query(None),
+    error_description: str | None = Query(None),
+):
+    app_redirect = _decode_state(state)
+
+    if error:
+        params = urlencode(
+            {
+                "error": error,
+                "error_description": error_description or error,
+            }
+        )
+        return RedirectResponse(url=f"{app_redirect}?{params}", status_code=302)
+
+    if not code:
+        params = urlencode(
+            {
+                "error": "missing_code",
+                "error_description": "카카오 인증 코드가 없습니다.",
+            }
+        )
+        return RedirectResponse(url=f"{app_redirect}?{params}", status_code=302)
+
+    try:
+        result = await _handle_kakao_callback(code=code, redirect_uri=KAKAO_REDIRECT_URI)
+    except HTTPException as exc:
+        params = urlencode(
+            {
+                "error": "callback_failed",
+                "error_description": str(exc.detail),
+            }
+        )
+        return RedirectResponse(url=f"{app_redirect}?{params}", status_code=302)
+
+    token = result.get("token", "")
+    user = result.get("user", {})
+    user_b64 = base64.urlsafe_b64encode(
+        json.dumps(user, separators=(",", ":")).encode("utf-8")
+    ).decode("utf-8")
+
+    redirect_url = (
+        f"{app_redirect}?token={quote(token)}"
+        f"&user_b64={quote(user_b64)}"
+    )
+    return RedirectResponse(url=redirect_url, status_code=302)

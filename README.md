@@ -35,6 +35,27 @@ React-Vite 기반의 일본 비에이·아사히카와 지역 택시 투어 예�
 
 ## 📦 설치 방법
 
+## 📱 Flutter 모바일 하네스 (사전 구축)
+
+모바일 앱은 루트의 `mobile/` 디렉토리에서 별도 Flutter 프로젝트로 관리합니다.
+
+### Toolchain 고정
+
+- Flutter `3.24.5` 기준
+- `mobile/.fvmrc`에 버전 고정 메타데이터 포함
+
+### 루트에서 실행 가능한 명령어
+
+```bash
+pnpm mobile:doctor
+pnpm mobile:pub:get
+pnpm mobile:analyze
+pnpm mobile:test
+pnpm mobile:run:ios
+```
+
+민감한 키는 커밋하지 말고 `--dart-define`으로 주입하세요.
+
 ### 1. 의존성 설치
 
 ```bash

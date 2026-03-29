@@ -8,6 +8,7 @@ from services.mysql_user_service import ensure_user_tables
 from routers import reservations
 from routers import payments
 from routers import seo
+from routers import maps
 from services.mysql_reservation_service import ensure_reservation_tables
 
 app = FastAPI()
@@ -31,6 +32,7 @@ app.include_router(kakao.router)
 app.include_router(reservations.router)
 app.include_router(payments.router)
 app.include_router(seo.router)
+app.include_router(maps.router)
 
 
 @app.on_event("startup")

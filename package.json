@@ -6,7 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "mobile:doctor": "bash -lc 'cd mobile && flutter doctor -v'",
+    "mobile:pub:get": "bash -lc 'cd mobile && flutter pub get'",
+    "mobile:analyze": "bash -lc 'cd mobile && flutter analyze'",
+    "mobile:test": "bash -lc 'cd mobile && flutter test'",
+    "mobile:run:ios": "bash -lc 'cd mobile && flutter run -d ios'",
+    "mobile:run:android": "bash -lc 'cd mobile && flutter run -d android'"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
