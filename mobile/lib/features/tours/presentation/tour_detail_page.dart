@@ -41,20 +41,6 @@ class PlaceSelection {
   final String? placeId;
   final String? address;
   final LatLng? point;
-
-  PlaceSelection copyWith({
-    String? name,
-    String? placeId,
-    String? address,
-    LatLng? point,
-  }) {
-    return PlaceSelection(
-      name: name ?? this.name,
-      placeId: placeId ?? this.placeId,
-      address: address ?? this.address,
-      point: point ?? this.point,
-    );
-  }
 }
 
 class TourDetailPage extends ConsumerStatefulWidget {
@@ -78,10 +64,9 @@ class _TourDetailPageState extends ConsumerState<TourDetailPage> {
   void initState() {
     super.initState();
     final TourCourse? found = _findCourse(widget.tourId);
-    if (found == null) {
-      return;
+    if (found != null) {
+      _applyCourse(found);
     }
-    _applyCourse(found);
   }
 
   @override
@@ -108,6 +93,7 @@ class _TourDetailPageState extends ConsumerState<TourDetailPage> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   IconButton.filledTonal(
                     onPressed: () => context.pop(),
@@ -115,20 +101,12 @@ class _TourDetailPageState extends ConsumerState<TourDetailPage> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.95),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: Text(
-                        '${_departure.name}  →  ${_destination.name}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
+                    child: _TopRouteSelector(
+                      departure: _departure,
+                      destination: _destination,
+                      onTapDeparture: () => _pickPlace('출발지 검색', 'departure'),
+                      onTapDestination: () =>
+                          _pickPlace('도착지 검색', 'destination'),
                     ),
                   ),
                 ],
@@ -136,11 +114,11 @@ class _TourDetailPageState extends ConsumerState<TourDetailPage> {
             ),
           ),
           DraggableScrollableSheet(
-            initialChildSize: 0.36,
-            minChildSize: 0.22,
-            maxChildSize: 0.94,
+            initialChildSize: 0.30,
+            minChildSize: 0.20,
+            maxChildSize: 0.92,
             snap: true,
-            snapSizes: const <double>[0.36, 0.62, 0.94],
+            snapSizes: const <double>[0.30, 0.58, 0.92],
             builder: (BuildContext context, ScrollController controller) {
               return Container(
                 decoration: const BoxDecoration(
@@ -168,50 +146,9 @@ class _TourDetailPageState extends ConsumerState<TourDetailPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 6,
-                      children: current.season
-                          .map((String season) =>
-                              Chip(label: Text(seasonLabel[season] ?? season)))
-                          .toList(),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      current.description,
-                      style: const TextStyle(color: Color(0xFF64748B)),
-                    ),
-                    const SizedBox(height: 12),
-                    _SummaryCard(
-                      title: '기본 루트 정보',
-                      rows: <MapEntry<String, String>>[
-                        MapEntry<String, String>('소요 시간', current.duration),
-                        MapEntry<String, String>('출발지', _departure.name),
-                        MapEntry<String, String>('도착지', _destination.name),
-                      ],
-                    ),
                     const SizedBox(height: 10),
-                    _SelectorCard(
-                      placesApi: _placesApi,
-                      departure: _departure,
-                      destination: _destination,
-                      onDepartureChanged: (PlaceSelection value) {
-                        setState(() => _departure = value);
-                      },
-                      onDestinationChanged: (PlaceSelection value) {
-                        setState(() => _destination = value);
-                      },
-                      onCourseSelected: (PlaceSelection value) {
-                        if (_spots.any((PlaceSelection s) =>
-                            (s.placeId?.isNotEmpty ?? false)
-                                ? s.placeId == value.placeId
-                                : s.name == value.name)) {
-                          return;
-                        }
-                        setState(() {
-                          _spots = <PlaceSelection>[..._spots, value];
-                        });
-                      },
+                    _CourseSelectTile(
+                      onTap: () => _pickPlace('코스(관광지) 검색', 'course'),
                     ),
                     const SizedBox(height: 12),
                     const Text(
@@ -220,37 +157,58 @@ class _TourDetailPageState extends ConsumerState<TourDetailPage> {
                           TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                     ),
                     const SizedBox(height: 8),
-                    ..._spots
-                        .asMap()
-                        .entries
-                        .map((MapEntry<int, PlaceSelection> e) {
-                      final int index = e.key;
-                      final PlaceSelection spot = e.value;
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            radius: 14,
-                            child: Text('${index + 1}'),
-                          ),
-                          title: Text(spot.name),
-                          subtitle: Text(spot.address ?? '길게 눌러 순서를 변경하세요'),
-                          trailing: Wrap(
-                            spacing: 2,
-                            children: <Widget>[
-                              IconButton(
-                                icon: const Icon(Icons.keyboard_arrow_up),
-                                onPressed: index <= 0
-                                    ? null
-                                    : () => _moveSpot(index, index - 1),
+                    ReorderableListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      buildDefaultDragHandles: false,
+                      itemCount: _spots.length,
+                      onReorder: (int oldIndex, int newIndex) {
+                        setState(() {
+                          if (newIndex > oldIndex) {
+                            newIndex -= 1;
+                          }
+                          final List<PlaceSelection> next = <PlaceSelection>[
+                            ..._spots,
+                          ];
+                          final PlaceSelection item = next.removeAt(oldIndex);
+                          next.insert(newIndex, item);
+                          _spots = next;
+                        });
+                      },
+                      itemBuilder: (BuildContext context, int index) {
+                        final PlaceSelection spot = _spots[index];
+                        return ReorderableDelayedDragStartListener(
+                          key: ValueKey<String>(
+                              'spot-${spot.placeId ?? spot.name}-$index'),
+                          index: index,
+                          child: Card(
+                            margin: const EdgeInsets.only(bottom: 6),
+                            child: ListTile(
+                              dense: true,
+                              visualDensity: const VisualDensity(
+                                horizontal: 0,
+                                vertical: -2,
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.keyboard_arrow_down),
-                                onPressed: index >= _spots.length - 1
-                                    ? null
-                                    : () => _moveSpot(index, index + 1),
+                              leading: CircleAvatar(
+                                radius: 13,
+                                child: Text(
+                                  '${index + 1}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
                               ),
-                              IconButton(
+                              title: Text(
+                                spot.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: (spot.address?.isNotEmpty ?? false)
+                                  ? Text(
+                                      spot.address!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    )
+                                  : null,
+                              trailing: IconButton(
                                 icon: const Icon(Icons.close),
                                 onPressed: () {
                                   setState(() {
@@ -261,11 +219,11 @@ class _TourDetailPageState extends ConsumerState<TourDetailPage> {
                                   });
                                 },
                               ),
-                            ],
+                            ),
                           ),
-                        ),
-                      );
-                    }),
+                        );
+                      },
+                    ),
                     const SizedBox(height: 12),
                     ElevatedButton(
                       onPressed: () {
@@ -295,18 +253,45 @@ class _TourDetailPageState extends ConsumerState<TourDetailPage> {
     );
   }
 
-  void _moveSpot(int oldIndex, int newIndex) {
-    if (oldIndex < 0 || oldIndex >= _spots.length) {
+  Future<void> _pickPlace(String title, String target) async {
+    final PlaceSelection? selected = await showModalBottomSheet<PlaceSelection>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return FractionallySizedBox(
+          heightFactor: 0.96,
+          child: _PlaceSearchSheet(
+            title: title,
+            placesApi: _placesApi,
+          ),
+        );
+      },
+    );
+
+    if (selected == null || !mounted) {
       return;
     }
-    if (newIndex < 0 || newIndex >= _spots.length) {
-      return;
-    }
+
     setState(() {
-      final List<PlaceSelection> next = <PlaceSelection>[..._spots];
-      final PlaceSelection item = next.removeAt(oldIndex);
-      next.insert(newIndex, item);
-      _spots = next;
+      if (target == 'departure') {
+        _departure = selected;
+        return;
+      }
+      if (target == 'destination') {
+        _destination = selected;
+        return;
+      }
+      if (_spots.any((PlaceSelection s) {
+        if ((s.placeId?.isNotEmpty ?? false) &&
+            (selected.placeId?.isNotEmpty ?? false)) {
+          return s.placeId == selected.placeId;
+        }
+        return s.name == selected.name;
+      })) {
+        return;
+      }
+      _spots = <PlaceSelection>[..._spots, selected];
     });
   }
 
@@ -327,10 +312,7 @@ class _TourDetailPageState extends ConsumerState<TourDetailPage> {
   }
 
   PlaceSelection _selectionFromName(String name) {
-    return PlaceSelection(
-      name: name,
-      point: _knownLocations[name],
-    );
+    return PlaceSelection(name: name, point: _knownLocations[name]);
   }
 
   int _parseDurationHours(String raw) {
@@ -339,61 +321,44 @@ class _TourDetailPageState extends ConsumerState<TourDetailPage> {
   }
 }
 
-class _SelectorCard extends StatelessWidget {
-  const _SelectorCard({
-    required this.placesApi,
+class _TopRouteSelector extends StatelessWidget {
+  const _TopRouteSelector({
     required this.departure,
     required this.destination,
-    required this.onDepartureChanged,
-    required this.onDestinationChanged,
-    required this.onCourseSelected,
+    required this.onTapDeparture,
+    required this.onTapDestination,
   });
 
-  final PlacesApi placesApi;
   final PlaceSelection departure;
   final PlaceSelection destination;
-  final ValueChanged<PlaceSelection> onDepartureChanged;
-  final ValueChanged<PlaceSelection> onDestinationChanged;
-  final ValueChanged<PlaceSelection> onCourseSelected;
+  final VoidCallback onTapDeparture;
+  final VoidCallback onTapDestination;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: <Widget>[
-          const Text(
-            '출발지 / 도착지 / 코스 선택',
-            style: TextStyle(fontWeight: FontWeight.w700),
+          _TopRoutePill(
+            icon: Icons.radio_button_unchecked,
+            color: const Color(0xFF334155),
+            text: departure.name,
+            onTap: onTapDeparture,
           ),
-          const SizedBox(height: 8),
-          _GooglePlaceSearchField(
-            label: '출발지 (Google 검색)',
-            initialValue: departure.name,
-            placesApi: placesApi,
-            onSelected: onDepartureChanged,
-          ),
-          const SizedBox(height: 8),
-          _GooglePlaceSearchField(
-            label: '도착지 (Google 검색)',
-            initialValue: destination.name,
-            placesApi: placesApi,
-            onSelected: onDestinationChanged,
-          ),
-          const SizedBox(height: 8),
-          _GooglePlaceSearchField(
-            label: '코스 선택 (Google 관광지 검색)',
-            initialValue: '',
-            clearAfterSelect: true,
-            placesApi: placesApi,
-            onSelected: onCourseSelected,
+          const SizedBox(width: 6),
+          const Icon(Icons.arrow_forward, size: 16, color: Color(0xFF64748B)),
+          const SizedBox(width: 6),
+          _TopRoutePill(
+            icon: Icons.circle,
+            color: const Color(0xFFDC2626),
+            text: destination.name,
+            onTap: onTapDestination,
           ),
         ],
       ),
@@ -401,114 +366,202 @@ class _SelectorCard extends StatelessWidget {
   }
 }
 
-class _GooglePlaceSearchField extends StatefulWidget {
-  const _GooglePlaceSearchField({
-    required this.label,
-    required this.initialValue,
-    required this.placesApi,
-    required this.onSelected,
-    this.clearAfterSelect = false,
+class _TopRoutePill extends StatelessWidget {
+  const _TopRoutePill({
+    required this.icon,
+    required this.color,
+    required this.text,
+    required this.onTap,
   });
 
-  final String label;
-  final String initialValue;
-  final PlacesApi placesApi;
-  final ValueChanged<PlaceSelection> onSelected;
-  final bool clearAfterSelect;
+  final IconData icon;
+  final Color color;
+  final String text;
+  final VoidCallback onTap;
 
   @override
-  State<_GooglePlaceSearchField> createState() =>
-      _GooglePlaceSearchFieldState();
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            children: <Widget>[
+              Icon(icon, size: 13, color: color),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class _GooglePlaceSearchFieldState extends State<_GooglePlaceSearchField> {
-  late final TextEditingController _controller;
-  final FocusNode _focusNode = FocusNode();
+class _CourseSelectTile extends StatelessWidget {
+  const _CourseSelectTile({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: const Row(
+          children: <Widget>[
+            Icon(Icons.search, size: 18),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '코스 선택 (Google 검색)',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            Icon(Icons.chevron_right),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PlaceSearchSheet extends StatefulWidget {
+  const _PlaceSearchSheet({
+    required this.title,
+    required this.placesApi,
+  });
+
+  final String title;
+  final PlacesApi placesApi;
+
+  @override
+  State<_PlaceSearchSheet> createState() => _PlaceSearchSheetState();
+}
+
+class _PlaceSearchSheetState extends State<_PlaceSearchSheet> {
+  final TextEditingController _controller = TextEditingController();
   List<PlaceAutocompleteItem> _predictions = <PlaceAutocompleteItem>[];
   bool _loading = false;
   int _requestId = 0;
 
   @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.initialValue);
-    _focusNode.addListener(() => setState(() {}));
-  }
-
-  @override
-  void didUpdateWidget(covariant _GooglePlaceSearchField oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!widget.clearAfterSelect &&
-        widget.initialValue != oldWidget.initialValue &&
-        _controller.text != widget.initialValue) {
-      _controller.text = widget.initialValue;
-    }
-  }
-
-  @override
   void dispose() {
     _controller.dispose();
-    _focusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        TextField(
-          controller: _controller,
-          focusNode: _focusNode,
-          decoration: InputDecoration(
-            labelText: widget.label,
-            border: const OutlineInputBorder(),
-            isDense: true,
-            prefixIcon: const Icon(Icons.search, size: 18),
-            suffixIcon: _loading
-                ? const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+    final double keyboardBottom = MediaQuery.of(context).viewInsets.bottom;
+
+    return Material(
+      color: const Color(0xFFF8FAFC),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: keyboardBottom),
+          child: Column(
+            children: <Widget>[
+              const SizedBox(height: 8),
+              Container(
+                width: 44,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCBD5E1),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: <Widget>[
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.arrow_back),
                     ),
-                  )
-                : null,
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          hintText: widget.title,
+                          border: const OutlineInputBorder(),
+                          isDense: true,
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: _loading
+                              ? const Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  ),
+                                )
+                              : null,
+                        ),
+                        onChanged: _search,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  itemCount: _predictions.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (BuildContext context, int index) {
+                    final PlaceAutocompleteItem item = _predictions[index];
+                    return ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.place_outlined),
+                      title: Text(item.primaryText),
+                      subtitle: item.secondaryText.isEmpty
+                          ? null
+                          : Text(item.secondaryText),
+                      onTap: () => _select(item),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-          onChanged: _onQueryChanged,
         ),
-        if (_focusNode.hasFocus && _predictions.isNotEmpty) ...<Widget>[
-          const SizedBox(height: 6),
-          Container(
-            constraints: const BoxConstraints(maxHeight: 180),
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              borderRadius: BorderRadius.circular(8),
-              color: Colors.white,
-            ),
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: _predictions.length,
-              itemBuilder: (BuildContext context, int index) {
-                final PlaceAutocompleteItem item = _predictions[index];
-                return ListTile(
-                  dense: true,
-                  title: Text(item.primaryText),
-                  subtitle: item.secondaryText.isEmpty
-                      ? null
-                      : Text(item.secondaryText),
-                  onTap: () => _selectPrediction(item),
-                );
-              },
-            ),
-          ),
-        ],
-      ],
+      ),
     );
   }
 
-  Future<void> _onQueryChanged(String value) async {
+  Future<void> _search(String value) async {
     final String query = value.trim();
     final int requestId = ++_requestId;
 
@@ -542,7 +595,7 @@ class _GooglePlaceSearchFieldState extends State<_GooglePlaceSearchField> {
     }
   }
 
-  Future<void> _selectPrediction(PlaceAutocompleteItem prediction) async {
+  Future<void> _select(PlaceAutocompleteItem prediction) async {
     setState(() => _loading = true);
     try {
       final PlaceDetailsItem details =
@@ -550,25 +603,14 @@ class _GooglePlaceSearchFieldState extends State<_GooglePlaceSearchField> {
       if (!mounted) {
         return;
       }
-      final PlaceSelection value = PlaceSelection(
-        name: details.name.isNotEmpty ? details.name : prediction.primaryText,
-        placeId: details.placeId,
-        address: details.address,
-        point: details.location,
+      Navigator.of(context).pop(
+        PlaceSelection(
+          name: details.name.isNotEmpty ? details.name : prediction.primaryText,
+          placeId: details.placeId,
+          address: details.address,
+          point: details.location,
+        ),
       );
-      widget.onSelected(value);
-
-      if (widget.clearAfterSelect) {
-        _controller.clear();
-      } else {
-        _controller.text = value.name;
-      }
-
-      setState(() {
-        _predictions = <PlaceAutocompleteItem>[];
-        _loading = false;
-      });
-      _focusNode.unfocus();
     } catch (_) {
       if (!mounted) {
         return;
@@ -613,7 +655,6 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
     ];
 
     final LatLng center = depPoint ?? spotPoints.firstOrNull ?? _defaultCenter;
-
     _fitRouteIfNeeded(route);
 
     return GoogleMap(
@@ -732,35 +773,6 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
     }
 
     return markers;
-  }
-}
-
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.title, required this.rows});
-
-  final String title;
-  final List<MapEntry<String, String>> rows;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            ...rows.map(
-              (MapEntry<String, String> row) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text('${row.key}: ${row.value}'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

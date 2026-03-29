@@ -1,13 +1,22 @@
 import os
+from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query
+from dotenv import load_dotenv
+
+_BACKEND_ROOT = Path(__file__).resolve().parents[1]
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(_PROJECT_ROOT / ".env.local")
+load_dotenv(_PROJECT_ROOT / ".env")
+load_dotenv(_BACKEND_ROOT / ".env")
 
 router = APIRouter(prefix="/api/maps", tags=["maps"])
 
 GOOGLE_MAPS_SERVER_KEY = (
     os.getenv("GOOGLE_MAPS_SERVER_KEY")
     or os.getenv("GOOGLE_MAPS_API_KEY")
+    or os.getenv("NEXT_PUBLIC_GOOGLE_MAPS_KEY")
     or os.getenv("VITE_GOOGLE_MAPS_KEY")
     or ""
 ).strip()
