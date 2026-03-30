@@ -1,4 +1,6 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +12,7 @@ import '../data/places_api.dart';
 import '../domain/tour_course.dart';
 
 const LatLng _defaultCenter = LatLng(43.5900, 142.4600);
+const double _initialSheetSize = 0.30;
 
 const Map<String, LatLng> _knownLocations = <String, LatLng>{
   '아사히카와역': LatLng(43.7637, 142.3578),
@@ -87,6 +90,7 @@ class _TourDetailPageState extends ConsumerState<TourDetailPage> {
               departure: _departure,
               destination: _destination,
               spots: _spots,
+              bottomOverlayFraction: _initialSheetSize,
             ),
           ),
           SafeArea(
@@ -114,11 +118,11 @@ class _TourDetailPageState extends ConsumerState<TourDetailPage> {
             ),
           ),
           DraggableScrollableSheet(
-            initialChildSize: 0.30,
+            initialChildSize: _initialSheetSize,
             minChildSize: 0.20,
             maxChildSize: 0.92,
             snap: true,
-            snapSizes: const <double>[0.30, 0.58, 0.92],
+            snapSizes: const <double>[_initialSheetSize, 0.58, 0.92],
             builder: (BuildContext context, ScrollController controller) {
               return Container(
                 decoration: const BoxDecoration(
@@ -625,11 +629,13 @@ class _RouteMapPreview extends StatefulWidget {
     required this.departure,
     required this.destination,
     required this.spots,
+    required this.bottomOverlayFraction,
   });
 
   final PlaceSelection departure;
   final PlaceSelection destination;
   final List<PlaceSelection> spots;
+  final double bottomOverlayFraction;
 
   @override
   State<_RouteMapPreview> createState() => _RouteMapPreviewState();
@@ -638,6 +644,30 @@ class _RouteMapPreview extends StatefulWidget {
 class _RouteMapPreviewState extends State<_RouteMapPreview> {
   GoogleMapController? _mapController;
   String _lastRouteSignature = '';
+  BitmapDescriptor? _departureIcon;
+  BitmapDescriptor? _destinationIcon;
+  final Map<int, BitmapDescriptor> _spotNumberIcons = <int, BitmapDescriptor>{};
+  int _lastSpotCount = -1;
+  String _lastDepartureName = '';
+  String _lastDestinationName = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _prepareMarkerIcons(forceAll: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant _RouteMapPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final bool spotChanged = oldWidget.spots.length != widget.spots.length;
+    final bool endpointChanged =
+        oldWidget.departure.name != widget.departure.name ||
+            oldWidget.destination.name != widget.destination.name;
+    if (spotChanged || endpointChanged) {
+      _prepareMarkerIcons(forceAll: endpointChanged);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -658,6 +688,14 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
     _fitRouteIfNeeded(route);
 
     return GoogleMap(
+      padding: EdgeInsets.only(
+        top: 96,
+        bottom:
+            MediaQuery.sizeOf(context).height * widget.bottomOverlayFraction +
+                24,
+        left: 16,
+        right: 16,
+      ),
       initialCameraPosition: CameraPosition(target: center, zoom: 10.8),
       onMapCreated: (GoogleMapController controller) {
         _mapController = controller;
@@ -727,7 +765,7 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
             southwest: LatLng(minLat, minLng),
             northeast: LatLng(maxLat, maxLng),
           ),
-          64,
+          36,
         ),
       );
     });
@@ -743,16 +781,15 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
         Marker(
           markerId: const MarkerId('departure'),
           position: depPoint,
-          infoWindow: InfoWindow(title: '출발지: ${widget.departure.name}'),
-          icon:
+          icon: _departureIcon ??
               BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
         ),
       if (dstPoint != null)
         Marker(
           markerId: const MarkerId('destination'),
           position: dstPoint,
-          infoWindow: InfoWindow(title: '도착지: ${widget.destination.name}'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          icon: _destinationIcon ??
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
         ),
     };
 
@@ -765,14 +802,204 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
         Marker(
           markerId: MarkerId('spot-$i'),
           position: spot.point!,
-          infoWindow: InfoWindow(title: '${i + 1}. ${spot.name}'),
-          icon:
+          icon: _spotNumberIcons[i] ??
               BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
         ),
       );
     }
 
     return markers;
+  }
+
+  Future<void> _prepareMarkerIcons({bool forceAll = false}) async {
+    if (!mounted) {
+      return;
+    }
+
+    final double dpr = _devicePixelRatio();
+
+    BitmapDescriptor? departureIcon = _departureIcon;
+    BitmapDescriptor? destinationIcon = _destinationIcon;
+
+    final bool regenerateDeparture = forceAll ||
+        departureIcon == null ||
+        _lastDepartureName != widget.departure.name;
+    if (regenerateDeparture) {
+      departureIcon = await _buildEndpointIcon(
+        prefix: '출발',
+        dotColor: const Color(0xFF16A34A),
+        dpr: dpr,
+      );
+    }
+
+    final bool regenerateDestination = forceAll ||
+        destinationIcon == null ||
+        _lastDestinationName != widget.destination.name;
+    if (regenerateDestination) {
+      destinationIcon = await _buildEndpointIcon(
+        prefix: '도착',
+        dotColor: const Color(0xFFDC2626),
+        dpr: dpr,
+      );
+    }
+
+    final int spotCount = widget.spots.length;
+    final bool needSpotIcons = forceAll || spotCount != _lastSpotCount;
+    final Map<int, BitmapDescriptor> nextSpotIcons =
+        Map<int, BitmapDescriptor>.from(_spotNumberIcons);
+
+    if (needSpotIcons) {
+      nextSpotIcons.clear();
+      for (int i = 0; i < spotCount; i++) {
+        nextSpotIcons[i] = await _buildNumberIcon('${i + 1}', dpr: dpr);
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _departureIcon = departureIcon;
+      _destinationIcon = destinationIcon;
+      if (needSpotIcons) {
+        _spotNumberIcons
+          ..clear()
+          ..addAll(nextSpotIcons);
+      }
+      _lastSpotCount = spotCount;
+      _lastDepartureName = widget.departure.name;
+      _lastDestinationName = widget.destination.name;
+    });
+  }
+
+  Future<BitmapDescriptor> _buildEndpointIcon({
+    required String prefix,
+    required Color dotColor,
+    required double dpr,
+  }) async {
+    const double width = 92;
+    const double height = 34;
+    final ui.PictureRecorder recorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(recorder);
+    canvas.scale(dpr, dpr);
+
+    final Paint dotPaint = Paint()..color = dotColor;
+    final Paint dotStroke = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    const Offset dotCenter = Offset(11, 17);
+    canvas.drawCircle(dotCenter, 5, dotPaint);
+    canvas.drawCircle(dotCenter, 5, dotStroke);
+
+    final RRect labelRect = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(22, 5, width - 26, 24),
+      const Radius.circular(10),
+    );
+    final Paint labelPaint = Paint()..color = const Color(0xEFFFFFFF);
+    final Paint labelBorder = Paint()
+      ..color = const Color(0xFFD1D5DB)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    canvas.drawRRect(labelRect, labelPaint);
+    canvas.drawRRect(labelRect, labelBorder);
+
+    final String label = prefix;
+
+    final TextPainter painter = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: const TextStyle(
+          color: Color(0xFF0F172A),
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      textDirection: ui.TextDirection.ltr,
+    )..layout();
+
+    painter.paint(
+      canvas,
+      Offset(31, (height - painter.height) / 2),
+    );
+
+    final ui.Image image = await recorder
+        .endRecording()
+        .toImage((width * dpr).round(), (height * dpr).round());
+    final ByteData? byteData =
+        await image.toByteData(format: ui.ImageByteFormat.png);
+    final Uint8List bytes = byteData!.buffer.asUint8List();
+    return BitmapDescriptor.bytes(
+      bytes,
+      imagePixelRatio: dpr,
+      bitmapScaling: MapBitmapScaling.auto,
+    );
+  }
+
+  Future<BitmapDescriptor> _buildNumberIcon(
+    String number, {
+    required double dpr,
+  }) async {
+    const double size = 30;
+    final ui.PictureRecorder recorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(recorder);
+    canvas.scale(dpr, dpr);
+
+    final Paint fillPaint = Paint()..color = const Color(0xFFF59E0B);
+    final Paint strokePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4;
+
+    const Offset center = Offset(size / 2, size / 2);
+    canvas.drawCircle(center, size / 2 - 2, fillPaint);
+    canvas.drawCircle(center, size / 2 - 2, strokePaint);
+
+    final TextPainter painter = TextPainter(
+      text: TextSpan(
+        text: number,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      textDirection: ui.TextDirection.ltr,
+    )..layout();
+
+    painter.paint(
+      canvas,
+      Offset((size - painter.width) / 2, (size - painter.height) / 2),
+    );
+
+    final ui.Image image = await recorder
+        .endRecording()
+        .toImage((size * dpr).round(), (size * dpr).round());
+    final ByteData? byteData =
+        await image.toByteData(format: ui.ImageByteFormat.png);
+    final Uint8List bytes = byteData!.buffer.asUint8List();
+    return BitmapDescriptor.bytes(
+      bytes,
+      imagePixelRatio: dpr,
+      bitmapScaling: MapBitmapScaling.auto,
+    );
+  }
+
+  double _devicePixelRatio() {
+    final double? mediaQueryDpr = MediaQuery.maybeDevicePixelRatioOf(context);
+    if (mediaQueryDpr != null && mediaQueryDpr > 0) {
+      return mediaQueryDpr;
+    }
+    final Iterable<ui.FlutterView> views = ui.PlatformDispatcher.instance.views;
+    if (views.isNotEmpty) {
+      final double viewDpr = views.first.devicePixelRatio;
+      if (viewDpr > 0) {
+        return viewDpr;
+      }
+    }
+    return 2.0;
   }
 }
 
