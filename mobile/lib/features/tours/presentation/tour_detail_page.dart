@@ -13,6 +13,12 @@ import '../domain/tour_course.dart';
 
 const LatLng _defaultCenter = LatLng(43.5900, 142.4600);
 const double _initialSheetSize = 0.30;
+const List<double> _sheetSnapSizes = <double>[
+  0.20,
+  _initialSheetSize,
+  0.58,
+  0.92
+];
 
 const Map<String, LatLng> _knownLocations = <String, LatLng>{
   '아사히카와역': LatLng(43.7637, 142.3578),
@@ -57,11 +63,17 @@ class TourDetailPage extends ConsumerStatefulWidget {
 
 class _TourDetailPageState extends ConsumerState<TourDetailPage> {
   final PlacesApi _placesApi = PlacesApi();
+  final DraggableScrollableController _sheetController =
+      DraggableScrollableController();
+  final GlobalKey<_RouteMapPreviewState> _mapPreviewKey =
+      GlobalKey<_RouteMapPreviewState>();
 
   TourCourse? _course;
   late PlaceSelection _departure;
   late PlaceSelection _destination;
   late List<PlaceSelection> _spots;
+  double _sheetExtent = _initialSheetSize;
+  int _fitRevision = 0;
 
   @override
   void initState() {
@@ -70,6 +82,12 @@ class _TourDetailPageState extends ConsumerState<TourDetailPage> {
     if (found != null) {
       _applyCourse(found);
     }
+  }
+
+  @override
+  void dispose() {
+    _sheetController.dispose();
+    super.dispose();
   }
 
   @override
@@ -87,10 +105,12 @@ class _TourDetailPageState extends ConsumerState<TourDetailPage> {
         children: <Widget>[
           Positioned.fill(
             child: _RouteMapPreview(
+              key: _mapPreviewKey,
               departure: _departure,
               destination: _destination,
               spots: _spots,
-              bottomOverlayFraction: _initialSheetSize,
+              bottomOverlayFraction: _sheetExtent,
+              fitRevision: _fitRevision,
             ),
           ),
           SafeArea(
@@ -117,144 +137,168 @@ class _TourDetailPageState extends ConsumerState<TourDetailPage> {
               ),
             ),
           ),
-          DraggableScrollableSheet(
-            initialChildSize: _initialSheetSize,
-            minChildSize: 0.20,
-            maxChildSize: 0.92,
-            snap: true,
-            snapSizes: const <double>[_initialSheetSize, 0.58, 0.92],
-            builder: (BuildContext context, ScrollController controller) {
-              return Container(
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFAFAFA),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-                  boxShadow: <BoxShadow>[
-                    BoxShadow(
-                      color: Color(0x22000000),
-                      blurRadius: 20,
-                      offset: Offset(0, -6),
-                    ),
-                  ],
-                ),
-                child: ListView(
-                  controller: controller,
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
-                  children: <Widget>[
-                    Center(
-                      child: Container(
-                        width: 44,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFCBD5E1),
-                          borderRadius: BorderRadius.circular(999),
+          NotificationListener<DraggableScrollableNotification>(
+            onNotification: (DraggableScrollableNotification notification) {
+              if (_shouldSyncSheetExtent(notification.extent)) {
+                setState(() {
+                  _sheetExtent = notification.extent;
+                  _fitRevision += 1;
+                });
+              }
+              return false;
+            },
+            child: DraggableScrollableSheet(
+              controller: _sheetController,
+              initialChildSize: _initialSheetSize,
+              minChildSize: 0.20,
+              maxChildSize: 0.92,
+              snap: true,
+              snapSizes: const <double>[..._sheetSnapSizes],
+              builder: (BuildContext context, ScrollController controller) {
+                return Container(
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFAFAFA),
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(22)),
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: Color(0x22000000),
+                        blurRadius: 20,
+                        offset: Offset(0, -6),
+                      ),
+                    ],
+                  ),
+                  child: ListView(
+                    controller: controller,
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+                    children: <Widget>[
+                      Center(
+                        child: Container(
+                          width: 44,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFCBD5E1),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    _CourseSelectTile(
-                      onTap: () => _pickPlace('코스(관광지) 검색', 'course'),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      '관광지 코스',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-                    ),
-                    const SizedBox(height: 8),
-                    ReorderableListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      buildDefaultDragHandles: false,
-                      itemCount: _spots.length,
-                      onReorder: (int oldIndex, int newIndex) {
-                        setState(() {
-                          if (newIndex > oldIndex) {
-                            newIndex -= 1;
-                          }
-                          final List<PlaceSelection> next = <PlaceSelection>[
-                            ..._spots,
-                          ];
-                          final PlaceSelection item = next.removeAt(oldIndex);
-                          next.insert(newIndex, item);
-                          _spots = next;
-                        });
-                      },
-                      itemBuilder: (BuildContext context, int index) {
-                        final PlaceSelection spot = _spots[index];
-                        return ReorderableDelayedDragStartListener(
-                          key: ValueKey<String>(
-                              'spot-${spot.placeId ?? spot.name}-$index'),
-                          index: index,
-                          child: Card(
-                            margin: const EdgeInsets.only(bottom: 6),
-                            child: ListTile(
-                              dense: true,
-                              visualDensity: const VisualDensity(
-                                horizontal: 0,
-                                vertical: -2,
-                              ),
-                              leading: CircleAvatar(
-                                radius: 13,
-                                child: Text(
-                                  '${index + 1}',
-                                  style: const TextStyle(fontSize: 12),
+                      const SizedBox(height: 10),
+                      _CourseSelectTile(
+                        onTap: () => _pickPlace('코스(관광지) 검색', 'course'),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        '관광지 코스',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 16),
+                      ),
+                      const SizedBox(height: 8),
+                      ReorderableListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        buildDefaultDragHandles: false,
+                        itemCount: _spots.length,
+                        onReorder: (int oldIndex, int newIndex) {
+                          setState(() {
+                            if (newIndex > oldIndex) {
+                              newIndex -= 1;
+                            }
+                            final List<PlaceSelection> next = <PlaceSelection>[
+                              ..._spots,
+                            ];
+                            final PlaceSelection item = next.removeAt(oldIndex);
+                            next.insert(newIndex, item);
+                            _spots = next;
+                          });
+                        },
+                        itemBuilder: (BuildContext context, int index) {
+                          final PlaceSelection spot = _spots[index];
+                          return ReorderableDelayedDragStartListener(
+                            key: ValueKey<String>(
+                                'spot-${spot.placeId ?? spot.name}-$index'),
+                            index: index,
+                            child: Card(
+                              margin: const EdgeInsets.only(bottom: 6),
+                              child: ListTile(
+                                dense: true,
+                                visualDensity: const VisualDensity(
+                                  horizontal: 0,
+                                  vertical: -2,
+                                ),
+                                leading: CircleAvatar(
+                                  radius: 13,
+                                  child: Text(
+                                    '${index + 1}',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                                title: Text(
+                                  spot.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                subtitle: (spot.address?.isNotEmpty ?? false)
+                                    ? Text(
+                                        spot.address!,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      )
+                                    : null,
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.close),
+                                  onPressed: () {
+                                    setState(() {
+                                      _spots = <PlaceSelection>[
+                                        ..._spots.sublist(0, index),
+                                        ..._spots.sublist(index + 1),
+                                      ];
+                                    });
+                                  },
                                 ),
                               ),
-                              title: Text(
-                                spot.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              subtitle: (spot.address?.isNotEmpty ?? false)
-                                  ? Text(
-                                      spot.address!,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    )
-                                  : null,
-                              trailing: IconButton(
-                                icon: const Icon(Icons.close),
-                                onPressed: () {
-                                  setState(() {
-                                    _spots = <PlaceSelection>[
-                                      ..._spots.sublist(0, index),
-                                      ..._spots.sublist(index + 1),
-                                    ];
-                                  });
-                                },
-                              ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton(
-                      onPressed: () {
-                        ref
-                            .read(bookingCoordinatorProvider.notifier)
-                            .applyTourPrefill(
-                              departure: _departure.name,
-                              destination: _destination.name,
-                              selectedSpots: _spots
-                                  .map((PlaceSelection s) => s.name)
-                                  .toList(),
-                              durationHours:
-                                  _parseDurationHours(current.duration),
-                              season: current.season.first,
-                            );
-                        context.push('/booking');
-                      },
-                      child: const Text('예약 입력 페이지로 이동'),
-                    ),
-                  ],
-                ),
-              );
-            },
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                        onPressed: () {
+                          ref
+                              .read(bookingCoordinatorProvider.notifier)
+                              .applyTourPrefill(
+                                departure: _departure.name,
+                                destination: _destination.name,
+                                selectedSpots: _spots
+                                    .map((PlaceSelection s) => s.name)
+                                    .toList(),
+                                durationHours:
+                                    _parseDurationHours(current.duration),
+                                season: current.season.first,
+                              );
+                          context.push('/booking');
+                        },
+                        child: const Text('예약 입력 페이지로 이동'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
     );
+  }
+
+  bool _shouldSyncSheetExtent(double extent) {
+    const double epsilon = 0.02;
+    final bool isNearSnap = _sheetSnapSizes.any(
+      (double snap) => (extent - snap).abs() <= epsilon,
+    );
+    if (!isNearSnap) {
+      return false;
+    }
+    return (_sheetExtent - extent).abs() > 0.01;
   }
 
   Future<void> _pickPlace(String title, String target) async {
@@ -280,22 +324,57 @@ class _TourDetailPageState extends ConsumerState<TourDetailPage> {
     setState(() {
       if (target == 'departure') {
         _departure = selected;
-        return;
-      }
-      if (target == 'destination') {
+      } else if (target == 'destination') {
         _destination = selected;
-        return;
-      }
-      if (_spots.any((PlaceSelection s) {
+      } else if (!_spots.any((PlaceSelection s) {
         if ((s.placeId?.isNotEmpty ?? false) &&
             (selected.placeId?.isNotEmpty ?? false)) {
           return s.placeId == selected.placeId;
         }
         return s.name == selected.name;
       })) {
+        _spots = <PlaceSelection>[..._spots, selected];
+      }
+      _fitRevision += 1;
+    });
+
+    _forceMapFitSoon();
+
+    _snapSheetToInitial();
+  }
+
+  void _snapSheetToInitial() {
+    setState(() {
+      _sheetExtent = _initialSheetSize;
+      _fitRevision += 1;
+    });
+    if (!_sheetController.isAttached) {
+      return;
+    }
+    _sheetController
+        .animateTo(
+      _initialSheetSize,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    )
+        .then((_) {
+      if (!mounted) {
         return;
       }
-      _spots = <PlaceSelection>[..._spots, selected];
+      setState(() => _fitRevision += 1);
+      _forceMapFitSoon();
+    }).catchError((Object error, StackTrace stackTrace) {
+      debugPrint('Sheet snap skipped: $error');
+      return;
+    });
+  }
+
+  void _forceMapFitSoon() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _mapPreviewKey.currentState?.forceFit();
     });
   }
 
@@ -721,22 +800,27 @@ class _PlaceSearchSheetState extends State<_PlaceSearchSheet> {
 
 class _RouteMapPreview extends StatefulWidget {
   const _RouteMapPreview({
+    super.key,
     required this.departure,
     required this.destination,
     required this.spots,
     required this.bottomOverlayFraction,
+    required this.fitRevision,
   });
 
   final PlaceSelection departure;
   final PlaceSelection destination;
   final List<PlaceSelection> spots;
   final double bottomOverlayFraction;
+  final int fitRevision;
 
   @override
   State<_RouteMapPreview> createState() => _RouteMapPreviewState();
 }
 
 class _RouteMapPreviewState extends State<_RouteMapPreview> {
+  static const Offset _endpointAnchor = Offset(13 / 188, 20 / 40);
+
   GoogleMapController? _mapController;
   String _lastRouteSignature = '';
   BitmapDescriptor? _departureIcon;
@@ -762,6 +846,29 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
     if (spotChanged || endpointChanged) {
       _prepareMarkerIcons(forceAll: endpointChanged);
     }
+
+    final bool overlayChanged =
+        (oldWidget.bottomOverlayFraction - widget.bottomOverlayFraction).abs() >
+            0.005;
+    final bool revisionChanged = oldWidget.fitRevision != widget.fitRevision;
+    if (overlayChanged || revisionChanged || spotChanged || endpointChanged) {
+      forceFit();
+    }
+  }
+
+  void forceFit() {
+    final LatLng? depPoint = widget.departure.point;
+    final LatLng? dstPoint = widget.destination.point;
+    final List<LatLng> spotPoints = widget.spots
+        .map((PlaceSelection p) => p.point)
+        .whereType<LatLng>()
+        .toList();
+    final List<LatLng> route = <LatLng>[
+      if (depPoint != null) depPoint,
+      ...spotPoints,
+      if (dstPoint != null) dstPoint,
+    ];
+    _fitRouteIfNeeded(route, force: true);
   }
 
   @override
@@ -819,35 +926,38 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
       return;
     }
 
-    final String signature = route
-        .map((LatLng p) =>
-            '${p.latitude.toStringAsFixed(5)},${p.longitude.toStringAsFixed(5)}')
-        .join('|');
+    final List<LatLng> validRoute = route.where(_isValidLatLng).toList();
+    if (validRoute.isEmpty) {
+      return;
+    }
+
+    final String signature =
+        '${validRoute.map((LatLng p) => '${p.latitude},${p.longitude}').join('|')}|sheet:${widget.bottomOverlayFraction.toStringAsFixed(3)}|rev:${widget.fitRevision}';
     if (!force && signature == _lastRouteSignature) {
       return;
     }
     _lastRouteSignature = signature;
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted || route.isEmpty) {
+      if (!mounted || validRoute.isEmpty) {
         return;
       }
 
-      if (route.length == 1) {
+      if (validRoute.length == 1) {
         await controller.animateCamera(
           CameraUpdate.newCameraPosition(
-            CameraPosition(target: route.first, zoom: 12),
+            CameraPosition(target: validRoute.first, zoom: 12),
           ),
         );
         return;
       }
 
-      double minLat = route.first.latitude;
-      double maxLat = route.first.latitude;
-      double minLng = route.first.longitude;
-      double maxLng = route.first.longitude;
+      double minLat = validRoute.first.latitude;
+      double maxLat = validRoute.first.latitude;
+      double minLng = validRoute.first.longitude;
+      double maxLng = validRoute.first.longitude;
 
-      for (final LatLng point in route.skip(1)) {
+      for (final LatLng point in validRoute.skip(1)) {
         minLat = math.min(minLat, point.latitude);
         maxLat = math.max(maxLat, point.latitude);
         minLng = math.min(minLng, point.longitude);
@@ -860,10 +970,20 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
             southwest: LatLng(minLat, minLng),
             northeast: LatLng(maxLat, maxLng),
           ),
-          36,
+          12,
         ),
       );
     });
+  }
+
+  bool _isValidLatLng(LatLng point) {
+    if (!point.latitude.isFinite || !point.longitude.isFinite) {
+      return false;
+    }
+    return point.latitude >= -90 &&
+        point.latitude <= 90 &&
+        point.longitude >= -180 &&
+        point.longitude <= 180;
   }
 
   Set<Marker> _buildMarkers(
@@ -876,6 +996,7 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
         Marker(
           markerId: const MarkerId('departure'),
           position: depPoint,
+          anchor: _endpointAnchor,
           icon: _departureIcon ??
               BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
         ),
@@ -883,6 +1004,7 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
         Marker(
           markerId: const MarkerId('destination'),
           position: dstPoint,
+          anchor: _endpointAnchor,
           icon: _destinationIcon ??
               BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
         ),

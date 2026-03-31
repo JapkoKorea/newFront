@@ -97,8 +97,17 @@ class PlacesApi {
         (json['place'] as Map<String, dynamic>? ?? <String, dynamic>{});
     final Map<String, dynamic> location =
         (place['location'] as Map<String, dynamic>? ?? <String, dynamic>{});
-    final double lat = (location['lat'] as num?)?.toDouble() ?? 0;
-    final double lng = (location['lng'] as num?)?.toDouble() ?? 0;
+    final num? latRaw = location['lat'] as num?;
+    final num? lngRaw = location['lng'] as num?;
+    if (latRaw == null || lngRaw == null) {
+      throw PlacesApiException('선택한 장소의 좌표를 가져오지 못했습니다. 다른 결과를 선택해 주세요.');
+    }
+
+    final double lat = latRaw.toDouble();
+    final double lng = lngRaw.toDouble();
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      throw PlacesApiException('선택한 장소 좌표가 올바르지 않습니다. 다른 결과를 선택해 주세요.');
+    }
 
     return PlaceDetailsItem(
       placeId: place['place_id']?.toString() ?? placeId,
