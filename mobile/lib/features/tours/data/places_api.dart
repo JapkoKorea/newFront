@@ -2,6 +2,15 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../core/network/api_client.dart';
 
+class PlacesApiException implements Exception {
+  PlacesApiException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'PlacesApiException: $message';
+}
+
 class PlaceAutocompleteItem {
   const PlaceAutocompleteItem({
     required this.placeId,
@@ -41,14 +50,19 @@ class PlacesApi {
       return const <PlaceAutocompleteItem>[];
     }
 
-    final Map<String, dynamic> json = await _apiClient.getJson(
-      '/api/maps/places/autocomplete',
-      query: <String, String>{
-        'q': trimmed,
-        'language': 'ko',
-        'region': 'jp',
-      },
-    );
+    final Map<String, dynamic> json;
+    try {
+      json = await _apiClient.getJson(
+        '/api/maps/places/autocomplete',
+        query: <String, String>{
+          'q': trimmed,
+          'language': 'ko',
+          'region': 'jp',
+        },
+      );
+    } on ApiClientException catch (e) {
+      throw PlacesApiException(_messageForApiError(e));
+    }
     final List<dynamic> predictions =
         (json['predictions'] as List<dynamic>? ?? <dynamic>[]);
     return predictions
@@ -66,13 +80,18 @@ class PlacesApi {
   }
 
   Future<PlaceDetailsItem> details(String placeId) async {
-    final Map<String, dynamic> json = await _apiClient.getJson(
-      '/api/maps/places/details',
-      query: <String, String>{
-        'place_id': placeId,
-        'language': 'ko',
-      },
-    );
+    final Map<String, dynamic> json;
+    try {
+      json = await _apiClient.getJson(
+        '/api/maps/places/details',
+        query: <String, String>{
+          'place_id': placeId,
+          'language': 'ko',
+        },
+      );
+    } on ApiClientException catch (e) {
+      throw PlacesApiException(_messageForApiError(e));
+    }
 
     final Map<String, dynamic> place =
         (json['place'] as Map<String, dynamic>? ?? <String, dynamic>{});
@@ -87,5 +106,31 @@ class PlacesApi {
       address: place['address']?.toString() ?? '',
       location: LatLng(lat, lng),
     );
+  }
+
+  String _messageForApiError(ApiClientException error) {
+    final String normalized = error.message.toUpperCase();
+
+    if (error.statusCode == -1) {
+      return '검색 서버에 연결할 수 없습니다.\n${error.message}';
+    }
+
+    if (normalized.contains('REQUEST_DENIED')) {
+      return 'Google Places 요청이 거부되었습니다. 서버 키 설정을 확인해 주세요.';
+    }
+
+    if (normalized.contains('OVER_QUERY_LIMIT')) {
+      return '검색 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.';
+    }
+
+    if (normalized.contains('INVALID_REQUEST')) {
+      return '검색 요청 형식이 올바르지 않습니다. 검색어를 다시 입력해 주세요.';
+    }
+
+    if (error.statusCode >= 500) {
+      return '장소 검색 서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.\n${error.message}';
+    }
+
+    return error.message;
   }
 }

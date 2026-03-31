@@ -471,6 +471,7 @@ class _PlaceSearchSheetState extends State<_PlaceSearchSheet> {
   final TextEditingController _controller = TextEditingController();
   List<PlaceAutocompleteItem> _predictions = <PlaceAutocompleteItem>[];
   bool _loading = false;
+  String? _errorMessage;
   int _requestId = 0;
 
   @override
@@ -540,28 +541,86 @@ class _PlaceSearchSheetState extends State<_PlaceSearchSheet> {
               ),
               const SizedBox(height: 8),
               Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  itemCount: _predictions.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (BuildContext context, int index) {
-                    final PlaceAutocompleteItem item = _predictions[index];
-                    return ListTile(
-                      dense: true,
-                      leading: const Icon(Icons.place_outlined),
-                      title: Text(item.primaryText),
-                      subtitle: item.secondaryText.isEmpty
-                          ? null
-                          : Text(item.secondaryText),
-                      onTap: () => _select(item),
-                    );
-                  },
-                ),
+                child: _buildBody(),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildBody() {
+    final String query = _controller.text.trim();
+
+    if (query.isEmpty) {
+      return const Center(
+        child: Text(
+          '장소명을 입력해 주세요.',
+          style: TextStyle(color: Color(0xFF64748B)),
+        ),
+      );
+    }
+
+    if (query.length < 2) {
+      return const Center(
+        child: Text(
+          '두 글자 이상 입력하면 검색할 수 있어요.',
+          style: TextStyle(color: Color(0xFF64748B)),
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const Icon(Icons.error_outline, color: Color(0xFFDC2626)),
+              const SizedBox(height: 8),
+              Text(
+                _errorMessage!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xFF334155)),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: _loading ? null : () => _search(query),
+                icon: const Icon(Icons.refresh),
+                label: const Text('다시 시도'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (!_loading && _predictions.isEmpty) {
+      return const Center(
+        child: Text(
+          '검색 결과가 없습니다.',
+          style: TextStyle(color: Color(0xFF64748B)),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      itemCount: _predictions.length,
+      separatorBuilder: (_, __) => const Divider(height: 1),
+      itemBuilder: (BuildContext context, int index) {
+        final PlaceAutocompleteItem item = _predictions[index];
+        return ListTile(
+          dense: true,
+          leading: const Icon(Icons.place_outlined),
+          title: Text(item.primaryText),
+          subtitle:
+              item.secondaryText.isEmpty ? null : Text(item.secondaryText),
+          onTap: _loading ? null : () => _select(item),
+        );
+      },
     );
   }
 
@@ -573,11 +632,15 @@ class _PlaceSearchSheetState extends State<_PlaceSearchSheet> {
       setState(() {
         _predictions = <PlaceAutocompleteItem>[];
         _loading = false;
+        _errorMessage = null;
       });
       return;
     }
 
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
     try {
       final List<PlaceAutocompleteItem> next =
           await widget.placesApi.autocomplete(query);
@@ -587,20 +650,34 @@ class _PlaceSearchSheetState extends State<_PlaceSearchSheet> {
       setState(() {
         _predictions = next;
         _loading = false;
+        _errorMessage = null;
       });
-    } catch (_) {
+    } on PlacesApiException catch (e) {
       if (!mounted || requestId != _requestId) {
         return;
       }
       setState(() {
         _predictions = <PlaceAutocompleteItem>[];
         _loading = false;
+        _errorMessage = e.message;
+      });
+    } catch (e) {
+      if (!mounted || requestId != _requestId) {
+        return;
+      }
+      setState(() {
+        _predictions = <PlaceAutocompleteItem>[];
+        _loading = false;
+        _errorMessage = '검색 중 오류가 발생했습니다: $e';
       });
     }
   }
 
   Future<void> _select(PlaceAutocompleteItem prediction) async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
     try {
       final PlaceDetailsItem details =
           await widget.placesApi.details(prediction.placeId);
@@ -615,11 +692,29 @@ class _PlaceSearchSheetState extends State<_PlaceSearchSheet> {
           point: details.location,
         ),
       );
-    } catch (_) {
+    } on PlacesApiException catch (e) {
       if (!mounted) {
         return;
       }
-      setState(() => _loading = false);
+      setState(() {
+        _loading = false;
+        _errorMessage = e.message;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      final String message = '장소 상세 정보를 가져오지 못했습니다: $e';
+      setState(() {
+        _loading = false;
+        _errorMessage = message;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
     }
   }
 }
@@ -816,8 +911,6 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
       return;
     }
 
-    final double dpr = _devicePixelRatio();
-
     BitmapDescriptor? departureIcon = _departureIcon;
     BitmapDescriptor? destinationIcon = _destinationIcon;
 
@@ -827,8 +920,8 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
     if (regenerateDeparture) {
       departureIcon = await _buildEndpointIcon(
         prefix: '출발',
+        placeName: widget.departure.name,
         dotColor: const Color(0xFF16A34A),
-        dpr: dpr,
       );
     }
 
@@ -838,8 +931,8 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
     if (regenerateDestination) {
       destinationIcon = await _buildEndpointIcon(
         prefix: '도착',
+        placeName: widget.destination.name,
         dotColor: const Color(0xFFDC2626),
-        dpr: dpr,
       );
     }
 
@@ -851,7 +944,7 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
     if (needSpotIcons) {
       nextSpotIcons.clear();
       for (int i = 0; i < spotCount; i++) {
-        nextSpotIcons[i] = await _buildNumberIcon('${i + 1}', dpr: dpr);
+        nextSpotIcons[i] = await _buildNumberIcon('${i + 1}');
       }
     }
 
@@ -875,14 +968,13 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
 
   Future<BitmapDescriptor> _buildEndpointIcon({
     required String prefix,
+    required String placeName,
     required Color dotColor,
-    required double dpr,
   }) async {
-    const double width = 92;
-    const double height = 34;
+    const double width = 188;
+    const double height = 40;
     final ui.PictureRecorder recorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(recorder);
-    canvas.scale(dpr, dpr);
 
     final Paint dotPaint = Paint()..color = dotColor;
     final Paint dotStroke = Paint()
@@ -890,12 +982,12 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
-    const Offset dotCenter = Offset(11, 17);
-    canvas.drawCircle(dotCenter, 5, dotPaint);
-    canvas.drawCircle(dotCenter, 5, dotStroke);
+    const Offset dotCenter = Offset(13, 20);
+    canvas.drawCircle(dotCenter, 6, dotPaint);
+    canvas.drawCircle(dotCenter, 6, dotStroke);
 
     final RRect labelRect = RRect.fromRectAndRadius(
-      const Rect.fromLTWH(22, 5, width - 26, 24),
+      const Rect.fromLTWH(24, 6, width - 30, 28),
       const Radius.circular(10),
     );
     final Paint labelPaint = Paint()..color = const Color(0xEFFFFFFF);
@@ -906,11 +998,13 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
     canvas.drawRRect(labelRect, labelPaint);
     canvas.drawRRect(labelRect, labelBorder);
 
-    final String label = prefix;
+    final String label = '$prefix · $placeName';
+    final String clipped =
+        label.length > 18 ? '${label.substring(0, 18)}…' : label;
 
     final TextPainter painter = TextPainter(
       text: TextSpan(
-        text: label,
+        text: clipped,
         style: const TextStyle(
           color: Color(0xFF0F172A),
           fontSize: 11,
@@ -922,30 +1016,21 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
 
     painter.paint(
       canvas,
-      Offset(31, (height - painter.height) / 2),
+      Offset(30, (height - painter.height) / 2),
     );
 
-    final ui.Image image = await recorder
-        .endRecording()
-        .toImage((width * dpr).round(), (height * dpr).round());
+    final ui.Image image =
+        await recorder.endRecording().toImage(width.toInt(), height.toInt());
     final ByteData? byteData =
         await image.toByteData(format: ui.ImageByteFormat.png);
     final Uint8List bytes = byteData!.buffer.asUint8List();
-    return BitmapDescriptor.bytes(
-      bytes,
-      imagePixelRatio: dpr,
-      bitmapScaling: MapBitmapScaling.auto,
-    );
+    return BitmapDescriptor.bytes(bytes);
   }
 
-  Future<BitmapDescriptor> _buildNumberIcon(
-    String number, {
-    required double dpr,
-  }) async {
+  Future<BitmapDescriptor> _buildNumberIcon(String number) async {
     const double size = 30;
     final ui.PictureRecorder recorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(recorder);
-    canvas.scale(dpr, dpr);
 
     final Paint fillPaint = Paint()..color = const Color(0xFFF59E0B);
     final Paint strokePaint = Paint()
@@ -974,32 +1059,12 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
       Offset((size - painter.width) / 2, (size - painter.height) / 2),
     );
 
-    final ui.Image image = await recorder
-        .endRecording()
-        .toImage((size * dpr).round(), (size * dpr).round());
+    final ui.Image image =
+        await recorder.endRecording().toImage(size.toInt(), size.toInt());
     final ByteData? byteData =
         await image.toByteData(format: ui.ImageByteFormat.png);
     final Uint8List bytes = byteData!.buffer.asUint8List();
-    return BitmapDescriptor.bytes(
-      bytes,
-      imagePixelRatio: dpr,
-      bitmapScaling: MapBitmapScaling.auto,
-    );
-  }
-
-  double _devicePixelRatio() {
-    final double? mediaQueryDpr = MediaQuery.maybeDevicePixelRatioOf(context);
-    if (mediaQueryDpr != null && mediaQueryDpr > 0) {
-      return mediaQueryDpr;
-    }
-    final Iterable<ui.FlutterView> views = ui.PlatformDispatcher.instance.views;
-    if (views.isNotEmpty) {
-      final double viewDpr = views.first.devicePixelRatio;
-      if (viewDpr > 0) {
-        return viewDpr;
-      }
-    }
-    return 2.0;
+    return BitmapDescriptor.bytes(bytes);
   }
 }
 

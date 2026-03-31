@@ -1,15 +1,49 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.routing import APIRouter
+import importlib
 import sys
 import os
+from typing import cast
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from routers.auth import kakao
 from services.mysql_user_service import ensure_user_tables
-from routers import reservations
-from routers import payments
 from routers import seo
 from routers import maps
 from services.mysql_reservation_service import ensure_reservation_tables
+
+
+def _load_kakao_router() -> APIRouter | None:
+    try:
+        from routers.auth import kakao  # pylint: disable=import-outside-toplevel
+
+        return kakao.router
+    except ModuleNotFoundError as error:
+        missing = getattr(error, "name", "")
+        if missing in {"jose", "jwt"}:
+            print(
+                f"[WARN] Kakao auth router disabled: missing dependency '{missing}'. Install backend auth deps to enable /api/auth routes."
+            )
+            return None
+        raise
+
+
+def _load_optional_router(
+    module_name: str,
+    route_name: str,
+    optional_missing: set[str],
+) -> APIRouter | None:
+    try:
+        module = importlib.import_module(module_name)
+        return cast(APIRouter, getattr(module, "router"))
+    except ModuleNotFoundError as error:
+        missing = getattr(error, "name", "")
+        if missing in optional_missing:
+            print(
+                f"[WARN] {route_name} router disabled: missing dependency '{missing}'."
+            )
+            return None
+        raise
 
 app = FastAPI()
 
@@ -28,17 +62,41 @@ app.add_middleware(
 )
 
 # 카카오 인증 라우터 포함
-app.include_router(kakao.router)
-app.include_router(reservations.router)
-app.include_router(payments.router)
+kakao_router = _load_kakao_router()
+if kakao_router is not None:
+    app.include_router(kakao_router)
+
+reservations_router = _load_optional_router(
+    "routers.reservations",
+    route_name="reservations",
+    optional_missing={"jose", "jwt"},
+)
+if reservations_router is not None:
+    app.include_router(reservations_router)
+
+payments_router = _load_optional_router(
+    "routers.payments",
+    route_name="payments",
+    optional_missing={"jose", "jwt"},
+)
+if payments_router is not None:
+    app.include_router(payments_router)
+
 app.include_router(seo.router)
 app.include_router(maps.router)
 
 
 @app.on_event("startup")
 async def startup_event():
-    ensure_user_tables()
-    ensure_reservation_tables()
+    try:
+        ensure_user_tables()
+    except Exception as error:
+        print(f"[WARN] user table initialization skipped: {error}")
+
+    try:
+        ensure_reservation_tables()
+    except Exception as error:
+        print(f"[WARN] reservation table initialization skipped: {error}")
 
 import uvicorn
 

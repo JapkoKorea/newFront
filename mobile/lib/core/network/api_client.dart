@@ -31,6 +31,16 @@ class ApiClient {
     try {
       response = await http.get(uri, headers: headers);
     } catch (e) {
+      final Uri? fallbackUri = _alternatePortUri(uri);
+      if (fallbackUri != null) {
+        try {
+          final http.Response fallback =
+              await http.get(fallbackUri, headers: headers);
+          return _decode(fallback);
+        } catch (_) {
+          // no-op: preserve original network error details below
+        }
+      }
       throw ApiClientException(-1, _networkErrorMessage(e));
     }
     return _decode(response);
@@ -88,17 +98,45 @@ class ApiClient {
       port: base.hasPort ? base.port : null,
     );
     final String normalizedPath = path.startsWith('/') ? path : '/$path';
+    final String basePath = base.path == '/'
+        ? ''
+        : (base.path.endsWith('/')
+            ? base.path.substring(0, base.path.length - 1)
+            : base.path);
+    final String combinedPath =
+        '${basePath.isEmpty ? '' : basePath}$normalizedPath';
 
     return origin.replace(
-      path: normalizedPath,
+      path: combinedPath,
       queryParameters: query,
     );
   }
 
+  Uri? _alternatePortUri(Uri uri) {
+    if (uri.scheme != 'http') {
+      return null;
+    }
+    if (uri.host.isEmpty) {
+      return null;
+    }
+
+    final int currentPort = uri.hasPort ? uri.port : 80;
+    final int? alternatePort = switch (currentPort) {
+      5000 => 8000,
+      8000 => 5000,
+      _ => null,
+    };
+    if (alternatePort == null) {
+      return null;
+    }
+    return uri.replace(port: alternatePort);
+  }
+
   String _networkErrorMessage(Object error) {
     final String baseMessage = 'Network connection failed: $error';
-    if (AppConfig.apiBaseUrl.contains('localhost')) {
-      return '$baseMessage\nTip: On a real phone, localhost points to the phone itself. Use your Mac LAN IP (e.g. http://192.168.x.x:8000) and run backend with --host 0.0.0.0.';
+    final Uri uri = Uri.parse(AppConfig.apiBaseUrl);
+    if (<String>{'localhost', '127.0.0.1', '::1'}.contains(uri.host)) {
+      return '$baseMessage\nCurrent API_BASE_URL: ${AppConfig.apiBaseUrl}\nTip: On a real phone, localhost points to the phone itself. Use your Mac LAN IP (e.g. http://192.168.x.x:5000) and run backend with --host 0.0.0.0.';
     }
     return baseMessage;
   }
@@ -117,8 +155,14 @@ class ApiClient {
   }
 
   Map<String, dynamic> _decode(http.Response response) {
-    final dynamic decoded =
-        response.body.isEmpty ? <String, dynamic>{} : jsonDecode(response.body);
+    final dynamic decoded;
+    try {
+      decoded = response.body.isEmpty
+          ? <String, dynamic>{}
+          : jsonDecode(response.body);
+    } catch (_) {
+      throw ApiClientException(response.statusCode, 'Invalid JSON response');
+    }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final String message = decoded is Map<String, dynamic>

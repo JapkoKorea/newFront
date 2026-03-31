@@ -40,7 +40,6 @@ async def autocomplete_places(
         "input": q.strip(),
         "language": language,
         "components": f"country:{region}",
-        "types": "geocode",
         "key": key,
     }
 
@@ -60,7 +59,7 @@ async def autocomplete_places(
 
     predictions = payload.get("predictions", [])
     data = []
-    for p in predictions[:8]:
+    for p in predictions[:12]:
         fmt = p.get("structured_formatting", {})
         data.append(
             {
