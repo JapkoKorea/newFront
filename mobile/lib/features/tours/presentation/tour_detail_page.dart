@@ -829,10 +829,17 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
   int _lastSpotCount = -1;
   String _lastDepartureName = '';
   String _lastDestinationName = '';
+  double _lastDevicePixelRatio = 0;
 
   @override
   void initState() {
     super.initState();
+    _prepareMarkerIcons(forceAll: true);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     _prepareMarkerIcons(forceAll: true);
   }
 
@@ -1033,10 +1040,14 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
       return;
     }
 
+    final double dpr = _devicePixelRatio();
+    final bool dprChanged = (_lastDevicePixelRatio - dpr).abs() > 0.01;
+
     BitmapDescriptor? departureIcon = _departureIcon;
     BitmapDescriptor? destinationIcon = _destinationIcon;
 
     final bool regenerateDeparture = forceAll ||
+        dprChanged ||
         departureIcon == null ||
         _lastDepartureName != widget.departure.name;
     if (regenerateDeparture) {
@@ -1044,10 +1055,12 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
         prefix: '출발',
         placeName: widget.departure.name,
         dotColor: const Color(0xFF16A34A),
+        dpr: dpr,
       );
     }
 
     final bool regenerateDestination = forceAll ||
+        dprChanged ||
         destinationIcon == null ||
         _lastDestinationName != widget.destination.name;
     if (regenerateDestination) {
@@ -1055,18 +1068,20 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
         prefix: '도착',
         placeName: widget.destination.name,
         dotColor: const Color(0xFFDC2626),
+        dpr: dpr,
       );
     }
 
     final int spotCount = widget.spots.length;
-    final bool needSpotIcons = forceAll || spotCount != _lastSpotCount;
+    final bool needSpotIcons =
+        forceAll || dprChanged || spotCount != _lastSpotCount;
     final Map<int, BitmapDescriptor> nextSpotIcons =
         Map<int, BitmapDescriptor>.from(_spotNumberIcons);
 
     if (needSpotIcons) {
       nextSpotIcons.clear();
       for (int i = 0; i < spotCount; i++) {
-        nextSpotIcons[i] = await _buildNumberIcon('${i + 1}');
+        nextSpotIcons[i] = await _buildNumberIcon('${i + 1}', dpr: dpr);
       }
     }
 
@@ -1085,6 +1100,7 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
       _lastSpotCount = spotCount;
       _lastDepartureName = widget.departure.name;
       _lastDestinationName = widget.destination.name;
+      _lastDevicePixelRatio = dpr;
     });
   }
 
@@ -1092,11 +1108,13 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
     required String prefix,
     required String placeName,
     required Color dotColor,
+    required double dpr,
   }) async {
     const double width = 188;
     const double height = 40;
     final ui.PictureRecorder recorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(recorder);
+    canvas.scale(dpr, dpr);
 
     final Paint dotPaint = Paint()..color = dotColor;
     final Paint dotStroke = Paint()
@@ -1141,18 +1159,23 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
       Offset(30, (height - painter.height) / 2),
     );
 
-    final ui.Image image =
-        await recorder.endRecording().toImage(width.toInt(), height.toInt());
+    final ui.Image image = await recorder
+        .endRecording()
+        .toImage((width * dpr).round(), (height * dpr).round());
     final ByteData? byteData =
         await image.toByteData(format: ui.ImageByteFormat.png);
     final Uint8List bytes = byteData!.buffer.asUint8List();
-    return BitmapDescriptor.bytes(bytes);
+    return _descriptorFromBytes(bytes, dpr: dpr);
   }
 
-  Future<BitmapDescriptor> _buildNumberIcon(String number) async {
+  Future<BitmapDescriptor> _buildNumberIcon(
+    String number, {
+    required double dpr,
+  }) async {
     const double size = 30;
     final ui.PictureRecorder recorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(recorder);
+    canvas.scale(dpr, dpr);
 
     final Paint fillPaint = Paint()..color = const Color(0xFFF59E0B);
     final Paint strokePaint = Paint()
@@ -1181,12 +1204,43 @@ class _RouteMapPreviewState extends State<_RouteMapPreview> {
       Offset((size - painter.width) / 2, (size - painter.height) / 2),
     );
 
-    final ui.Image image =
-        await recorder.endRecording().toImage(size.toInt(), size.toInt());
+    final ui.Image image = await recorder
+        .endRecording()
+        .toImage((size * dpr).round(), (size * dpr).round());
     final ByteData? byteData =
         await image.toByteData(format: ui.ImageByteFormat.png);
     final Uint8List bytes = byteData!.buffer.asUint8List();
-    return BitmapDescriptor.bytes(bytes);
+    return _descriptorFromBytes(bytes, dpr: dpr);
+  }
+
+  BitmapDescriptor _descriptorFromBytes(
+    Uint8List bytes, {
+    required double dpr,
+  }) {
+    try {
+      return BitmapDescriptor.bytes(
+        bytes,
+        imagePixelRatio: dpr,
+        bitmapScaling: MapBitmapScaling.auto,
+      );
+    } catch (error) {
+      debugPrint('BitmapDescriptor.bytes fallback: $error');
+      return BitmapDescriptor.bytes(bytes);
+    }
+  }
+
+  double _devicePixelRatio() {
+    final double? mediaQueryDpr = MediaQuery.maybeDevicePixelRatioOf(context);
+    if (mediaQueryDpr != null && mediaQueryDpr > 0) {
+      return mediaQueryDpr;
+    }
+
+    final Iterable<ui.FlutterView> views = ui.PlatformDispatcher.instance.views;
+    if (views.isNotEmpty && views.first.devicePixelRatio > 0) {
+      return views.first.devicePixelRatio;
+    }
+
+    return 2.0;
   }
 }
 
