@@ -11,6 +11,7 @@ from services.mysql_user_service import ensure_user_tables
 from routers import seo
 from routers import maps
 from services.mysql_reservation_service import ensure_reservation_tables
+from services.mysql_catalog_service import ensure_catalog_tables, seed_catalog
 
 
 def _load_kakao_router() -> APIRouter | None:
@@ -97,6 +98,12 @@ async def startup_event():
         ensure_reservation_tables()
     except Exception as error:
         print(f"[WARN] reservation table initialization skipped: {error}")
+
+    try:
+        ensure_catalog_tables()
+        seed_catalog()
+    except Exception as error:
+        print(f"[WARN] catalog table initialization skipped: {error}")
 
 import uvicorn
 
