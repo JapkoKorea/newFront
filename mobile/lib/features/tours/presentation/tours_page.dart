@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/courses_api.dart';
 import '../domain/tour_course.dart';
 
 class ToursPage extends StatefulWidget {
@@ -11,19 +12,82 @@ class ToursPage extends StatefulWidget {
 }
 
 class _ToursPageState extends State<ToursPage> {
+  final CoursesApi _coursesApi = CoursesApi();
+
   String _filter = 'all';
+  List<TourCourse> _courses = <TourCourse>[];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final List<TourCourse> courses = await _coursesApi.fetchCourses();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _courses = courses;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _loading = false;
+        _error = '코스를 불러오지 못했습니다. 다시 시도해 주세요.';
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final List<TourCourse> filtered = _filter == 'all'
-        ? tourCourses
-        : tourCourses
+        ? _courses
+        : _courses
             .where((TourCourse c) => c.season.contains(_filter))
             .toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('비에이·후라노 택시투어 코스')),
-      body: ListView(
+      body: _buildBody(filtered),
+    );
+  }
+
+  Widget _buildBody(List<TourCourse> filtered) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(_error!, style: const TextStyle(color: Color(0xFF64748B))),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _load,
+              icon: const Icon(Icons.refresh),
+              label: const Text('다시 시도'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
           const Text(
@@ -40,18 +104,28 @@ class _ToursPageState extends State<ToursPage> {
                 onTap: () => setState(() => _filter = 'all'),
               ),
               _FilterChip(
-                label: '❄️ 겨울',
+                label: '겨울',
                 selected: _filter == 'winter',
                 onTap: () => setState(() => _filter = 'winter'),
               ),
               _FilterChip(
-                label: '🌸 여름',
+                label: '여름',
                 selected: _filter == 'summer',
                 onTap: () => setState(() => _filter = 'summer'),
               ),
             ],
           ),
           const SizedBox(height: 16),
+          if (filtered.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 40),
+              child: Center(
+                child: Text(
+                  '표시할 코스가 없습니다.',
+                  style: TextStyle(color: Color(0xFF94A3B8)),
+                ),
+              ),
+            ),
           ...filtered.map((TourCourse course) {
             return Card(
               margin: const EdgeInsets.only(bottom: 12),

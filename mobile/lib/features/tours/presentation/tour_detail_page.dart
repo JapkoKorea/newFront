@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../booking/application/booking_coordinator.dart';
+import '../data/courses_api.dart';
 import '../data/places_api.dart';
 import '../domain/tour_course.dart';
 
@@ -63,11 +64,14 @@ class TourDetailPage extends ConsumerStatefulWidget {
 
 class _TourDetailPageState extends ConsumerState<TourDetailPage> {
   final PlacesApi _placesApi = PlacesApi();
+  final CoursesApi _coursesApi = CoursesApi();
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
   final GlobalKey<_RouteMapPreviewState> _mapPreviewKey =
       GlobalKey<_RouteMapPreviewState>();
 
+  bool _loading = true;
+  String? _error;
   TourCourse? _course;
   late PlaceSelection _departure;
   late PlaceSelection _destination;
@@ -78,9 +82,27 @@ class _TourDetailPageState extends ConsumerState<TourDetailPage> {
   @override
   void initState() {
     super.initState();
-    final TourCourse? found = _findCourse(widget.tourId);
-    if (found != null) {
-      _applyCourse(found);
+    _loadCourse();
+  }
+
+  Future<void> _loadCourse() async {
+    try {
+      final TourCourse course = await _coursesApi.fetchCourse(widget.tourId);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _applyCourse(course);
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _loading = false;
+        _error = '코스를 불러오지 못했습니다.';
+      });
     }
   }
 
@@ -92,11 +114,17 @@ class _TourDetailPageState extends ConsumerState<TourDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('코스 상세')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
     final TourCourse? current = _course;
     if (current == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('코스 상세')),
-        body: const Center(child: Text('존재하지 않는 코스입니다.')),
+        body: Center(child: Text(_error ?? '존재하지 않는 코스입니다.')),
       );
     }
 
@@ -376,15 +404,6 @@ class _TourDetailPageState extends ConsumerState<TourDetailPage> {
       }
       _mapPreviewKey.currentState?.forceFit();
     });
-  }
-
-  TourCourse? _findCourse(String id) {
-    for (final TourCourse item in tourCourses) {
-      if (item.id == id) {
-        return item;
-      }
-    }
-    return null;
   }
 
   void _applyCourse(TourCourse course) {
