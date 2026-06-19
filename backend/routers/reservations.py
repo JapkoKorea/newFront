@@ -6,11 +6,21 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from dependencies.auth import get_current_user
-from services.mysql_reservation_service import save_reservation_mysql
+from services.mysql_reservation_service import (
+    record_status_change,
+    save_reservation_mysql,
+)
 from services.mysql_user_service import _connect
 
 
 router = APIRouter(prefix="/api/reservations", tags=["reservations"])
+
+
+class RoutePointInput(BaseModel):
+    name: str
+    lat: float | None = None
+    lng: float | None = None
+    google_place_id: str | None = None
 
 
 class ReservationPayload(BaseModel):
@@ -25,6 +35,11 @@ class ReservationPayload(BaseModel):
     desired_course: str
     service_type: Literal["tour", "transfer"] = "tour"
     season: Literal["winter", "summer", "all_season"] | None = None
+    # 정규화/분석 (하위호환: 모두 선택)
+    course_id: str | None = None
+    is_custom: bool = False
+    source_channel: Literal["web", "app"] = "web"
+    selected_spots: list[RoutePointInput] | None = None
 
 
 def _user_exists(user_id: str) -> bool:
@@ -92,6 +107,10 @@ async def create_reservation(
         "status": "pending",
         "serviceType": payload.service_type,
         "season": payload.season,
+        "courseId": payload.course_id,
+        "isCustom": payload.is_custom,
+        "sourceChannel": payload.source_channel,
+        "selectedSpots": [spot.model_dump() for spot in (payload.selected_spots or [])],
     }
     save_reservation_mysql(record)
     return {"message": "Reservation successful", "reservationNumber": reservation_number}
@@ -176,6 +195,14 @@ async def request_cancel_reservation(
                 WHERE user_id = %s AND reservation_number = %s
                 """,
                 ("cancelled", user_id, reservation_number),
+            )
+            record_status_change(
+                cursor,
+                reservation_number,
+                current_status,
+                "cancelled",
+                changed_by=user_id,
+                reason="user_cancel",
             )
         conn.commit()
     finally:

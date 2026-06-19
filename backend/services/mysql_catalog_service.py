@@ -101,14 +101,16 @@ def ensure_catalog_tables() -> None:
                 """
             )
             # 공유 users 테이블에 role 추가 (추가형, 기존 행은 default 'customer')
+            # reservations.course_id -> courses(id) FK은 courses 생성 이후라 여기서 건다.
             for ddl in [
                 "ALTER TABLE users ADD COLUMN role VARCHAR(16) NOT NULL DEFAULT 'customer'",
                 "ALTER TABLE users ADD KEY idx_user_role (role)",
+                "ALTER TABLE reservations ADD CONSTRAINT fk_res_course FOREIGN KEY (course_id) REFERENCES courses(id)",
             ]:
                 try:
                     cursor.execute(ddl)
                 except Exception:
-                    pass  # 이미 존재하면 무시
+                    pass  # 이미 존재하거나 선행 컬럼 부재 시 무시
         conn.commit()
     finally:
         conn.close()

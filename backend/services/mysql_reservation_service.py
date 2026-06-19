@@ -46,11 +46,17 @@ def ensure_reservation_tables() -> None:
                 "ALTER TABLE reservations ADD COLUMN quoted_at DATETIME(6) NULL",
                 "ALTER TABLE reservations ADD COLUMN quote_expires_at DATETIME(6) NULL",
                 "ALTER TABLE reservations ADD COLUMN quote_note TEXT NULL",
+                # 정규화/분석 (DB_DESIGN.md 4장)
+                "ALTER TABLE reservations ADD COLUMN course_id VARCHAR(64) NULL",
+                "ALTER TABLE reservations ADD COLUMN is_custom TINYINT(1) NOT NULL DEFAULT 0",
+                # 유입 채널 (LINE 백엔드가 이미 추가했을 수 있으나 idempotent)
+                "ALTER TABLE reservations ADD COLUMN source_channel VARCHAR(32) NULL",
+                "ALTER TABLE reservations ADD KEY idx_res_service_status (service_type, status, created_at)",
             ]:
                 try:
                     cursor.execute(ddl)
                 except Exception:
-                    pass  # 컬럼이 이미 존재하는 경우 무시
+                    pass  # 컬럼/인덱스가 이미 존재하는 경우 무시
             cursor.execute(
                 """
                 CREATE TABLE IF NOT EXISTS reservation_payments (
@@ -75,12 +81,128 @@ def ensure_reservation_tables() -> None:
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                 """
             )
+            # 정규화된 경로(분석용) — DB_DESIGN.md 4.2
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS reservation_route_points (
+                    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    reservation_number CHAR(36) NOT NULL,
+                    seq SMALLINT UNSIGNED NOT NULL,
+                    role VARCHAR(12) NOT NULL,
+                    name VARCHAR(255) NOT NULL,
+                    lat DECIMAL(10,7) NULL,
+                    lng DECIMAL(10,7) NULL,
+                    google_place_id VARCHAR(255) NULL,
+                    spot_id BIGINT UNSIGNED NULL,
+                    PRIMARY KEY (id),
+                    UNIQUE KEY uq_route_seq (reservation_number, seq),
+                    KEY idx_route_spot (spot_id),
+                    KEY idx_route_place (google_place_id),
+                    CONSTRAINT fk_route_res FOREIGN KEY (reservation_number)
+                        REFERENCES reservations(reservation_number) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                """
+            )
+            # 상태 변경 이력(감사/퍼널 분석) — DB_DESIGN.md 4.3
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS reservation_status_history (
+                    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    reservation_number CHAR(36) NOT NULL,
+                    from_status VARCHAR(32) NULL,
+                    to_status VARCHAR(32) NOT NULL,
+                    changed_by CHAR(36) NULL,
+                    reason VARCHAR(255) NULL,
+                    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+                    PRIMARY KEY (id),
+                    KEY idx_rsh_res (reservation_number, created_at),
+                    CONSTRAINT fk_rsh_res FOREIGN KEY (reservation_number)
+                        REFERENCES reservations(reservation_number) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                """
+            )
         conn.commit()
     finally:
         conn.close()
 
 
+def _resolve_spot_id(
+    cursor: Any,
+    name: str,
+    lat: float | None,
+    lng: float | None,
+    google_place_id: str | None,
+) -> int | None:
+    """경로 지점을 spots 마스터에 매칭/업서트하고 spot_id 반환(분석 정확도용)."""
+    if google_place_id:
+        cursor.execute(
+            "SELECT id FROM spots WHERE google_place_id = %s LIMIT 1", (google_place_id,)
+        )
+        row = cursor.fetchone()
+        if row:
+            return row["id"]
+        cursor.execute(
+            "INSERT INTO spots (name, category, lat, lng, google_place_id) VALUES (%s, 'other', %s, %s, %s)",
+            (name, lat, lng, google_place_id),
+        )
+        return cursor.lastrowid
+    if name:
+        cursor.execute("SELECT id FROM spots WHERE name = %s LIMIT 1", (name,))
+        row = cursor.fetchone()
+        if row:
+            return row["id"]
+    return None
+
+
+def _build_route_points(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """departure + selectedSpots(경유) + destination 으로 정규화 경로 구성."""
+    points: list[dict[str, Any]] = []
+    departure = (data.get("departure") or "").strip()
+    if departure:
+        points.append({"role": "departure", "name": departure})
+    for spot in data.get("selectedSpots") or []:
+        if isinstance(spot, dict):
+            name = (spot.get("name") or "").strip()
+            if not name:
+                continue
+            points.append(
+                {
+                    "role": "waypoint",
+                    "name": name,
+                    "lat": spot.get("lat"),
+                    "lng": spot.get("lng"),
+                    "google_place_id": spot.get("googlePlaceId") or spot.get("google_place_id"),
+                }
+            )
+        elif isinstance(spot, str) and spot.strip():
+            points.append({"role": "waypoint", "name": spot.strip()})
+    destination = (data.get("destination") or "").strip()
+    if destination:
+        points.append({"role": "destination", "name": destination})
+    return points
+
+
+def record_status_change(
+    cursor: Any,
+    reservation_number: str,
+    from_status: str | None,
+    to_status: str,
+    changed_by: str | None = None,
+    reason: str | None = None,
+) -> None:
+    cursor.execute(
+        """
+        INSERT INTO reservation_status_history
+            (reservation_number, from_status, to_status, changed_by, reason)
+        VALUES (%s, %s, %s, %s, %s)
+        """,
+        (reservation_number, from_status, to_status, changed_by, reason),
+    )
+
+
 def save_reservation_mysql(data: dict[str, Any]) -> None:
+    reservation_number = data["reservationNumber"]
+    status = data["status"]
     conn = _connect()
     try:
         with conn.cursor() as cursor:
@@ -101,15 +223,18 @@ def save_reservation_mysql(data: dict[str, Any]) -> None:
                     departure,
                     destination,
                     desired_course,
+                    course_id,
+                    is_custom,
+                    source_channel,
                     created_at_source
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 )
                 """,
                 (
-                    data["reservationNumber"],
+                    reservation_number,
                     data["pk"],
-                    data["status"],
+                    status,
                     data.get("serviceType", "tour"),
                     data.get("season"),
                     data["englishName"],
@@ -121,8 +246,48 @@ def save_reservation_mysql(data: dict[str, Any]) -> None:
                     data["departure"],
                     data["destination"],
                     data["tourCourse"],
+                    data.get("courseId"),
+                    1 if data.get("isCustom") else 0,
+                    data.get("sourceChannel", "web"),
                     data.get("createdAt"),
                 ),
+            )
+
+            # 정규화 경로 기록 (분석용)
+            for seq, point in enumerate(_build_route_points(data), start=1):
+                spot_id = _resolve_spot_id(
+                    cursor,
+                    point["name"],
+                    point.get("lat"),
+                    point.get("lng"),
+                    point.get("google_place_id"),
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO reservation_route_points
+                        (reservation_number, seq, role, name, lat, lng, google_place_id, spot_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        reservation_number,
+                        seq,
+                        point["role"],
+                        point["name"],
+                        point.get("lat"),
+                        point.get("lng"),
+                        point.get("google_place_id"),
+                        spot_id,
+                    ),
+                )
+
+            # 최초 상태 이력
+            record_status_change(
+                cursor,
+                reservation_number,
+                None,
+                status,
+                changed_by=data["pk"],
+                reason="created",
             )
         conn.commit()
     finally:
