@@ -12,6 +12,8 @@ class BookingDraft {
     this.serviceType = 'tour',
     this.season = 'winter',
     this.depositAgreement = false,
+    this.courseId,
+    this.isCustom = false,
   });
 
   final String departure;
@@ -26,6 +28,8 @@ class BookingDraft {
   final String serviceType;
   final String season;
   final bool depositAgreement;
+  final String? courseId;
+  final bool isCustom;
 
   BookingDraft copyWith({
     String? departure,
@@ -40,6 +44,8 @@ class BookingDraft {
     String? serviceType,
     String? season,
     bool? depositAgreement,
+    String? courseId,
+    bool? isCustom,
   }) {
     return BookingDraft(
       departure: departure ?? this.departure,
@@ -54,6 +60,8 @@ class BookingDraft {
       serviceType: serviceType ?? this.serviceType,
       season: season ?? this.season,
       depositAgreement: depositAgreement ?? this.depositAgreement,
+      courseId: courseId ?? this.courseId,
+      isCustom: isCustom ?? this.isCustom,
     );
   }
 
@@ -71,6 +79,8 @@ class BookingDraft {
       'serviceType': serviceType,
       'season': season,
       'depositAgreement': depositAgreement,
+      'courseId': courseId,
+      'isCustom': isCustom,
     };
   }
 
@@ -90,6 +100,8 @@ class BookingDraft {
       serviceType: json['serviceType']?.toString() ?? 'tour',
       season: json['season']?.toString() ?? 'winter',
       depositAgreement: json['depositAgreement'] == true,
+      courseId: json['courseId']?.toString(),
+      isCustom: json['isCustom'] == true,
     );
   }
 }

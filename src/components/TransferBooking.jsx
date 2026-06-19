@@ -187,6 +187,7 @@ export default function TransferBooking({ isOpen = false, onClose, displayMode =
       desired_course: notes ? `${desiredCourse} (${notes})` : desiredCourse,
       service_type: 'transfer',
       season: null,
+      source_channel: 'web',
     }
 
     setSubmitError('')

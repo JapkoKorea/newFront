@@ -22,6 +22,12 @@ class ReservationApi {
       'desired_course': _composeDesiredCourse(draft),
       'service_type': draft.serviceType,
       'season': draft.season,
+      'source_channel': 'app',
+      'course_id': draft.courseId,
+      'is_custom': draft.isCustom,
+      'selected_spots': draft.selectedSpots
+          .map((String name) => <String, dynamic>{'name': name})
+          .toList(),
     };
 
     final Map<String, dynamic> response = await _apiClient.postJson(

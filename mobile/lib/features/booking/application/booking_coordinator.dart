@@ -95,6 +95,7 @@ class BookingCoordinator extends Notifier<BookingState> {
     required List<String> selectedSpots,
     int? durationHours,
     String? season,
+    String? courseId,
   }) {
     final int nextDuration = durationHours ?? state.draft.durationHours;
     state = state.copyWith(
@@ -105,6 +106,8 @@ class BookingCoordinator extends Notifier<BookingState> {
         selectedSpots: selectedSpots,
         durationHours: nextDuration > 0 ? nextDuration : 4,
         season: season,
+        courseId: courseId,
+        isCustom: false,
       ),
       clearError: true,
     );

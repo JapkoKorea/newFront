@@ -302,6 +302,7 @@ class _TourDetailPageState extends ConsumerState<TourDetailPage> {
                                 durationHours:
                                     _parseDurationHours(current.duration),
                                 season: current.season.first,
+                                courseId: current.id,
                               );
                           context.push('/booking');
                         },

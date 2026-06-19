@@ -436,6 +436,10 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
       departure: bookingData.departure,
       destination: bookingData.destination,
       desired_course: `${desiredCourse} [차량:${selectedVehicleType}${requiresWinter4wd ? ', 겨울4WD' : ''}]`,
+      source_channel: 'web',
+      course_id: bookingData.course || null,
+      is_custom: !bookingData.course,
+      selected_spots: (bookingData.selectedSpots || []).map((name) => ({ name })),
     }
 
     const draft = {
