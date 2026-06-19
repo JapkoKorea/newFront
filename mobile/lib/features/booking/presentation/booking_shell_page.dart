@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../auth/application/auth_controller.dart';
@@ -8,43 +7,15 @@ import '../application/booking_coordinator.dart';
 import '../data/booking_draft_store.dart';
 import '../data/reservation_api.dart';
 import '../domain/booking_draft.dart';
-import '../domain/spot_point.dart';
 import '../domain/booking_step.dart';
-import 'widgets/map_picker_card.dart';
 
-const double _allowedNorth = 43.85;
-const double _allowedSouth = 43.35;
-const double _allowedWest = 142.2;
-const double _allowedEast = 142.7;
 const int _baseDepositKrw = 15000;
 const int _minimumHours = 2;
 const int _standardRateJpy = 7350;
 const int _jumboRateJpy = 10500;
 
-const Map<String, LatLng> _spotCatalog = <String, LatLng>{
-  '크리스마스트리의 나무': LatLng(43.5928, 142.4672),
-  '세븐스타의 나무': LatLng(43.5902, 142.4551),
-  '켄과 메리의 나무': LatLng(43.5743, 142.4526),
-  '사계채언덕': LatLng(43.5868, 142.4578),
-  '청의 호수': LatLng(43.4936, 142.6147),
-  '흰수염폭포': LatLng(43.4922, 142.6353),
-  '닝구르테라스': LatLng(43.3403, 142.3847),
-};
-
-const Map<String, LatLng> _stationCatalog = <String, LatLng>{
-  '아사히카와역': LatLng(43.7637, 142.3578),
-  '비에이역': LatLng(43.5888, 142.4649),
-  '후라노역': LatLng(43.3418, 142.3832),
-  '아사히카와 공항': LatLng(43.6711, 142.4475),
-};
-
-const LatLng _fallbackPoint = LatLng(43.5900, 142.4600);
-
-final Map<String, LatLng> _locationCatalog = <String, LatLng>{
-  ..._stationCatalog,
-  ..._spotCatalog,
-};
-
+// 경로(출발/도착/관광지)는 코스 상세의 지도 빌더에서 확정해 전달된다.
+// 이 화면은 일정·인원·연락처·동의만 받는다(중복 지도 제거).
 class BookingShellPage extends ConsumerStatefulWidget {
   const BookingShellPage({super.key});
 
@@ -54,16 +25,8 @@ class BookingShellPage extends ConsumerStatefulWidget {
 
 class _BookingShellPageState extends ConsumerState<BookingShellPage> {
   final BookingDraftStore _draftStore = BookingDraftStore();
-
-  MapPickMode _mapPickMode = MapPickMode.departure;
-  LatLng? _departurePoint;
-  LatLng? _destinationPoint;
-  LatLng? _pendingMapPoint;
-  List<SpotPoint> _selectedSpots = <SpotPoint>[];
   bool _isSubmitting = false;
 
-  late final TextEditingController _departureController;
-  late final TextEditingController _destinationController;
   late final TextEditingController _dateController;
   late final TextEditingController _timeController;
   late final TextEditingController _passengersController;
@@ -74,12 +37,7 @@ class _BookingShellPageState extends ConsumerState<BookingShellPage> {
   @override
   void initState() {
     super.initState();
-
     final BookingState state = ref.read(bookingCoordinatorProvider);
-
-    _departureController = TextEditingController(text: state.draft.departure);
-    _destinationController =
-        TextEditingController(text: state.draft.destination);
     _dateController = TextEditingController(text: state.draft.date);
     _timeController = TextEditingController(text: state.draft.time);
     _passengersController =
@@ -88,21 +46,11 @@ class _BookingShellPageState extends ConsumerState<BookingShellPage> {
         TextEditingController(text: state.draft.durationHours.toString());
     _nameController = TextEditingController(text: state.draft.name);
     _phoneController = TextEditingController(text: state.draft.phone);
-
-    _selectedSpots = state.draft.selectedSpots
-        .map((String label) => SpotPoint(
-              label: label,
-              position: _locationCatalog[label] ?? _fallbackPoint,
-            ))
-        .toList();
-
     _restoreDraft();
   }
 
   @override
   void dispose() {
-    _departureController.dispose();
-    _destinationController.dispose();
     _dateController.dispose();
     _timeController.dispose();
     _passengersController.dispose();
@@ -140,288 +88,137 @@ class _BookingShellPageState extends ConsumerState<BookingShellPage> {
           ),
         ],
       ),
-      body: Stack(
-        children: <Widget>[
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      _StepProgress(step: state.step),
+                      const SizedBox(height: 12),
+                      Text(
+                        '${state.step.index}단계. ${state.step.title}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _StepForm(
+                        state: state,
+                        dateController: _dateController,
+                        timeController: _timeController,
+                        passengersController: _passengersController,
+                        durationController: _durationController,
+                        nameController: _nameController,
+                        phoneController: _phoneController,
+                        onEditRoute: () {
+                          // 경로 수정은 빌더(코스 상세)로 복귀
+                          if (context.canPop()) {
+                            context.pop();
+                          }
+                        },
+                        onScheduleChanged: () => _syncScheduleState(coordinator),
+                        onContactChanged: () {
+                          final String normalizedPhone =
+                              _normalizePhone(_phoneController.text);
+                          if (_phoneController.text != normalizedPhone) {
+                            _phoneController.text = normalizedPhone;
+                            _phoneController.selection =
+                                TextSelection.fromPosition(
+                              TextPosition(offset: normalizedPhone.length),
+                            );
+                          }
+                          coordinator.updateContact(
+                            name: _nameController.text,
+                            phone: normalizedPhone,
+                          );
+                          _persistDraftState();
+                        },
+                        onAgreementChanged: (bool value) {
+                          coordinator.setAgreement(value);
+                          _persistDraftState();
+                        },
+                        onPickDate: _pickDate,
+                        onPickTime: _pickTime,
+                      ),
+                      if (state.errorMessage != null) ...<Widget>[
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF7ED),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            state.errorMessage!,
+                            style: const TextStyle(color: Color(0xFF9A3412)),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
                 children: <Widget>[
                   Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          _StepProgress(step: state.step),
-                          const SizedBox(height: 12),
-                          Text(
-                            '${state.step.index}단계. ${state.step.title}',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          _StepForm(
-                            state: state,
-                            mapPickMode: _mapPickMode,
-                            departurePoint: _departurePoint,
-                            destinationPoint: _destinationPoint,
-                            pendingMapPoint: _pendingMapPoint,
-                            selectedSpots: _selectedSpots,
-                            onMapPickModeChanged: (MapPickMode nextMode) {
-                              setState(() {
-                                _mapPickMode = nextMode;
-                                _pendingMapPoint = null;
-                              });
-                            },
-                            onMapTapped: (LatLng position) {
-                              if (!_isWithinAllowedRegion(position)) {
-                                _showMessage('비에이·아사히카와 지역만 선택 가능합니다');
+                    child: OutlinedButton(
+                      onPressed: state.step == BookingStep.routeAndSchedule
+                          ? null
+                          : coordinator.goBack,
+                      child: const Text('이전'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _isSubmitting
+                          ? null
+                          : () {
+                              final bool canProceed = coordinator.goNext();
+                              if (!canProceed) {
                                 return;
                               }
-                              setState(() {
-                                _pendingMapPoint = position;
-                              });
-                              _showMessage(
-                                  '지도를 이동해 위치를 확인한 뒤 "이 위치 선택"으로 확정해 주세요');
-                            },
-                            onSpotTap: (int index) {
-                              if (index < 0 || index >= _selectedSpots.length) {
-                                return;
+                              if (state.step == BookingStep.pricingAgreement) {
+                                _submitReservationAndRoute();
                               }
-                              _showMessage(
-                                  '${_selectedSpots[index].label} 선택됨 (삭제는 목록의 삭제 버튼 사용)');
                             },
-                            onSpotDelete: (int index) {
-                              if (index < 0 || index >= _selectedSpots.length) {
-                                return;
-                              }
-                              setState(() {
-                                _selectedSpots = <SpotPoint>[
-                                  ..._selectedSpots.sublist(0, index),
-                                  ..._selectedSpots.sublist(index + 1),
-                                ];
-                              });
-                              _syncRouteStepState(coordinator);
-                            },
-                            onConfirmMapSelection: () {
-                              final LatLng? pending = _pendingMapPoint;
-                              if (pending == null) {
-                                return;
-                              }
-
-                              if (_mapPickMode == MapPickMode.spot) {
-                                _showMessage('관광지는 아래 주요 관광지에서 선택해 주세요');
-                                return;
-                              }
-
-                              final String label =
-                                  _resolveNearestLocationLabel(pending);
-                              setState(() {
-                                if (_mapPickMode == MapPickMode.departure) {
-                                  _departurePoint = pending;
-                                  _departureController.text = label;
-                                } else {
-                                  _destinationPoint = pending;
-                                  _destinationController.text = label;
-                                }
-                                _pendingMapPoint = null;
-                              });
-                              _syncRouteStepState(coordinator);
-                            },
-                            onClearPendingMapSelection: () {
-                              setState(() {
-                                _pendingMapPoint = null;
-                              });
-                            },
-                            onPlaceSelected: (String label, LatLng point) {
-                              if (_mapPickMode == MapPickMode.departure) {
-                                setState(() {
-                                  _departureController.text = label;
-                                  _departurePoint = point;
-                                  _pendingMapPoint = null;
-                                });
-                                _syncRouteStepState(coordinator);
-                                return;
-                              }
-                              if (_mapPickMode == MapPickMode.destination) {
-                                setState(() {
-                                  _destinationController.text = label;
-                                  _destinationPoint = point;
-                                  _pendingMapPoint = null;
-                                });
-                                _syncRouteStepState(coordinator);
-                                return;
-                              }
-                              if (_selectedSpots
-                                  .any((SpotPoint e) => e.label == label)) {
-                                _showMessage('이미 추가된 관광지입니다');
-                                return;
-                              }
-                              setState(() {
-                                _selectedSpots = <SpotPoint>[
-                                  ..._selectedSpots,
-                                  SpotPoint(label: label, position: point),
-                                ];
-                              });
-                              _syncRouteStepState(coordinator);
-                            },
-                            departureController: _departureController,
-                            destinationController: _destinationController,
-                            dateController: _dateController,
-                            timeController: _timeController,
-                            passengersController: _passengersController,
-                            durationController: _durationController,
-                            nameController: _nameController,
-                            phoneController: _phoneController,
-                            onRouteChanged: () {
-                              _syncRouteStepState(coordinator);
-                            },
-                            onContactChanged: () {
-                              final String normalizedPhone = _normalizePhone(
-                                _phoneController.text,
-                              );
-                              if (_phoneController.text != normalizedPhone) {
-                                _phoneController.text = normalizedPhone;
-                                _phoneController.selection =
-                                    TextSelection.fromPosition(
-                                  TextPosition(offset: normalizedPhone.length),
-                                );
-                              }
-                              coordinator.updateContact(
-                                name: _nameController.text,
-                                phone: normalizedPhone,
-                              );
-                              _persistDraftState();
-                            },
-                            onAgreementChanged: (bool value) {
-                              coordinator.setAgreement(value);
-                              _persistDraftState();
-                            },
-                            onPickDate: _pickDate,
-                            onPickTime: _pickTime,
-                          ),
-                          if (state.errorMessage != null) ...<Widget>[
-                            const SizedBox(height: 12),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFF7ED),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                state.errorMessage!,
-                                style:
-                                    const TextStyle(color: Color(0xFF9A3412)),
-                              ),
-                            ),
-                          ],
-                        ],
+                      child: Text(
+                        _isSubmitting
+                            ? '예약 접수 중...'
+                            : (state.step == BookingStep.pricingAgreement
+                                ? '결제로 이동'
+                                : '다음'),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: state.step == BookingStep.routeAndSchedule
-                              ? null
-                              : coordinator.goBack,
-                          child: const Text('이전'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _isSubmitting
-                              ? null
-                              : () {
-                                  final bool canProceed = coordinator.goNext();
-                                  if (!canProceed) {
-                                    return;
-                                  }
-
-                                  if (state.step ==
-                                      BookingStep.pricingAgreement) {
-                                    _submitReservationAndRoute();
-                                  }
-                                },
-                          child: Text(
-                            _isSubmitting
-                                ? '예약 접수 중...'
-                                : (state.step == BookingStep.pricingAgreement
-                                    ? '결제로 이동'
-                                    : '다음'),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  String _formatLatLng(LatLng value) {
-    return '${value.latitude.toStringAsFixed(5)}, ${value.longitude.toStringAsFixed(5)}';
-  }
-
-  String _resolveNearestLocationLabel(LatLng point) {
-    String? nearestLabel;
-    double nearestDistance = double.infinity;
-
-    for (final MapEntry<String, LatLng> entry in _locationCatalog.entries) {
-      final double dx = entry.value.latitude - point.latitude;
-      final double dy = entry.value.longitude - point.longitude;
-      final double distance = (dx * dx) + (dy * dy);
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
-        nearestLabel = entry.key;
-      }
-    }
-
-    if (nearestLabel == null) {
-      return _formatLatLng(point);
-    }
-
-    if (nearestDistance <= 0.0009) {
-      return nearestLabel;
-    }
-
-    return _formatLatLng(point);
-  }
-
-  bool _isWithinAllowedRegion(LatLng point) {
-    return point.latitude >= _allowedSouth &&
-        point.latitude <= _allowedNorth &&
-        point.longitude >= _allowedWest &&
-        point.longitude <= _allowedEast;
-  }
-
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
-
-  void _syncRouteStepState(BookingCoordinator coordinator) {
+  void _syncScheduleState(BookingCoordinator coordinator) {
+    final BookingDraft draft = ref.read(bookingCoordinatorProvider).draft;
     coordinator.updateRouteAndSchedule(
-      departure: _departureController.text,
-      destination: _destinationController.text,
+      departure: draft.departure,
+      destination: draft.destination,
       date: _dateController.text,
       time: _timeController.text,
       passengers: int.tryParse(_passengersController.text.trim()) ?? 0,
       durationHours: int.tryParse(_durationController.text.trim()) ?? 0,
-      selectedSpots:
-          _selectedSpots.map((SpotPoint spot) => spot.label).toList(),
+      selectedSpots: draft.selectedSpots,
     );
     _persistDraftState();
   }
@@ -436,44 +233,40 @@ class _BookingShellPageState extends ConsumerState<BookingShellPage> {
     if (saved == null || !mounted) {
       return;
     }
-
+    // 현재 세션 draft가 비어 있을 때만 저장본으로 채운다(빌더 프리필 우선).
     final BookingCoordinator coordinator =
         ref.read(bookingCoordinatorProvider.notifier);
+    final BookingDraft current = ref.read(bookingCoordinatorProvider).draft;
 
-    _departureController.text = saved.departure;
-    _destinationController.text = saved.destination;
-    _dateController.text = saved.date;
-    _timeController.text = saved.time;
-    _passengersController.text = saved.passengers.toString();
-    _durationController.text = saved.durationHours.toString();
-    _nameController.text = saved.name;
-    _phoneController.text = saved.phone;
+    _dateController.text =
+        _dateController.text.isEmpty ? saved.date : _dateController.text;
+    _timeController.text =
+        _timeController.text.isEmpty ? saved.time : _timeController.text;
+    if (_nameController.text.isEmpty) {
+      _nameController.text = saved.name;
+    }
+    if (_phoneController.text.isEmpty) {
+      _phoneController.text = saved.phone;
+    }
 
-    setState(() {
-      _selectedSpots = saved.selectedSpots
-          .map((String label) => SpotPoint(
-                label: label,
-                position: _locationCatalog[label] ?? _fallbackPoint,
-              ))
-          .toList();
-
-      _departurePoint = _locationCatalog[saved.departure] ?? _departurePoint;
-      _destinationPoint =
-          _locationCatalog[saved.destination] ?? _destinationPoint;
-    });
-
-    coordinator.updateRouteAndSchedule(
-      departure: saved.departure,
-      destination: saved.destination,
-      date: saved.date,
-      time: saved.time,
-      passengers: saved.passengers,
-      durationHours: saved.durationHours,
-      selectedSpots:
-          _selectedSpots.map((SpotPoint spot) => spot.label).toList(),
-    );
-    coordinator.updateContact(name: saved.name, phone: saved.phone);
-    coordinator.setAgreement(saved.depositAgreement);
+    if (current.departure.isEmpty && current.destination.isEmpty) {
+      coordinator.updateRouteAndSchedule(
+        departure: saved.departure,
+        destination: saved.destination,
+        date: _dateController.text,
+        time: _timeController.text,
+        passengers: saved.passengers,
+        durationHours: saved.durationHours,
+        selectedSpots: saved.selectedSpots,
+      );
+      if (mounted) {
+        setState(() {
+          _passengersController.text = saved.passengers.toString();
+          _durationController.text = saved.durationHours.toString();
+        });
+      }
+    }
+    coordinator.updateContact(name: _nameController.text, phone: _phoneController.text);
   }
 
   Future<void> _pickDate() async {
@@ -481,7 +274,6 @@ class _BookingShellPageState extends ConsumerState<BookingShellPage> {
     final DateTime firstDate = DateTime(now.year, now.month, now.day);
     final DateTime initial =
         DateTime.tryParse(_dateController.text) ?? firstDate;
-
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: initial.isBefore(firstDate) ? firstDate : initial,
@@ -491,9 +283,8 @@ class _BookingShellPageState extends ConsumerState<BookingShellPage> {
     if (picked == null || !mounted) {
       return;
     }
-
     _dateController.text = _formatDate(picked);
-    _syncRouteStepState(ref.read(bookingCoordinatorProvider.notifier));
+    _syncScheduleState(ref.read(bookingCoordinatorProvider.notifier));
   }
 
   Future<void> _pickTime() async {
@@ -504,10 +295,9 @@ class _BookingShellPageState extends ConsumerState<BookingShellPage> {
     if (picked == null || !mounted) {
       return;
     }
-
     _timeController.text =
         '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-    _syncRouteStepState(ref.read(bookingCoordinatorProvider.notifier));
+    _syncScheduleState(ref.read(bookingCoordinatorProvider.notifier));
   }
 
   TimeOfDay? _parseTime(String raw) {
@@ -548,15 +338,15 @@ class _BookingShellPageState extends ConsumerState<BookingShellPage> {
 
     setState(() => _isSubmitting = true);
 
+    final BookingDraft draft = ref.read(bookingCoordinatorProvider).draft;
     coordinator.updateRouteAndSchedule(
-      departure: _departureController.text,
-      destination: _destinationController.text,
+      departure: draft.departure,
+      destination: draft.destination,
       date: _dateController.text,
       time: _timeController.text,
       passengers: int.tryParse(_passengersController.text.trim()) ?? 0,
       durationHours: int.tryParse(_durationController.text.trim()) ?? 0,
-      selectedSpots:
-          _selectedSpots.map((SpotPoint spot) => spot.label).toList(),
+      selectedSpots: draft.selectedSpots,
     );
     coordinator.updateContact(
       name: _nameController.text,
@@ -569,11 +359,9 @@ class _BookingShellPageState extends ConsumerState<BookingShellPage> {
       final String reservationNumber =
           await reservationApi.createReservation(syncedState.draft);
       await _draftStore.clear();
-
       if (!mounted) {
         return;
       }
-
       context.push('/payment/review?reservation_number=$reservationNumber');
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -597,7 +385,6 @@ class _StepProgress extends StatelessWidget {
     return Row(
       children: BookingStep.values.map((BookingStep item) {
         final bool active = item.index <= step.index;
-
         return Expanded(
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 3),
@@ -616,27 +403,14 @@ class _StepProgress extends StatelessWidget {
 class _StepForm extends StatelessWidget {
   const _StepForm({
     required this.state,
-    required this.mapPickMode,
-    required this.departurePoint,
-    required this.destinationPoint,
-    required this.pendingMapPoint,
-    required this.selectedSpots,
-    required this.onMapPickModeChanged,
-    required this.onMapTapped,
-    required this.onSpotTap,
-    required this.onSpotDelete,
-    required this.onConfirmMapSelection,
-    required this.onClearPendingMapSelection,
-    required this.onPlaceSelected,
-    required this.departureController,
-    required this.destinationController,
     required this.dateController,
     required this.timeController,
     required this.passengersController,
     required this.durationController,
     required this.nameController,
     required this.phoneController,
-    required this.onRouteChanged,
+    required this.onEditRoute,
+    required this.onScheduleChanged,
     required this.onContactChanged,
     required this.onAgreementChanged,
     required this.onPickDate,
@@ -644,27 +418,14 @@ class _StepForm extends StatelessWidget {
   });
 
   final BookingState state;
-  final MapPickMode mapPickMode;
-  final LatLng? departurePoint;
-  final LatLng? destinationPoint;
-  final LatLng? pendingMapPoint;
-  final List<SpotPoint> selectedSpots;
-  final ValueChanged<MapPickMode> onMapPickModeChanged;
-  final ValueChanged<LatLng> onMapTapped;
-  final ValueChanged<int> onSpotTap;
-  final ValueChanged<int> onSpotDelete;
-  final VoidCallback onConfirmMapSelection;
-  final VoidCallback onClearPendingMapSelection;
-  final void Function(String label, LatLng point) onPlaceSelected;
-  final TextEditingController departureController;
-  final TextEditingController destinationController;
   final TextEditingController dateController;
   final TextEditingController timeController;
   final TextEditingController passengersController;
   final TextEditingController durationController;
   final TextEditingController nameController;
   final TextEditingController phoneController;
-  final VoidCallback onRouteChanged;
+  final VoidCallback onEditRoute;
+  final VoidCallback onScheduleChanged;
   final VoidCallback onContactChanged;
   final ValueChanged<bool> onAgreementChanged;
   final VoidCallback onPickDate;
@@ -675,122 +436,15 @@ class _StepForm extends StatelessWidget {
     switch (state.step) {
       case BookingStep.routeAndSchedule:
         return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            MapPickerCard(
-              mode: mapPickMode,
-              onModeChanged: onMapPickModeChanged,
-              departure: departurePoint,
-              destination: destinationPoint,
-              pendingSelection: pendingMapPoint,
-              spots: selectedSpots,
-              locationCatalog: _locationCatalog,
-              selectedSpotLabels:
-                  selectedSpots.map((SpotPoint e) => e.label).toSet(),
-              availableSpotCatalog: _spotCatalog,
-              onMapTapped: onMapTapped,
-              onSpotTap: onSpotTap,
-              onConfirmMapSelection: onConfirmMapSelection,
-              onClearPendingSelection: onClearPendingMapSelection,
-              onPlaceSelected: onPlaceSelected,
+            _RouteSummaryCard(
+              departure: state.draft.departure,
+              destination: state.draft.destination,
+              spots: state.draft.selectedSpots,
+              onEdit: onEditRoute,
             ),
-            const SizedBox(height: 8),
-            _RouteStatusPanel(
-              departure: departureController.text,
-              destination: destinationController.text,
-              spotsCount: selectedSpots.length,
-            ),
-            const SizedBox(height: 8),
-            if (selectedSpots.isNotEmpty) ...<Widget>[
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  '선택한 관광지',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: selectedSpots.asMap().entries.map((entry) {
-                    final int idx = entry.key;
-                    final SpotPoint spot = entry.value;
-                    return Chip(
-                      label: Text('${idx + 1}. ${spot.label}'),
-                      onDeleted: () => onSpotDelete(idx),
-                    );
-                  }).toList(),
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '주요 관광지',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleSmall
-                    ?.copyWith(fontWeight: FontWeight.w700),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                children:
-                    _spotCatalog.entries.map((MapEntry<String, LatLng> e) {
-                  final int selectedIndex = selectedSpots
-                      .indexWhere((SpotPoint s) => s.label == e.key);
-                  final bool selected = selectedIndex >= 0;
-
-                  return ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(e.key),
-                    trailing: selected
-                        ? TextButton(
-                            onPressed: () => onSpotDelete(selectedIndex),
-                            child: const Text('삭제'),
-                          )
-                        : TextButton(
-                            onPressed: () => onPlaceSelected(e.key, e.value),
-                            child: const Text('추가'),
-                          ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 8),
-            _SectionFieldCard(
-              title: '출발지',
-              child: _InputField(
-                label: '출발지',
-                hint: '예: 비에이역',
-                controller: departureController,
-                onChanged: (_) => onRouteChanged(),
-              ),
-            ),
-            const SizedBox(height: 8),
-            _SectionFieldCard(
-              title: '도착지',
-              child: _InputField(
-                label: '도착지',
-                hint: '예: 아사히카와 공항',
-                controller: destinationController,
-                onChanged: (_) => onRouteChanged(),
-              ),
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Row(
               children: <Widget>[
                 Expanded(
@@ -800,7 +454,7 @@ class _StepForm extends StatelessWidget {
                     controller: dateController,
                     readOnly: true,
                     onTap: onPickDate,
-                    onChanged: (_) => onRouteChanged(),
+                    onChanged: (_) => onScheduleChanged(),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -811,7 +465,7 @@ class _StepForm extends StatelessWidget {
                     controller: timeController,
                     readOnly: true,
                     onTap: onPickTime,
-                    onChanged: (_) => onRouteChanged(),
+                    onChanged: (_) => onScheduleChanged(),
                   ),
                 ),
               ],
@@ -822,7 +476,7 @@ class _StepForm extends StatelessWidget {
               hint: '1',
               keyboardType: TextInputType.number,
               controller: passengersController,
-              onChanged: (_) => onRouteChanged(),
+              onChanged: (_) => onScheduleChanged(),
             ),
             const SizedBox(height: 8),
             _InputField(
@@ -830,7 +484,7 @@ class _StepForm extends StatelessWidget {
               hint: '4',
               keyboardType: TextInputType.number,
               controller: durationController,
-              onChanged: (_) => onRouteChanged(),
+              onChanged: (_) => onScheduleChanged(),
             ),
           ],
         );
@@ -906,12 +560,12 @@ class _StepForm extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                   SizedBox(height: 6),
-                  Text('• 기본 예약금 15,000원 선결제'),
-                  Text('• 최소 이용시간 2시간'),
-                  Text('• 5인 이상은 점보택시 필수'),
+                  Text('- 기본 예약금 15,000원 선결제'),
+                  Text('- 최소 이용시간 2시간'),
+                  Text('- 5인 이상은 점보택시 필수'),
                   SizedBox(height: 6),
                   Text(
-                    '※ 현장 결제 금액은 이용 조건(차량/시간/추가 요청)에 따라 달라질 수 있습니다.',
+                    '현장 결제 금액은 이용 조건(차량/시간/추가 요청)에 따라 달라질 수 있습니다.',
                     style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                   ),
                 ],
@@ -931,90 +585,98 @@ class _StepForm extends StatelessWidget {
   }
 }
 
-class _RouteStatusPanel extends StatelessWidget {
-  const _RouteStatusPanel({
+class _RouteSummaryCard extends StatelessWidget {
+  const _RouteSummaryCard({
     required this.departure,
     required this.destination,
-    required this.spotsCount,
+    required this.spots,
+    required this.onEdit,
   });
 
   final String departure;
   final String destination;
-  final int spotsCount;
+  final List<String> spots;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
+    final bool hasRoute = departure.isNotEmpty || destination.isNotEmpty;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: <Widget>[
-          _StatusPill(
-              label: '출발', value: departure.isEmpty ? '미선택' : departure),
-          _StatusPill(
-              label: '도착', value: destination.isEmpty ? '미선택' : destination),
-          _StatusPill(label: '관광지', value: '$spotsCount곳 선택'),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Text(
-        '$label: $value',
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-}
-
-class _SectionFieldCard extends StatelessWidget {
-  const _SectionFieldCard({required this.title, required this.child});
-
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.w700),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              const Text(
+                '선택한 경로',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              TextButton.icon(
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_location_alt, size: 16),
+                label: const Text('경로 수정'),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
-          child,
+          const SizedBox(height: 4),
+          if (!hasRoute)
+            const Text(
+              '경로가 없습니다. "경로 수정"에서 출발지·도착지를 선택해 주세요.',
+              style: TextStyle(color: Color(0xFF9A3412), fontSize: 13),
+            )
+          else ...<Widget>[
+            Row(
+              children: <Widget>[
+                const Icon(Icons.radio_button_checked,
+                    size: 16, color: Color(0xFF16A34A)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(departure.isEmpty ? '미선택' : departure,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: <Widget>[
+                const Icon(Icons.place, size: 16, color: Color(0xFFDC2626)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(destination.isEmpty ? '미선택' : destination,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                ),
+              ],
+            ),
+            if (spots.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 8),
+              Text('관광지 ${spots.length}곳',
+                  style: const TextStyle(
+                      fontSize: 12, color: Color(0xFF64748B))),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: spots
+                    .asMap()
+                    .entries
+                    .map((MapEntry<int, String> e) => Chip(
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          label: Text('${e.key + 1}. ${e.value}',
+                              style: const TextStyle(fontSize: 12)),
+                        ))
+                    .toList(),
+              ),
+            ],
+          ],
         ],
       ),
     );
