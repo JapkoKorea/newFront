@@ -10,6 +10,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from services.mysql_user_service import ensure_user_tables
 from routers import seo
 from routers import maps
+from routers import courses
 from services.mysql_reservation_service import ensure_reservation_tables
 from services.mysql_catalog_service import ensure_catalog_tables, seed_catalog
 
@@ -85,6 +86,7 @@ if payments_router is not None:
 
 app.include_router(seo.router)
 app.include_router(maps.router)
+app.include_router(courses.router)
 
 
 @app.on_event("startup")

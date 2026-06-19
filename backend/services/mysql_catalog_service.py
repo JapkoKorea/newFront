@@ -198,6 +198,136 @@ _COURSES: list[dict[str, Any]] = [
 ]
 
 
+def _f(value: Any) -> float | None:
+    return float(value) if value is not None else None
+
+
+def _course_summary(
+    row: dict[str, Any], seasons: list[str], spot_names: list[str]
+) -> dict[str, Any]:
+    duration_label = row.get("duration_label")
+    if not duration_label:
+        hours = _f(row.get("duration_hours")) or 0
+        duration_label = f"{hours:g}시간"
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "summary": row.get("summary"),
+        "description": row.get("description"),
+        "region": row.get("region"),
+        "season": seasons,
+        "departure": row.get("departure_name"),
+        "destination": row.get("destination_name"),
+        "duration": duration_label,
+        "durationHours": _f(row.get("duration_hours")),
+        "depositKrw": row.get("deposit_krw"),
+        "basePriceJpy": row.get("base_price_jpy"),
+        "badge": row.get("badge"),
+        "heroImageUrl": row.get("hero_image_url"),
+        "ratingAvg": _f(row.get("rating_avg")),
+        "ratingCount": row.get("rating_count"),
+        "spots": spot_names,
+        "spotCount": len(spot_names),
+    }
+
+
+def list_courses(season: str | None = None) -> list[dict[str, Any]]:
+    """활성 코스 목록(홈 커머스 피드용). season 지정 시 해당 시즌 코스만."""
+    conn = _connect()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT * FROM courses WHERE is_active = 1 ORDER BY sort_order, id"
+            )
+            courses = {row["id"]: row for row in cursor.fetchall()}
+            if not courses:
+                return []
+
+            seasons_by_course: dict[str, list[str]] = {}
+            cursor.execute("SELECT course_id, season FROM course_seasons")
+            for row in cursor.fetchall():
+                seasons_by_course.setdefault(row["course_id"], []).append(row["season"])
+
+            spots_by_course: dict[str, list[str]] = {}
+            cursor.execute(
+                """
+                SELECT cs.course_id, s.name
+                FROM course_spots cs
+                JOIN spots s ON s.id = cs.spot_id
+                ORDER BY cs.course_id, cs.seq
+                """
+            )
+            for row in cursor.fetchall():
+                spots_by_course.setdefault(row["course_id"], []).append(row["name"])
+    finally:
+        conn.close()
+
+    result: list[dict[str, Any]] = []
+    for course_id, row in courses.items():
+        course_seasons = seasons_by_course.get(course_id, [])
+        if season and season not in course_seasons:
+            continue
+        result.append(
+            _course_summary(row, course_seasons, spots_by_course.get(course_id, []))
+        )
+    return result
+
+
+def get_course(course_id: str) -> dict[str, Any] | None:
+    """코스 상세(지도/예약 프리필용). 좌표 포함 spotsDetailed + images 반환."""
+    conn = _connect()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM courses WHERE id = %s", (course_id,))
+            row = cursor.fetchone()
+            if not row:
+                return None
+
+            cursor.execute(
+                "SELECT season FROM course_seasons WHERE course_id = %s", (course_id,)
+            )
+            seasons = [r["season"] for r in cursor.fetchall()]
+
+            cursor.execute(
+                """
+                SELECT cs.seq, s.id AS spot_id, s.name, s.lat, s.lng, s.category,
+                       s.stay_minutes, s.photo_point, s.google_place_id
+                FROM course_spots cs
+                JOIN spots s ON s.id = cs.spot_id
+                WHERE cs.course_id = %s
+                ORDER BY cs.seq
+                """,
+                (course_id,),
+            )
+            spots_detailed = [
+                {
+                    "seq": r["seq"],
+                    "spotId": r["spot_id"],
+                    "name": r["name"],
+                    "lat": _f(r["lat"]),
+                    "lng": _f(r["lng"]),
+                    "category": r["category"],
+                    "stayMinutes": r["stay_minutes"],
+                    "photoPoint": r["photo_point"],
+                    "googlePlaceId": r["google_place_id"],
+                }
+                for r in cursor.fetchall()
+            ]
+
+            cursor.execute(
+                "SELECT url FROM course_images WHERE course_id = %s ORDER BY seq",
+                (course_id,),
+            )
+            images = [r["url"] for r in cursor.fetchall()]
+    finally:
+        conn.close()
+
+    data = _course_summary(row, seasons, [s["name"] for s in spots_detailed])
+    data["spotsDetailed"] = spots_detailed
+    data["images"] = images
+    return data
+
+
 def _get_or_create_spot(cursor: Any, name: str) -> int:
     cursor.execute("SELECT id FROM spots WHERE name = %s LIMIT 1", (name,))
     row = cursor.fetchone()
