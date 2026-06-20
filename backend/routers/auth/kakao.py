@@ -3,7 +3,7 @@ app/routers/auth/kakao.py
 카카오 OAuth 인증 처리를 위한 FastAPI Router
 """
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 import httpx
 import os
@@ -125,6 +125,29 @@ def _decode_state(state: str | None) -> str:
     return MOBILE_APP_REDIRECT_URI
 
 
+def _app_bridge(url: str) -> HTMLResponse:
+    """Chrome은 서버 302 -> 커스텀 스킴(japkotaxi://)을 차단할 수 있다.
+    JS 자동 이동 + 수동 '앱으로 돌아가기' 버튼이 있는 HTML로 앱 복귀를 보장한다."""
+    url_json = json.dumps(url)
+    html = """<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>로그인 완료</title></head>
+<body style="font-family:-apple-system,Segoe UI,sans-serif;text-align:center;padding:48px 20px;color:#0f172a;background:#f8fafc;">
+<p style="font-size:16px;color:#64748b;">로그인 처리 중입니다...</p>
+<p style="margin-top:24px;">
+<a id="back" href="__URL__" style="display:inline-block;padding:14px 24px;background:#FEE500;border-radius:12px;text-decoration:none;color:#191919;font-weight:700;">앱으로 돌아가기</a>
+</p>
+<script>
+  var u = __URLJSON__;
+  setTimeout(function () { try { window.location.replace(u); } catch (e) {} }, 50);
+</script>
+</body></html>"""
+    html = html.replace("__URLJSON__", url_json).replace(
+        "__URL__", url.replace('"', "%22")
+    )
+    return HTMLResponse(content=html)
+
+
 @router.post("/callback")
 async def kakao_callback_post(data: KakaoCode):
     return await _handle_kakao_callback(data.code, data.redirect_uri)
@@ -186,7 +209,7 @@ async def kakao_mobile_callback(
                 "error_description": error_description or error,
             }
         )
-        return RedirectResponse(url=f"{app_redirect}?{params}", status_code=302)
+        return _app_bridge(f"{app_redirect}?{params}")
 
     if not code:
         params = urlencode(
@@ -195,7 +218,7 @@ async def kakao_mobile_callback(
                 "error_description": "카카오 인증 코드가 없습니다.",
             }
         )
-        return RedirectResponse(url=f"{app_redirect}?{params}", status_code=302)
+        return _app_bridge(f"{app_redirect}?{params}")
 
     try:
         result = await _handle_kakao_callback(code=code, redirect_uri=MOBILE_KAKAO_REDIRECT_URI)
@@ -206,7 +229,7 @@ async def kakao_mobile_callback(
                 "error_description": str(exc.detail),
             }
         )
-        return RedirectResponse(url=f"{app_redirect}?{params}", status_code=302)
+        return _app_bridge(f"{app_redirect}?{params}")
 
     token = result.get("token", "")
     user = result.get("user", {})
@@ -218,4 +241,4 @@ async def kakao_mobile_callback(
         f"{app_redirect}?token={quote(token)}"
         f"&user_b64={quote(user_b64)}"
     )
-    return RedirectResponse(url=redirect_url, status_code=302)
+    return _app_bridge(redirect_url)

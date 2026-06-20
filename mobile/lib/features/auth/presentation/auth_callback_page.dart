@@ -47,7 +47,13 @@ class _AuthCallbackPageState extends ConsumerState<AuthCallbackPage> {
 
     if (widget.token.isNotEmpty && widget.userB64.isNotEmpty) {
       try {
-        final String decoded = utf8.decode(base64Url.decode(widget.userB64));
+        // 전송 과정에서 base64 패딩(=)이 잘릴 수 있어 보정 후 디코딩
+        String b64 = widget.userB64;
+        final int rem = b64.length % 4;
+        if (rem != 0) {
+          b64 = b64.padRight(b64.length + (4 - rem), '=');
+        }
+        final String decoded = utf8.decode(base64Url.decode(b64));
         final Map<String, dynamic> user =
             jsonDecode(decoded) as Map<String, dynamic>;
         await ref.read(authControllerProvider.notifier).completeBridgeLogin(
@@ -60,7 +66,7 @@ class _AuthCallbackPageState extends ConsumerState<AuthCallbackPage> {
         }
         context.go('/booking');
         return;
-      } catch (_) {
+      } catch (e) {
         setState(() {
           _message = '로그인 콜백 데이터를 처리하지 못했습니다.';
         });

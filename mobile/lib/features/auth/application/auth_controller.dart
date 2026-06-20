@@ -10,14 +10,14 @@ class AuthState {
   const AuthState({
     this.token = '',
     this.nickname = '',
-    this.userId = 0,
+    this.userId = '',
     this.isBootstrapping = true,
     this.error,
   });
 
   final String token;
   final String nickname;
-  final int userId;
+  final String userId;
   final bool isBootstrapping;
   final String? error;
 
@@ -26,7 +26,7 @@ class AuthState {
   AuthState copyWith({
     String? token,
     String? nickname,
-    int? userId,
+    String? userId,
     bool? isBootstrapping,
     String? error,
     bool clearError = false,
@@ -58,13 +58,13 @@ class AuthController extends Notifier<AuthState> {
       final String token = await _tokenStore.readToken() ?? '';
       final String? userJson = await _tokenStore.readUserJson();
       String nickname = '';
-      int userId = 0;
+      String userId = '';
 
       if (userJson != null && userJson.isNotEmpty) {
         final dynamic decoded = jsonDecode(userJson);
         if (decoded is Map<String, dynamic>) {
           nickname = decoded['nickname']?.toString() ?? '';
-          userId = (decoded['user_id'] as num?)?.toInt() ?? 0;
+          userId = decoded['user_id']?.toString() ?? '';
         }
       }
 
@@ -118,7 +118,7 @@ class AuthController extends Notifier<AuthState> {
       state = state.copyWith(
         token: token,
         nickname: user['nickname']?.toString() ?? '',
-        userId: (user['user_id'] as num?)?.toInt() ?? 0,
+        userId: user['user_id']?.toString() ?? '',
         clearError: true,
       );
       return true;
@@ -156,7 +156,7 @@ class AuthController extends Notifier<AuthState> {
     state = state.copyWith(
       token: trimmed,
       nickname: user['nickname']?.toString() ?? '',
-      userId: (user['user_id'] as num?)?.toInt() ?? 0,
+      userId: user['user_id']?.toString() ?? '',
       clearError: true,
     );
   }

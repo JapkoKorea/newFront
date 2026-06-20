@@ -29,7 +29,9 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       final bool loggingIn = state.matchedLocation == '/login';
-      final bool authCallback = state.matchedLocation == '/auth/callback';
+      // 딥링크 japkotaxi://auth/callback 은 host=auth, path=/callback 으로 파싱된다.
+      final bool authCallback = state.matchedLocation == '/auth/callback' ||
+          state.matchedLocation == '/callback';
       if (!authState.isAuthenticated && !loggingIn && !authCallback) {
         return '/login';
       }
@@ -49,6 +51,19 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/auth/callback',
         name: 'auth-callback',
+        builder: (context, state) => AuthCallbackPage(
+          code: state.uri.queryParameters['code'] ?? '',
+          token: state.uri.queryParameters['token'] ?? '',
+          userB64: state.uri.queryParameters['user_b64'] ?? '',
+          error: state.uri.queryParameters['error'] ?? '',
+          errorDescription:
+              state.uri.queryParameters['error_description'] ?? '',
+        ),
+      ),
+      // 딥링크(japkotaxi://auth/callback)는 path가 /callback 으로 들어온다.
+      GoRoute(
+        path: '/callback',
+        name: 'auth-callback-deeplink',
         builder: (context, state) => AuthCallbackPage(
           code: state.uri.queryParameters['code'] ?? '',
           token: state.uri.queryParameters['token'] ?? '',
