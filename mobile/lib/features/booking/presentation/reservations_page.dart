@@ -64,8 +64,12 @@ class _ReservationsPageState extends ConsumerState<ReservationsPage> {
         .firstOrNull;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('예약 조회'),
+        title: const Text('예약 내역'),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
         actions: <Widget>[
           IconButton(
             onPressed: _load,
@@ -86,25 +90,9 @@ class _ReservationsPageState extends ConsumerState<ReservationsPage> {
                         final bool isNarrow = constraints.maxWidth < 900;
 
                         if (isNarrow) {
-                          return _MobileReservationContent(
+                          return _ReservationCardList(
                             items: _items,
-                            selectedReservationNumber:
-                                _selectedReservationNumber,
-                            selected: selected,
-                            isCancelling: _isCancelling,
-                            onSelect: (String reservationNumber) {
-                              setState(() {
-                                _selectedReservationNumber = reservationNumber;
-                              });
-                            },
-                            onCancelSelected: selected == null
-                                ? null
-                                : () => _cancelReservation(selected),
-                            onPaySelected: selected == null
-                                ? null
-                                : () => context.push(
-                                      '/payment/review?reservation_number=${selected.reservationNumber}',
-                                    ),
+                            onOpen: _openDetailSheet,
                           );
                         }
 
@@ -206,6 +194,159 @@ class _ReservationsPageState extends ConsumerState<ReservationsPage> {
       }
     }
   }
+
+  void _openDetailSheet(ReservationItem item) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Container(
+                    width: 44,
+                    height: 5,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  _ReservationDetail(
+                    item: item,
+                    isCancelling: false,
+                    onCancel: () {
+                      Navigator.of(ctx).pop();
+                      _cancelReservation(item);
+                    },
+                    onPay: () {
+                      Navigator.of(ctx).pop();
+                      context.push(
+                        '/payment/review?reservation_number=${item.reservationNumber}',
+                      );
+                    },
+                    compact: true,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ReservationCardList extends StatelessWidget {
+  const _ReservationCardList({required this.items, required this.onOpen});
+
+  final List<ReservationItem> items;
+  final ValueChanged<ReservationItem> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: items.length,
+      itemBuilder: (BuildContext context, int index) {
+        final ReservationItem item = items[index];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _ReservationCard(item: item, onTap: () => onOpen(item)),
+        );
+      },
+    );
+  }
+}
+
+class _ReservationCard extends StatelessWidget {
+  const _ReservationCard({required this.item, required this.onTap});
+
+  final ReservationItem item;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  _StatusBadge(label: item.status),
+                  const SizedBox(width: 6),
+                  _PaymentBadge(label: item.paymentStatus),
+                  const Spacer(),
+                  const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: <Widget>[
+                  const Icon(Icons.route, size: 16, color: Color(0xFF94A3B8)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '${item.departure.isEmpty ? '-' : item.departure}  →  ${item.destination.isEmpty ? '-' : item.destination}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: <Widget>[
+                  const Icon(Icons.event, size: 16, color: Color(0xFF94A3B8)),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${item.tourDate}  ${item.tourStartTime}',
+                    style: const TextStyle(
+                        fontSize: 13, color: Color(0xFF334155)),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${item.numberOfPeople}명',
+                    style: const TextStyle(
+                        fontSize: 13, color: Color(0xFF334155)),
+                  ),
+                ],
+              ),
+              if (item.desiredCourse.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 8),
+                Text(
+                  item.desiredCourse,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ReservationList extends StatelessWidget {
@@ -237,70 +378,6 @@ class _ReservationList extends StatelessWidget {
           onTap: () => onSelect(item.reservationNumber),
         );
       },
-    );
-  }
-}
-
-class _MobileReservationContent extends StatelessWidget {
-  const _MobileReservationContent({
-    required this.items,
-    required this.selectedReservationNumber,
-    required this.selected,
-    required this.isCancelling,
-    required this.onSelect,
-    required this.onCancelSelected,
-    required this.onPaySelected,
-  });
-
-  final List<ReservationItem> items;
-  final String? selectedReservationNumber;
-  final ReservationItem? selected;
-  final bool isCancelling;
-  final ValueChanged<String> onSelect;
-  final VoidCallback? onCancelSelected;
-  final VoidCallback? onPaySelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: <Widget>[
-        const Text(
-          '예약 목록',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 8),
-        ...items.map((ReservationItem item) {
-          final bool isSelected =
-              item.reservationNumber == selectedReservationNumber;
-          return Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              selected: isSelected,
-              title: Text(item.reservationNumber),
-              subtitle: Text('${item.tourDate} ${item.tourStartTime}'),
-              trailing: _StatusBadge(label: item.status),
-              onTap: () => onSelect(item.reservationNumber),
-            ),
-          );
-        }),
-        const SizedBox(height: 12),
-        const Divider(height: 1),
-        const SizedBox(height: 12),
-        if (selected == null)
-          const Text(
-            '아래에서 확인할 예약을 선택해 주세요.',
-            style: TextStyle(color: Color(0xFF64748B)),
-          )
-        else
-          _ReservationDetail(
-            item: selected!,
-            isCancelling: isCancelling,
-            onCancel: onCancelSelected ?? () {},
-            onPay: onPaySelected ?? () {},
-            compact: true,
-          ),
-      ],
     );
   }
 }
