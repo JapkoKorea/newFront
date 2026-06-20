@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/theme/app_tokens.dart';
 import '../data/courses_api.dart';
 import '../domain/tour_course.dart';
 
@@ -81,13 +82,7 @@ class _ToursPageState extends State<ToursPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text('비에이·후라노 택시투어'),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('비에이·후라노 택시투어')),
       body: _buildBody(),
     );
   }
@@ -101,8 +96,8 @@ class _ToursPageState extends State<ToursPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Text(_error!, style: const TextStyle(color: Color(0xFF64748B))),
-            const SizedBox(height: 12),
+            Text(_error!, style: const TextStyle(color: AppColors.textMuted)),
+            const SizedBox(height: AppSpacing.md),
             OutlinedButton.icon(
               onPressed: _load,
               icon: const Icon(Icons.refresh),
@@ -119,28 +114,32 @@ class _ToursPageState extends State<ToursPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: <Widget>[
-          _SearchField(
+          TextField(
             controller: _searchController,
             onChanged: (String v) => setState(() => _query = v),
+            decoration: const InputDecoration(
+              hintText: '어디로 가세요? 코스·관광지 검색',
+              prefixIcon: Icon(Icons.search),
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           _SeasonFilters(
             value: _filter,
             onChanged: (String v) => setState(() => _filter = v),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           Text(
             _query.isEmpty ? '추천 코스' : '검색 결과 ${items.length}',
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           if (items.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 40),
               child: Center(
                 child: Text(
                   '조건에 맞는 코스가 없습니다.',
-                  style: TextStyle(color: Color(0xFF94A3B8)),
+                  style: TextStyle(color: AppColors.textFaint),
                 ),
               ),
             ),
@@ -165,36 +164,6 @@ class _ToursPageState extends State<ToursPage> {
   }
 }
 
-class _SearchField extends StatelessWidget {
-  const _SearchField({required this.controller, required this.onChanged});
-
-  final TextEditingController controller;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      onChanged: onChanged,
-      decoration: InputDecoration(
-        hintText: '어디로 가세요? 코스·관광지 검색',
-        prefixIcon: const Icon(Icons.search),
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(vertical: 0),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-        ),
-      ),
-    );
-  }
-}
-
 class _SeasonFilters extends StatelessWidget {
   const _SeasonFilters({required this.value, required this.onChanged});
 
@@ -210,7 +179,7 @@ class _SeasonFilters extends StatelessWidget {
       <String>['all_season', '사계절'],
     ];
     return Wrap(
-      spacing: 8,
+      spacing: AppSpacing.sm,
       children: options.map((List<String> o) {
         return ChoiceChip(
           label: Text(o[1]),
@@ -238,10 +207,9 @@ class _CourseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(18),
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(AppRadius.lg),
       clipBehavior: Clip.antiAlias,
-      elevation: 0,
       child: InkWell(
         onTap: onTap,
         child: Column(
@@ -269,7 +237,7 @@ class _CourseCard extends StatelessWidget {
                     Row(
                       children: <Widget>[
                         const Icon(Icons.star,
-                            size: 15, color: Color(0xFFF59E0B)),
+                            size: 15, color: AppColors.brand),
                         const SizedBox(width: 3),
                         Text(
                           '${course.ratingAvg.toStringAsFixed(1)} (${course.ratingCount})',
@@ -283,7 +251,7 @@ class _CourseCard extends StatelessWidget {
                   Row(
                     children: <Widget>[
                       const Icon(Icons.route,
-                          size: 15, color: Color(0xFF94A3B8)),
+                          size: 15, color: AppColors.textFaint),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
@@ -291,7 +259,7 @@ class _CourseCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              fontSize: 13, color: Color(0xFF64748B)),
+                              fontSize: 13, color: AppColors.textMuted),
                         ),
                       ),
                     ],
@@ -314,26 +282,26 @@ class _CourseCard extends StatelessWidget {
                   Row(
                     children: <Widget>[
                       const Icon(Icons.schedule,
-                          size: 15, color: Color(0xFF64748B)),
+                          size: 15, color: AppColors.textMuted),
                       const SizedBox(width: 4),
                       Text(
                         course.duration,
                         style: const TextStyle(
-                            fontSize: 13, color: Color(0xFF64748B)),
+                            fontSize: 13, color: AppColors.textMuted),
                       ),
                       const Spacer(),
                       if (course.depositKrw != null) ...<Widget>[
                         const Text(
                           '예약금 ',
                           style: TextStyle(
-                              fontSize: 12, color: Color(0xFF94A3B8)),
+                              fontSize: 12, color: AppColors.textFaint),
                         ),
                         Text(
                           '${_formatWon(course.depositKrw!)}원',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF0F172A),
+                            color: AppColors.ink,
                           ),
                         ),
                       ],
@@ -374,12 +342,9 @@ class _CourseBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String season = course.season.isEmpty ? 'all_season' : course.season.first;
-    final List<Color> gradient = switch (season) {
-      'winter' => const <Color>[Color(0xFF60A5FA), Color(0xFF2563EB)],
-      'summer' => const <Color>[Color(0xFFFB923C), Color(0xFFF472B6)],
-      _ => const <Color>[Color(0xFFF59E0B), Color(0xFFD97706)],
-    };
+    final String season =
+        course.season.isEmpty ? 'all_season' : course.season.first;
+    final List<Color> gradient = AppColors.seasonGradient(season);
 
     return Container(
       height: 112,
@@ -451,15 +416,15 @@ class _Tag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: highlight ? const Color(0xFF0F172A) : Colors.white,
-        borderRadius: BorderRadius.circular(999),
+        color: highlight ? AppColors.ink : AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
       child: Text(
         text,
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w700,
-          color: highlight ? Colors.white : const Color(0xFF334155),
+          color: highlight ? Colors.white : AppColors.textStrong,
         ),
       ),
     );
@@ -476,12 +441,12 @@ class _SpotPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(999),
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
       child: Text(
         label,
-        style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+        style: const TextStyle(fontSize: 12, color: AppColors.textStrong),
       ),
     );
   }
