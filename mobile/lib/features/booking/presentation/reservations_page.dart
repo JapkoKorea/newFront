@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/network/api_client.dart';
 import '../data/reservation_api.dart';
 import '../domain/reservation_item.dart';
 
@@ -15,6 +16,7 @@ class ReservationsPage extends ConsumerStatefulWidget {
 class _ReservationsPageState extends ConsumerState<ReservationsPage> {
   bool _isLoading = true;
   String? _error;
+  bool _unauthorized = false;
   List<ReservationItem> _items = <ReservationItem>[];
   String? _selectedReservationNumber;
   bool _isCancelling = false;
@@ -29,6 +31,7 @@ class _ReservationsPageState extends ConsumerState<ReservationsPage> {
     setState(() {
       _isLoading = true;
       _error = null;
+      _unauthorized = false;
     });
     try {
       final List<ReservationItem> items =
@@ -49,7 +52,11 @@ class _ReservationsPageState extends ConsumerState<ReservationsPage> {
       }
       setState(() {
         _isLoading = false;
-        _error = e.toString();
+        if (e is ApiClientException && e.statusCode == 401) {
+          _unauthorized = true;
+        } else {
+          _error = e.toString();
+        }
       });
     }
   }
@@ -80,7 +87,9 @@ class _ReservationsPageState extends ConsumerState<ReservationsPage> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _error != null
+          : _unauthorized
+              ? const _LoginRequiredView()
+              : _error != null
               ? _ErrorView(message: _error!, onRetry: _load)
               : _items.isEmpty
                   ? const _EmptyView()
@@ -634,6 +643,44 @@ class _EmptyView extends StatelessWidget {
       child: Text(
         '예약 내역이 없습니다.',
         style: TextStyle(color: Color(0xFF64748B)),
+      ),
+    );
+  }
+}
+
+class _LoginRequiredView extends StatelessWidget {
+  const _LoginRequiredView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Icon(Icons.lock_outline, size: 44, color: Color(0xFF94A3B8)),
+            const SizedBox(height: 14),
+            const Text(
+              '로그인이 필요합니다',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              '예약 내역은 로그인 후 확인할 수 있어요.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: 200,
+              child: FilledButton(
+                onPressed: () => context.go('/login'),
+                child: const Text('로그인'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
