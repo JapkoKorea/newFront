@@ -39,6 +39,11 @@ class CoursesApi {
           .toList(growable: false),
       description: (json['description'] ?? '').toString(),
       badge: json['badge'] as String?,
+      depositKrw: (json['depositKrw'] as num?)?.toInt(),
+      basePriceJpy: (json['basePriceJpy'] as num?)?.toInt(),
+      ratingAvg: (json['ratingAvg'] as num?)?.toDouble() ?? 0,
+      ratingCount: (json['ratingCount'] as num?)?.toInt() ?? 0,
+      heroImageUrl: json['heroImageUrl'] as String?,
     );
   }
 }

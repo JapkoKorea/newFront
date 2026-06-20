@@ -7,8 +7,8 @@ import '../features/auth/presentation/auth_callback_page.dart';
 import '../features/auth/presentation/login_page.dart';
 import '../features/booking/presentation/reservations_page.dart';
 import '../features/booking/presentation/booking_shell_page.dart';
+import '../features/home/presentation/home_shell_page.dart';
 import '../features/tours/presentation/tour_detail_page.dart';
-import '../features/tours/presentation/tours_page.dart';
 import '../features/payment/presentation/payment_fail_page.dart';
 import '../features/payment/presentation/payment_review_page.dart';
 import '../features/payment/presentation/payment_success_page.dart';
@@ -18,7 +18,7 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
   const bool skipAuth = AppConfig.skipAuth;
 
   return GoRouter(
-    initialLocation: skipAuth ? '/tours' : '/login',
+    initialLocation: skipAuth ? '/home' : '/login',
     redirect: (context, state) {
       if (skipAuth) {
         return null;
@@ -35,7 +35,7 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (authState.isAuthenticated && loggingIn) {
-        return '/tours';
+        return '/home';
       }
 
       return null;
@@ -59,9 +59,9 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
-        path: '/tours',
-        name: 'tours',
-        builder: (context, state) => const ToursPage(),
+        path: '/home',
+        name: 'home',
+        builder: (context, state) => const HomeShellPage(),
       ),
       GoRoute(
         path: '/tours/:id',

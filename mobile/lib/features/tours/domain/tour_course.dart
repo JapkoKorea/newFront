@@ -9,6 +9,11 @@ class TourCourse {
     required this.spots,
     required this.description,
     this.badge,
+    this.depositKrw,
+    this.basePriceJpy,
+    this.ratingAvg = 0,
+    this.ratingCount = 0,
+    this.heroImageUrl,
   });
 
   final String id;
@@ -20,6 +25,11 @@ class TourCourse {
   final List<String> spots;
   final String description;
   final String? badge;
+  final int? depositKrw;
+  final int? basePriceJpy;
+  final double ratingAvg;
+  final int ratingCount;
+  final String? heroImageUrl;
 }
 
 const Map<String, String> seasonLabel = <String, String>{
