@@ -21,6 +21,12 @@ KAKAO_CLIENT_ID = os.getenv('KAKAO_CLIENT_ID') or os.getenv('VITE_KAKAO_CLIENT_I
 # KAKAO_CLIENT_SECRET = os.getenv('KAKAO_CLIENT_SECRET')
 KAKAO_REDIRECT_URI = os.getenv('KAKAO_REDIRECT_URI')
 MOBILE_APP_REDIRECT_URI = os.getenv('MOBILE_APP_REDIRECT_URI', 'japkotaxi://auth/callback').strip()
+# 모바일 OAuth는 카카오가 "백엔드 모바일 콜백"으로 돌아오게 해야 한다(웹 페이지 아님).
+# 카카오 콘솔 Redirect URI 허용목록에도 동일 값을 등록해야 함.
+MOBILE_KAKAO_REDIRECT_URI = os.getenv(
+    'MOBILE_KAKAO_REDIRECT_URI',
+    'http://localhost:8000/api/auth/kakao/mobile/callback',
+).strip()
 JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', '').strip()
 JWT_ALGORITHM = 'HS256'
 JWT_EXPIRES_HOURS = int(os.getenv('JWT_EXPIRES_HOURS', '24'))
@@ -156,7 +162,7 @@ async def kakao_mobile_start(app_redirect: str | None = Query(None)):
     query = urlencode(
         {
             "client_id": KAKAO_CLIENT_ID,
-            "redirect_uri": KAKAO_REDIRECT_URI,
+            "redirect_uri": MOBILE_KAKAO_REDIRECT_URI,
             "response_type": "code",
             "state": state,
         }
@@ -192,7 +198,7 @@ async def kakao_mobile_callback(
         return RedirectResponse(url=f"{app_redirect}?{params}", status_code=302)
 
     try:
-        result = await _handle_kakao_callback(code=code, redirect_uri=KAKAO_REDIRECT_URI)
+        result = await _handle_kakao_callback(code=code, redirect_uri=MOBILE_KAKAO_REDIRECT_URI)
     except HTTPException as exc:
         params = urlencode(
             {
