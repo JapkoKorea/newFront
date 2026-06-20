@@ -48,3 +48,7 @@ instance/
 
 # Claude Code 내부 파일
 .claude/ 
+# tooling / local artifacts
+.omc/
+.obsidian/
+cookies.txt
