@@ -52,3 +52,7 @@ instance/
 .omc/
 .obsidian/
 cookies.txt
+
+# 로컬 원본 소스 문서
+ss season_content.pdf
+*.pdf
