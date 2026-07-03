@@ -13,6 +13,7 @@ from routers import maps
 from routers import courses
 from services.mysql_reservation_service import ensure_reservation_tables
 from services.mysql_catalog_service import ensure_catalog_tables, seed_catalog
+from services.mysql_chat_service import ensure_chat_tables
 
 
 def _load_kakao_router() -> APIRouter | None:
@@ -84,6 +85,14 @@ payments_router = _load_optional_router(
 if payments_router is not None:
     app.include_router(payments_router)
 
+chat_router = _load_optional_router(
+    "routers.chat",
+    route_name="chat",
+    optional_missing={"jose", "jwt"},
+)
+if chat_router is not None:
+    app.include_router(chat_router)
+
 app.include_router(seo.router)
 app.include_router(maps.router)
 app.include_router(courses.router)
@@ -106,6 +115,11 @@ async def startup_event():
         seed_catalog()
     except Exception as error:
         print(f"[WARN] catalog table initialization skipped: {error}")
+
+    try:
+        ensure_chat_tables()
+    except Exception as error:
+        print(f"[WARN] chat table initialization skipped: {error}")
 
 import uvicorn
 

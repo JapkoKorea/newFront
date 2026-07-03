@@ -1,93 +1,120 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button.jsx'
 import { Input } from '@/components/ui/input.jsx'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
-import { Send, X, MessageCircle, Bot, User, Clock } from 'lucide-react'
+import { Send, X, MessageCircle, User, Headset, LogIn } from 'lucide-react'
+import { getJwtToken } from '@/lib/api.js'
+import { openConversation, fetchMessages, sendMessage, ChatAuthError } from '@/lib/chat.js'
 
-const ChatSupport = ({ isOpen, onClose }) => {
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      type: 'bot',
-      message: '안녕하세요! 비에이 택시투어 상담원입니다. 무엇을 도와드릴까요?',
-      timestamp: new Date()
-    }
-  ])
+const POLL_INTERVAL_MS = 4000
+
+// 상담원 안내(로컬 인트로 — 서버 저장 안 함).
+const GREETING = '안녕하세요, 잽코 택시투어 상담입니다. 예약, 코스, 요금 등 무엇이든 문의해 주세요. 순차적으로 답변드립니다.'
+
+const QUICK_REPLIES = ['예약 문의', '요금 문의', '코스 추천', '취소/변경', '공항 픽업']
+
+const ChatSupport = ({ isOpen, onClose, reservationNumber = null }) => {
+  const router = useRouter()
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [conversationId, setConversationId] = useState(null)
+  const [messages, setMessages] = useState([])
   const [inputMessage, setInputMessage] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
   const messagesEndRef = useRef(null)
-
-  const quickReplies = [
-    '예약 문의',
-    '가격 문의',
-    '코스 추천',
-    '취소/변경',
-    '픽업 서비스',
-    '날씨 문의'
-  ]
-
-  const botResponses = {
-    '예약 문의': '예약을 도와드리겠습니다. 원하시는 투어 날짜와 인원수를 알려주세요.',
-    '가격 문의': '기본 코스(3시간) ¥15,000, 프리미엄 코스(5시간) ¥25,000, 풀데이 코스(8시간) ¥40,000입니다. 인원수에 따라 할인도 가능합니다.',
-    '코스 추천': '계절과 관심사에 따라 맞춤 코스를 추천해드립니다. 어떤 장소에 관심이 있으신가요?',
-    '취소/변경': '24시간 전까지는 무료 취소/변경이 가능합니다. 예약번호를 알려주시면 확인해드리겠습니다.',
-    '픽업 서비스': '삿포로 시내 주요 호텔과 신치토세 공항에서 픽업 서비스를 제공합니다. 숙소 위치를 알려주세요.',
-    '날씨 문의': '현재 비에이 날씨를 확인해드리고, 투어에 적합한 복장을 안내해드리겠습니다.'
-  }
-
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+  const lastIdRef = useRef(0)
+  const pollRef = useRef(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
+  useEffect(() => { scrollToBottom() }, [messages])
 
-  const handleSendMessage = (message = inputMessage) => {
-    if (!message.trim()) return
+  const mergeMessages = useCallback((incoming) => {
+    if (!incoming.length) return
+    setMessages((prev) => {
+      const seen = new Set(prev.map((m) => m.id))
+      const fresh = incoming.filter((m) => !seen.has(m.id))
+      if (!fresh.length) return prev
+      return [...prev, ...fresh]
+    })
+    lastIdRef.current = Math.max(lastIdRef.current, ...incoming.map((m) => m.id))
+  }, [])
 
-    const newMessage = {
-      id: messages.length + 1,
-      type: 'user',
-      message: message.trim(),
-      timestamp: new Date()
+  const poll = useCallback(async () => {
+    if (!conversationId) return
+    try {
+      const newMessages = await fetchMessages(conversationId, lastIdRef.current)
+      mergeMessages(newMessages)
+    } catch (err) {
+      if (err instanceof ChatAuthError) setIsLoggedIn(false)
     }
+  }, [conversationId, mergeMessages])
 
-    setMessages(prev => [...prev, newMessage])
-    setInputMessage('')
-    setIsTyping(true)
+  // 열릴 때: 로그인 확인 -> 대화 오픈 -> 초기 메시지 로드
+  useEffect(() => {
+    if (!isOpen) return
+    const loggedIn = Boolean(getJwtToken())
+    setIsLoggedIn(loggedIn)
+    if (!loggedIn) return
 
-    // 봇 응답 시뮬레이션
-    setTimeout(() => {
-      const botResponse = botResponses[message] || 
-        '감사합니다. 더 자세한 상담을 위해 전화(+81-80-1234-5678)로 연락주시거나, 예약 페이지를 이용해주세요.'
-      
-      const botMessage = {
-        id: messages.length + 2,
-        type: 'bot',
-        message: botResponse,
-        timestamp: new Date()
+    let cancelled = false
+    setError('')
+    ;(async () => {
+      try {
+        const conversation = await openConversation(reservationNumber)
+        if (cancelled) return
+        setConversationId(conversation.id)
+        const initial = await fetchMessages(conversation.id, 0)
+        if (cancelled) return
+        mergeMessages(initial)
+      } catch (err) {
+        if (cancelled) return
+        if (err instanceof ChatAuthError) setIsLoggedIn(false)
+        else setError('상담 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.')
       }
+    })()
+    return () => { cancelled = true }
+  }, [isOpen, reservationNumber, mergeMessages])
 
-      setMessages(prev => [...prev, botMessage])
-      setIsTyping(false)
-    }, 1000 + Math.random() * 2000)
+  // 폴링
+  useEffect(() => {
+    if (!isOpen || !conversationId) return
+    pollRef.current = setInterval(poll, POLL_INTERVAL_MS)
+    return () => clearInterval(pollRef.current)
+  }, [isOpen, conversationId, poll])
+
+  const handleSend = async (text = inputMessage) => {
+    const body = text.trim()
+    if (!body || sending || !conversationId) return
+    setSending(true)
+    setError('')
+    setInputMessage('')
+    try {
+      const saved = await sendMessage(conversationId, body)
+      mergeMessages([saved])
+    } catch (err) {
+      if (err instanceof ChatAuthError) setIsLoggedIn(false)
+      else setError('메시지를 보내지 못했습니다.')
+      setInputMessage(body)
+    } finally {
+      setSending(false)
+    }
   }
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      handleSendMessage()
+      handleSend()
     }
   }
 
-  const formatTime = (date) => {
-    return date.toLocaleTimeString('ko-KR', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    })
+  const formatTime = (value) => {
+    const date = value ? new Date(value) : new Date()
+    if (Number.isNaN(date.getTime())) return ''
+    return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
   }
 
   if (!isOpen) return null
@@ -101,7 +128,7 @@ const ChatSupport = ({ isOpen, onClose }) => {
             <MessageCircle className="h-5 w-5" />
             <div>
               <h3 className="font-semibold">채팅 상담</h3>
-              <p className="text-xs opacity-90">평균 응답시간: 1분</p>
+              <p className="text-xs opacity-90">문의를 남기시면 순차적으로 답변드립니다</p>
             </div>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose} className="text-white hover:bg-green-600">
@@ -109,106 +136,113 @@ const ChatSupport = ({ isOpen, onClose }) => {
           </Button>
         </div>
 
-        {/* 메시지 영역 */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div className={`flex items-start gap-2 max-w-[80%] ${
-                msg.type === 'user' ? 'flex-row-reverse' : 'flex-row'
-              }`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  msg.type === 'user' ? 'bg-yellow-500' : 'bg-green-500'
-                }`}>
-                  {msg.type === 'user' ? (
-                    <User className="h-4 w-4 text-white" />
-                  ) : (
-                    <Bot className="h-4 w-4 text-white" />
-                  )}
-                </div>
-                <div className={`rounded-lg p-3 ${
-                  msg.type === 'user' 
-                    ? 'bg-yellow-500 text-white' 
-                    : 'bg-gray-100 text-gray-900'
-                }`}>
-                  <p className="text-sm">{msg.message}</p>
-                  <p className={`text-xs mt-1 ${
-                    msg.type === 'user' ? 'text-yellow-100' : 'text-gray-500'
-                  }`}>
-                    {formatTime(msg.timestamp)}
-                  </p>
-                </div>
-              </div>
+        {!isLoggedIn ? (
+          /* 로그인 게이트 */
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
+            <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
+              <LogIn className="h-6 w-6 text-green-600" />
             </div>
-          ))}
-
-          {isTyping && (
-            <div className="flex justify-start">
-              <div className="flex items-start gap-2">
-                <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
-                  <Bot className="h-4 w-4 text-white" />
-                </div>
-                <div className="bg-gray-100 rounded-lg p-3">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            <div>
+              <p className="font-semibold text-gray-900">로그인 후 상담할 수 있어요</p>
+              <p className="mt-1 text-sm text-gray-600">
+                카카오 로그인하면 상담 내용이 저장되고, 답변을 이어서 확인할 수 있습니다.
+              </p>
+            </div>
+            <Button
+              className="bg-yellow-400 hover:bg-yellow-500 text-gray-900"
+              onClick={() => { onClose?.(); router.push('/login') }}
+            >
+              카카오 로그인
+            </Button>
+          </div>
+        ) : (
+          <>
+            {/* 메시지 영역 */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* 인트로(상담원) */}
+              <div className="flex justify-start">
+                <div className="flex items-start gap-2 max-w-[80%]">
+                  <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center shrink-0">
+                    <Headset className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="rounded-lg p-3 bg-gray-100 text-gray-900">
+                    <p className="text-sm">{GREETING}</p>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
 
-        {/* 빠른 답변 */}
-        {messages.length === 1 && (
-          <div className="px-4 py-2 border-t bg-gray-50">
-            <p className="text-xs text-gray-600 mb-2">빠른 문의:</p>
-            <div className="flex flex-wrap gap-1">
-              {quickReplies.map((reply, index) => (
+              {messages.map((msg) => {
+                const isUser = msg.sender === 'user'
+                return (
+                  <div key={msg.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`flex items-start gap-2 max-w-[80%] ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isUser ? 'bg-yellow-500' : 'bg-green-500'}`}>
+                        {isUser ? <User className="h-4 w-4 text-white" /> : <Headset className="h-4 w-4 text-white" />}
+                      </div>
+                      <div className={`rounded-lg p-3 ${isUser ? 'bg-yellow-500 text-white' : 'bg-gray-100 text-gray-900'}`}>
+                        <p className="text-sm whitespace-pre-wrap">{msg.body}</p>
+                        <p className={`text-xs mt-1 ${isUser ? 'text-yellow-100' : 'text-gray-500'}`}>
+                          {formatTime(msg.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {error ? (
+              <p className="px-4 py-1 text-xs text-rose-600">{error}</p>
+            ) : null}
+
+            {/* 빠른 문의 (대화 시작 전) */}
+            {messages.length === 0 && (
+              <div className="px-4 py-2 border-t bg-gray-50">
+                <p className="text-xs text-gray-600 mb-2">빠른 문의:</p>
+                <div className="flex flex-wrap gap-1">
+                  {QUICK_REPLIES.map((reply) => (
+                    <Button
+                      key={reply}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-7"
+                      disabled={sending || !conversationId}
+                      onClick={() => handleSend(reply)}
+                    >
+                      {reply}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 입력 영역 */}
+            <div className="p-4 border-t">
+              <div className="flex gap-2">
+                <Input
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="메시지를 입력하세요..."
+                  className="flex-1"
+                  disabled={!conversationId}
+                />
                 <Button
-                  key={index}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs h-7"
-                  onClick={() => handleSendMessage(reply)}
+                  onClick={() => handleSend()}
+                  disabled={!inputMessage.trim() || sending || !conversationId}
+                  className="bg-green-500 hover:bg-green-600"
                 >
-                  {reply}
+                  <Send className="h-4 w-4" />
                 </Button>
-              ))}
+              </div>
+              <p className="text-xs text-gray-500 mt-2">Enter로 전송</p>
             </div>
-          </div>
+          </>
         )}
-
-        {/* 입력 영역 */}
-        <div className="p-4 border-t">
-          <div className="flex gap-2">
-            <Input
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="메시지를 입력하세요..."
-              className="flex-1"
-            />
-            <Button 
-              onClick={() => handleSendMessage()}
-              disabled={!inputMessage.trim() || isTyping}
-              className="bg-green-500 hover:bg-green-600"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
-          <p className="text-xs text-gray-500 mt-2">
-            Enter를 눌러 메시지를 보내세요
-          </p>
-        </div>
       </div>
     </div>
   )
 }
 
 export default ChatSupport
-
