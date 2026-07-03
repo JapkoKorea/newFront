@@ -1,4 +1,5 @@
 import './globals.css'
+import { Toaster } from 'react-hot-toast'
 import Navigation from '@/components/Navigation'
 
 export const metadata = {
@@ -17,6 +18,7 @@ export default function RootLayout({ children }) {
       <body>
         <Navigation />
         {children}
+        <Toaster position="top-center" />
       </body>
     </html>
   )

@@ -1,7 +1,9 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 import {
   ArrowLeft,
   ChevronRight,
@@ -12,9 +14,13 @@ import {
   MessageCircle,
   Gift,
   Check,
+  Heart,
+  Share2,
+  Star,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
 import { saveTourBookingPrefill } from '@/lib/bookingPrefill.js'
+import { formatDeposit, readWishlist, toggleWishlist } from '@/lib/product.js'
 
 const SEASON_COLOR = {
   winter: 'bg-blue-100 text-blue-800',
@@ -45,6 +51,35 @@ function Section({ icon: Icon, title, children }) {
 
 export default function ProductDetailClient({ product }) {
   const router = useRouter()
+  const [wished, setWished] = useState(false)
+
+  useEffect(() => {
+    setWished(readWishlist().includes(product.slug))
+  }, [product.slug])
+
+  const onToggleWish = () => {
+    const next = toggleWishlist(product.slug)
+    const active = next.includes(product.slug)
+    setWished(active)
+    toast(active ? '찜 목록에 담았습니다.' : '찜을 해제했습니다.')
+  }
+
+  const onShare = async () => {
+    const url = typeof window !== 'undefined' ? window.location.href : ''
+    const shareData = { title: product.name, text: product.summary, url }
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share(shareData)
+        return
+      }
+      await navigator.clipboard.writeText(url)
+      toast('링크를 복사했습니다.')
+    } catch {
+      // 사용자가 공유를 취소한 경우 등은 무시
+    }
+  }
+
+  const depositLabel = formatDeposit(product)
 
   const startBookingFlow = () => {
     saveTourBookingPrefill({
@@ -59,22 +94,41 @@ export default function ProductDetailClient({ product }) {
   return (
     <div className="min-h-screen bg-white pt-20 pb-28 px-4">
       <div className="mx-auto max-w-3xl">
-        <nav className="mb-6 flex items-center gap-1 text-sm text-gray-500">
-          <Link href="/" className="hover:text-yellow-500">홈</Link>
-          <ChevronRight className="h-4 w-4" />
-          <Link href="/products" className="hover:text-yellow-500">상품</Link>
-          <ChevronRight className="h-4 w-4" />
-          <span className="text-gray-900">{product.name}</span>
-        </nav>
+        <div className="mb-6 flex items-center justify-between">
+          <nav className="flex items-center gap-1 text-sm text-gray-500">
+            <Link href="/" className="hover:text-yellow-500">홈</Link>
+            <ChevronRight className="h-4 w-4" />
+            <Link href="/products" className="hover:text-yellow-500">투어 상품</Link>
+            <ChevronRight className="h-4 w-4" />
+            <span className="text-gray-900">{product.name}</span>
+          </nav>
+          <button
+            type="button"
+            onClick={onShare}
+            aria-label="공유하기"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:bg-gray-50"
+          >
+            <Share2 className="h-4 w-4" />
+          </button>
+        </div>
 
         {/* 히어로 */}
-        <div className="overflow-hidden rounded-2xl">
+        <div className="relative overflow-hidden rounded-2xl">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={product.heroImage}
             alt={product.heroImageAlt}
             className="h-56 w-full object-cover sm:h-72"
           />
+          <button
+            type="button"
+            onClick={onToggleWish}
+            aria-label={wished ? '찜 해제' : '찜하기'}
+            aria-pressed={wished}
+            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:bg-white"
+          >
+            <Heart className={`h-5 w-5 ${wished ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
+          </button>
         </div>
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -90,9 +144,15 @@ export default function ProductDetailClient({ product }) {
 
         <h1 className="mt-3 text-2xl font-bold text-gray-900">{product.name}</h1>
         <p className="mt-2 text-gray-600">{product.summary}</p>
-        <div className="mt-3 flex items-center gap-1 text-sm text-gray-500">
-          <Clock className="h-4 w-4" />
-          <span>소요시간 {product.durationLabel}</span>
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
+          <span className="flex items-center gap-1">
+            <Clock className="h-4 w-4" />
+            소요시간 {product.durationLabel}
+          </span>
+          <span className="flex items-center gap-1">
+            <Star className="h-4 w-4" />
+            후기 준비중
+          </span>
         </div>
 
         {/* 핵심 특징 */}
@@ -266,11 +326,25 @@ export default function ProductDetailClient({ product }) {
             <p className="text-sm text-gray-700">{product.reviewEvent.body}</p>
           </Section>
         ) : null}
+
+        {/* 후기 (준비중 placeholder — 실제 후기 시스템 연동 예정) */}
+        <Section icon={Star} title="이용 후기">
+          <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center">
+            <Star className="mx-auto h-6 w-6 text-gray-300" />
+            <p className="mt-2 text-sm font-medium text-gray-700">후기 기능을 준비하고 있습니다.</p>
+            <p className="mt-1 text-xs text-gray-500">
+              투어 후 포토 리뷰를 남기면 이곳에 표시됩니다.
+            </p>
+          </div>
+        </Section>
       </div>
 
       {/* 하단 고정 CTA */}
       <div className="fixed inset-x-0 bottom-0 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center gap-3">
+          {depositLabel ? (
+            <p className="hidden shrink-0 font-bold text-gray-900 sm:block">{depositLabel}</p>
+          ) : null}
           {product.cta.kakaoUrl ? (
             <a
               href={product.cta.kakaoUrl}

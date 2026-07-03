@@ -1,24 +1,7 @@
-import { tourCourses } from '@/data/tourCourses.js'
-import { fetchCourses } from '@/lib/api.js'
-import ToursPageClient from './ToursPageClient.jsx'
+import { redirect } from 'next/navigation'
 
-export const dynamic = 'force-dynamic'
-
-export const metadata = {
-  title: '투어 코스 전체 보기 | 잽코 택시투어',
-  description: '겨울 설경 드라이브부터 여름 라벤더 로드까지. 잽코의 비에이·후라노 택시투어 코스를 확인하세요.',
-}
-
-export default async function ToursPage() {
-  let courses = []
-  try {
-    courses = await fetchCourses()
-  } catch {
-    courses = []
-  }
-  // 백엔드 비가용 시 정적 데이터로 폴백
-  if (!courses.length) {
-    courses = tourCourses
-  }
-  return <ToursPageClient courses={courses} />
+// commerce-first 개편: 코스 목록은 /products(상품 카탈로그)로 일원화.
+// 코스별 지도 빌더(/tours/[id])는 상품 상세의 "커스터마이징"에서 계속 사용.
+export default function ToursPage() {
+  redirect('/products')
 }
