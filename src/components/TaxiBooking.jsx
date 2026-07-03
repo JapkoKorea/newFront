@@ -12,6 +12,7 @@ import { Clock, MapPin, CreditCard, X, AlertTriangle, Loader2 } from 'lucide-rea
 import { Toaster } from 'react-hot-toast'
 import MapContainer, { COORDS_DICT } from '@/components/MapContainer.jsx'
 import { useRouter } from 'next/navigation'
+import { getHourlyRate } from '@/lib/pricing.js'
 
 const BOOKING_DRAFT_STORAGE_KEY = 'booking_draft_v1'
 const BASE_DEPOSIT_KRW = 15000
@@ -26,11 +27,7 @@ const TIME_OPTIONS = [
   { value: '15:00', label: '오후 3:00' },
 ]
 
-const RATE_BY_VEHICLE_TYPE = {
-  '일반차량': 7350,
-  '사륜구동 차량': 9000,
-  '점보택시': 10500,
-}
+// 시간당 요금은 계절(동절기/평시)에 따라 다름 — src/lib/pricing.js 참조.
 
 const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode = 'modal' }) => {
   const router = useRouter()
@@ -173,7 +170,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
     return Math.max(MINIMUM_HOURS, durationValue)
   }, [bookingData.duration])
 
-  const hourlyRateJpy = RATE_BY_VEHICLE_TYPE[selectedVehicleType] || RATE_BY_VEHICLE_TYPE['일반차량']
+  const hourlyRateJpy = getHourlyRate(selectedVehicleType, bookingData.date)
 
   const estimatedFareJpy = useMemo(() => {
     if (!normalizedHours) return null
