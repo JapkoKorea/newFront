@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { listProducts } from '@/products/registry.js'
 import ProductsPageClient from './ProductsPageClient.jsx'
 
@@ -15,7 +16,9 @@ export default function ProductsPage() {
         <h1 className="text-2xl font-bold text-gray-900">투어 상품</h1>
         <p className="mt-2 text-gray-600">비에이 지역 택시투어 상품을 확인하고 예약하세요.</p>
 
-        <ProductsPageClient products={products} />
+        <Suspense fallback={<p className="mt-8 text-sm text-gray-500">상품을 불러오는 중...</p>}>
+          <ProductsPageClient products={products} />
+        </Suspense>
       </div>
     </div>
   )

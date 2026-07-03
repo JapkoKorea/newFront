@@ -4,13 +4,20 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button.jsx'
-import { ChevronDown, MapPin, Clock, Users, Star, MessageCircle, ChevronRight } from 'lucide-react'
+import { ChevronDown, MapPin, Clock, Users, Star, MessageCircle, ChevronRight, Search, Plane } from 'lucide-react'
 import ChatSupport from '@/components/ChatSupport.jsx'
 import ProductCard from '@/components/ProductCard.jsx'
 import { listProducts } from '@/products/registry.js'
 
 const FEATURED_PRODUCTS = listProducts().slice(0, 3)
 const LAST_SECTION = 2
+
+const SEASON_CHIPS = [
+  { season: null, label: '전체' },
+  { season: 'winter', label: '겨울' },
+  { season: 'summer', label: '여름' },
+  { season: 'all_season', label: '사계절' },
+]
 
 import biei1 from '@/assets/xpGwZKvsyDaZ.webp'
 import biei2 from '@/assets/YJZRJCUmiC0K.jpg'
@@ -23,6 +30,13 @@ export default function HomePage() {
   const [currentSection, setCurrentSection] = useState(0)
   const [isScrolling, setIsScrolling] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
+  const [homeQuery, setHomeQuery] = useState('')
+
+  const submitSearch = (e) => {
+    e.preventDefault()
+    const q = homeQuery.trim()
+    router.push(q ? `/products?q=${encodeURIComponent(q)}` : '/products')
+  }
 
   useEffect(() => {
     const handleWheel = (e) => {
@@ -216,14 +230,47 @@ export default function HomePage() {
         {/* 세 번째 섹션 - 추천 상품 커머스 피드 */}
         <section className="h-screen overflow-y-auto bg-white flex items-center">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-16">
-            <div className="flex items-end justify-between mb-8">
-              <div>
-                <h2 className="text-3xl md:text-4xl font-bold text-gray-900">추천 상품</h2>
-                <p className="mt-2 text-gray-600">비에이의 계절별 인기 택시투어를 만나보세요.</p>
-              </div>
+            <div className="mb-6">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900">어디로 가세요?</h2>
+              <p className="mt-2 text-gray-600">비에이의 계절별 인기 택시투어를 만나보세요.</p>
+            </div>
+
+            {/* 검색바 */}
+            <form onSubmit={submitSearch} className="relative max-w-2xl">
+              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={homeQuery}
+                onChange={(e) => setHomeQuery(e.target.value)}
+                placeholder="코스, 지역, 관광지 검색"
+                className="w-full rounded-full border border-gray-300 py-3 pl-12 pr-28 text-base outline-none focus:border-yellow-400"
+              />
+              <Button
+                type="submit"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-full px-6"
+              >
+                검색
+              </Button>
+            </form>
+
+            {/* 시즌 필터칩 */}
+            <div className="mt-4 flex flex-wrap gap-2">
+              {SEASON_CHIPS.map((chip) => (
+                <Link
+                  key={chip.label}
+                  href={chip.season ? `/products?season=${chip.season}` : '/products'}
+                  className="rounded-full border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-600 transition hover:bg-yellow-50 hover:text-yellow-700"
+                >
+                  {chip.label}
+                </Link>
+              ))}
+            </div>
+
+            <div className="mt-8 mb-4 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-900">추천 상품</h3>
               <Link
                 href="/products"
-                className="hidden sm:flex items-center text-sm font-medium text-yellow-600 hover:text-yellow-700"
+                className="flex items-center text-sm font-medium text-yellow-600 hover:text-yellow-700"
               >
                 전체보기
                 <ChevronRight className="h-4 w-4" />
@@ -236,15 +283,23 @@ export default function HomePage() {
               ))}
             </div>
 
-            <div className="mt-10 flex justify-center">
-              <Button
-                size="lg"
-                className="bg-yellow-500 hover:bg-yellow-600 text-white px-8 py-3"
-                onClick={() => router.push('/products')}
-              >
-                전체 상품 보기
-              </Button>
-            </div>
+            {/* 송영(공항 이동) 배너 */}
+            <button
+              type="button"
+              onClick={() => router.push('/transfer-booking')}
+              className="mt-8 flex w-full items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-6 py-5 text-left transition hover:bg-gray-100"
+            >
+              <div className="flex items-center gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-yellow-100">
+                  <Plane className="h-5 w-5 text-yellow-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">공항 송영이 필요하세요?</p>
+                  <p className="text-sm text-gray-600">신치토세·아사히카와 공항과 호텔 간 편안한 이동</p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 shrink-0 text-gray-400" />
+            </button>
           </div>
         </section>
       </div>

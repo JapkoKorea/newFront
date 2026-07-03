@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Search } from 'lucide-react'
 import ProductCard from '@/components/ProductCard.jsx'
 
@@ -12,9 +13,15 @@ const SEASON_TABS = [
   { value: 'all_season', label: '사계절' },
 ]
 
+const VALID_SEASONS = ['winter', 'summer', 'all_season']
+
 export default function ProductsPageClient({ products }) {
-  const [season, setSeason] = useState(null)
-  const [query, setQuery] = useState('')
+  const searchParams = useSearchParams()
+  const seasonParam = searchParams.get('season')
+  const [season, setSeason] = useState(
+    VALID_SEASONS.includes(seasonParam) ? seasonParam : null
+  )
+  const [query, setQuery] = useState(searchParams.get('q') ?? '')
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
