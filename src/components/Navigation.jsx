@@ -82,7 +82,7 @@ export default function Navigation() {
             {/* 데스크탑 메뉴 */}
             <div className="hidden md:flex items-baseline space-x-1">
               <Link href="/" className={navLinkClass}>홈</Link>
-              <Link href="/tours" className={navLinkClass}>투어 코스</Link>
+              <Link href="/products" className={navLinkClass}>투어 상품</Link>
               <Link href="/guide" className={navLinkClass}>관광 가이드</Link>
               <button onClick={openServiceSelector} className={navLinkClass}>예약하기</button>
               <Link href="/pricing" className={navLinkClass}>요금 안내</Link>
@@ -113,7 +113,7 @@ export default function Navigation() {
             <div className="md:hidden border-t py-3 space-y-1">
               {[
                 { label: '홈', href: '/' },
-                { label: '투어 코스', href: '/tours' },
+                { label: '투어 상품', href: '/products' },
                 { label: '관광 가이드', href: '/guide' },
                 { label: '요금 안내', href: '/pricing' },
                 { label: '예약 확인', href: '/reservations' },

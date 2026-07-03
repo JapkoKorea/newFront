@@ -2,9 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button.jsx'
-import { ChevronDown, MapPin, Clock, Users, Star, MessageCircle } from 'lucide-react'
+import { ChevronDown, MapPin, Clock, Users, Star, MessageCircle, ChevronRight } from 'lucide-react'
 import ChatSupport from '@/components/ChatSupport.jsx'
+import ProductCard from '@/components/ProductCard.jsx'
+import { listProducts } from '@/products/registry.js'
+
+const FEATURED_PRODUCTS = listProducts().slice(0, 3)
+const LAST_SECTION = 2
 
 import biei1 from '@/assets/xpGwZKvsyDaZ.webp'
 import biei2 from '@/assets/YJZRJCUmiC0K.jpg'
@@ -25,7 +31,7 @@ export default function HomePage() {
       e.preventDefault()
       setIsScrolling(true)
 
-      if (e.deltaY > 0 && currentSection < 1) {
+      if (e.deltaY > 0 && currentSection < LAST_SECTION) {
         setCurrentSection(currentSection + 1)
       } else if (e.deltaY < 0 && currentSection > 0) {
         setCurrentSection(currentSection - 1)
@@ -206,11 +212,46 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+
+        {/* 세 번째 섹션 - 추천 상품 커머스 피드 */}
+        <section className="h-screen overflow-y-auto bg-white flex items-center">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-16">
+            <div className="flex items-end justify-between mb-8">
+              <div>
+                <h2 className="text-3xl md:text-4xl font-bold text-gray-900">추천 상품</h2>
+                <p className="mt-2 text-gray-600">비에이의 계절별 인기 택시투어를 만나보세요.</p>
+              </div>
+              <Link
+                href="/products"
+                className="hidden sm:flex items-center text-sm font-medium text-yellow-600 hover:text-yellow-700"
+              >
+                전체보기
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {FEATURED_PRODUCTS.map((product) => (
+                <ProductCard key={product.slug} product={product} />
+              ))}
+            </div>
+
+            <div className="mt-10 flex justify-center">
+              <Button
+                size="lg"
+                className="bg-yellow-500 hover:bg-yellow-600 text-white px-8 py-3"
+                onClick={() => router.push('/products')}
+              >
+                전체 상품 보기
+              </Button>
+            </div>
+          </div>
+        </section>
       </div>
 
       {/* 섹션 인디케이터 */}
       <div className="fixed right-6 top-1/2 transform -translate-y-1/2 z-50 space-y-2">
-        {[0, 1].map((index) => (
+        {[0, 1, 2].map((index) => (
           <button
             key={index}
             onClick={() => setCurrentSection(index)}
