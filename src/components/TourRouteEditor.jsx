@@ -20,6 +20,7 @@ import {
   makePlace,
   isSameCoord,
 } from '@/lib/placeUtils.js'
+import { fetchPlacePredictions, resolvePrediction } from '@/lib/placesSearch.js'
 import MarkerWithLabel from '@/components/MarkerWithLabel.jsx'
 import { GripVertical, Clock, Camera, Search, X } from 'lucide-react'
 
@@ -218,50 +219,9 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
     }
   }, [])
 
+  // 검색 로직은 src/lib/placesSearch.js 에 공용으로 있다.
   const fetchPredictions = useCallback((value, setPredictions, sourceNames) => {
-    const query = normalizeSearchTerm(value)
-    if (!query) {
-      setPredictions(sourceNames.slice(0, 8).map((name) => ({ type: 'preset', name })))
-      return
-    }
-
-    const fallback = sourceNames
-      .map((name) => ({ name, terms: getSearchCandidates(name) }))
-      .filter((entry) => entry.terms.some((term) => term.includes(query)))
-      .map((entry) => ({ type: 'preset', name: entry.name }))
-
-    if (!window.google?.maps?.places?.AutocompleteService) {
-      setPredictions(fallback.slice(0, 12))
-      return
-    }
-
-    new window.google.maps.places.AutocompleteService().getPlacePredictions(
-      {
-        input: value,
-        componentRestrictions: { country: 'jp' },
-      },
-      (predictions, status) => {
-        if (status !== window.google.maps.places.PlacesServiceStatus.OK || !predictions) {
-          setPredictions(fallback.slice(0, 12))
-          return
-        }
-
-        const googleItems = predictions.map((prediction) => ({
-          type: 'google',
-          placeId: prediction.place_id,
-          label: extractPredictionLabel(prediction),
-          description: prediction.description || '',
-        }))
-
-        const merged = [...fallback]
-        googleItems.forEach((item) => {
-          if (!merged.some((existing) => normalizeSearchTerm(existing.name || existing.label) === normalizeSearchTerm(item.label))) {
-            merged.push(item)
-          }
-        })
-        setPredictions(merged.slice(0, 12))
-      }
-    )
+    fetchPlacePredictions(value, sourceNames, setPredictions)
   }, [])
 
   const selectPlaceName = useCallback((name, setPlace, setInput, setPredictions) => {
@@ -336,45 +296,39 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
       return
     }
 
-    if (!window.google?.maps?.places?.PlacesService || !mapRef.current) return
+    // 구글 결과는 좌표 확정에 상세 조회가 필요하다(공용 모듈이 처리).
+    resolvePrediction(prediction, mapRef.current).then((resolved) => {
+      if (!resolved?.coord) return
+      const { name, coord } = resolved
 
-    new window.google.maps.places.PlacesService(mapRef.current).getDetails(
-      { placeId: prediction.placeId, fields: ['name', 'geometry'] },
-      (place) => {
-        const name = place?.name || prediction.label
-        const location = place?.geometry?.location
-        if (!location) return
-        const coord = { lat: location.lat(), lng: location.lng() }
-
-        if (!isInAllowedRegion(coord.lat, coord.lng)) {
-          alert(OUT_OF_REGION_MESSAGE)
-          return
-        }
-
-        if (mode === 'waypoint') {
-          selectWaypointName(name, coord)
-          return
-        }
-
-        const nextDeparture = mode === 'departure' ? name : departure.name
-        const nextDestination = mode === 'destination' ? name : destination.name
-        if (shouldBlockBieiPair(nextDeparture, nextDestination)) {
-          alert(BIEI_PAIR_ALERT_MESSAGE)
-          return
-        }
-
-        const setPlace = mode === 'departure' ? setDeparture : setDestination
-        const setInput = mode === 'departure' ? setDepInput : setDestInput
-        const setPredictions = mode === 'departure' ? setDepPredictions : setDestPredictions
-        setPlace({ name, coord })
-        setInput('')
-        setPredictions([])
-        if (mapRef.current) {
-          mapRef.current.panTo(coord)
-          mapRef.current.setZoom(11)
-        }
+      if (!isInAllowedRegion(coord.lat, coord.lng)) {
+        alert(OUT_OF_REGION_MESSAGE)
+        return
       }
-    )
+
+      if (mode === 'waypoint') {
+        selectWaypointName(name, coord)
+        return
+      }
+
+      const nextDeparture = mode === 'departure' ? name : departure.name
+      const nextDestination = mode === 'destination' ? name : destination.name
+      if (shouldBlockBieiPair(nextDeparture, nextDestination)) {
+        alert(BIEI_PAIR_ALERT_MESSAGE)
+        return
+      }
+
+      const setPlace = mode === 'departure' ? setDeparture : setDestination
+      const setInput = mode === 'departure' ? setDepInput : setDestInput
+      const setPredictions = mode === 'departure' ? setDepPredictions : setDestPredictions
+      setPlace({ name, coord })
+      setInput('')
+      setPredictions([])
+      if (mapRef.current) {
+        mapRef.current.panTo(coord)
+        mapRef.current.setZoom(11)
+      }
+    })
   }, [departure.name, destination.name, selectPlaceName, selectWaypointName])
 
   const applySelectionByMode = useCallback((name) => {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   GoogleMap,
   Marker,
@@ -15,7 +15,9 @@ import {
   isInAllowedRegion,
   normalizePlaceName,
   STATION_CHIPS,
+  OUT_OF_REGION_MESSAGE,
 } from '@/lib/placeUtils.js';
+import { fetchPlacePredictions, resolvePrediction } from '@/lib/placesSearch.js';
 
 // 기존 import 경로 호환을 위해 재수출한다.
 export { COORDS_DICT };
@@ -75,72 +77,63 @@ const MapContainer = ({
     }
   }, [selectionMode]);
 
+  const selectableSpotNames = useMemo(
+    () =>
+      availableSpots.length > 0
+        ? availableSpots.filter((spot) => !!COORDS_DICT[spot])
+        : Object.keys(COORDS_DICT).filter((name) => !STATION_CHIPS.includes(name)),
+    [availableSpots]
+  );
+
+  // 검색 폴백에 쓸 사전 등록 장소(역 + 관광지).
+  // 렌더마다 새 배열이 되면 아래 useCallback 이 무의미해지므로 메모한다.
+  const searchPresetNames = useMemo(
+    () => [...STATION_CHIPS, ...selectableSpotNames],
+    [selectableSpotNames]
+  );
+
   const handlePlaceSearchChange = useCallback((value) => {
     setPlaceSearchInput(value);
 
-    if (!value || value.trim().length < 2 || !window.google?.maps?.places?.AutocompleteService) {
+    if (!value || !value.trim()) {
       setPlacePredictions([]);
       return;
     }
 
-    const autocompleteService = new window.google.maps.places.AutocompleteService();
-    autocompleteService.getPlacePredictions(
-      {
-        input: value,
-        componentRestrictions: { country: 'jp' },
-      },
-      (predictions, status) => {
-        if (status !== window.google.maps.places.PlacesServiceStatus.OK || !predictions) {
-          setPlacePredictions([]);
-          return;
-        }
-        setPlacePredictions(predictions.slice(0, 6));
-      }
-    );
-  }, []);
+    // 구글 결과 + 사전 등록 장소 폴백(공용 모듈). 구글이 못 찾는
+    // 한국어 지명도 사전에서 잡힌다.
+    fetchPlacePredictions(value, searchPresetNames, setPlacePredictions);
+  }, [searchPresetNames]);
 
   const handlePredictionSelect = useCallback(
     (prediction) => {
       if (!selectionMode || !['departure', 'destination'].includes(selectionMode)) return;
 
-      if (!window.google?.maps?.places?.PlacesService || !mapRef.current) {
-        onPlaceChange(selectionMode, prediction.description, null);
+      resolvePrediction(prediction, mapRef.current).then((resolved) => {
+        if (!resolved) return;
+        const { name, coord } = resolved;
+
+        // 교통권 밖 지점은 배차가 불가능하다.
+        if (coord && !isInAllowedRegion(coord.lat, coord.lng)) {
+          toast.error(OUT_OF_REGION_MESSAGE);
+          return;
+        }
+
+        onPlaceChange(selectionMode, name, coord);
+
+        if (coord && mapRef.current) {
+          mapRef.current.panTo(coord);
+          mapRef.current.setZoom(12);
+        }
+
         setSelectionMode(null);
         setPlacePredictions([]);
         setPlaceSearchInput('');
-        return;
-      }
-
-      const placesService = new window.google.maps.places.PlacesService(mapRef.current);
-      placesService.getDetails(
-        { placeId: prediction.place_id, fields: ['name', 'geometry'] },
-        (place) => {
-          const placeName = place?.name || prediction.structured_formatting?.main_text || prediction.description;
-          const location = place?.geometry?.location;
-          const resolvedCoords = location ? { lat: location.lat(), lng: location.lng() } : null;
-          onPlaceChange(selectionMode, placeName, resolvedCoords);
-
-          if (location && mapRef.current) {
-            mapRef.current.panTo(location);
-            mapRef.current.setZoom(12);
-          }
-
-          setSelectionMode(null);
-          setPlacePredictions([]);
-          setPlaceSearchInput('');
-          toast.success(`${placeName} 선택 완료`);
-        }
-      );
+        toast.success(`${name} 선택 완료`);
+      });
     },
     [selectionMode, onPlaceChange]
   );
-
-  const selectableSpotNames =
-    availableSpots.length > 0
-      ? availableSpots.filter((spot) => !!COORDS_DICT[spot])
-      : Object.keys(COORDS_DICT).filter(
-          (name) => !STATION_CHIPS.includes(name)
-        );
 
   // 지도 클릭 핸들러
   const handleMapClick = useCallback((event) => {
@@ -333,16 +326,18 @@ const MapContainer = ({
 
             {placePredictions.length > 0 && (
               <div className="mt-2 max-h-40 overflow-y-auto rounded-md border bg-white shadow-sm">
-                {placePredictions.map((prediction) => (
+                {placePredictions.map((prediction, index) => (
                   <button
-                    key={prediction.place_id}
+                    key={prediction.type === 'preset' ? `preset-${prediction.name}` : `google-${prediction.placeId || index}`}
                     type="button"
                     onClick={() => handlePredictionSelect(prediction)}
                     className="w-full border-b px-3 py-2 text-left text-sm hover:bg-yellow-50 last:border-b-0"
                   >
-                    <p className="font-medium text-gray-900">{prediction.structured_formatting?.main_text || prediction.description}</p>
-                    {prediction.structured_formatting?.secondary_text && (
-                      <p className="text-xs text-gray-500">{prediction.structured_formatting.secondary_text}</p>
+                    <p className="font-medium text-gray-900">
+                      {prediction.type === 'preset' ? prediction.name : prediction.label}
+                    </p>
+                    {prediction.type === 'google' && prediction.description && (
+                      <p className="text-xs text-gray-500">{prediction.description}</p>
                     )}
                   </button>
                 ))}
