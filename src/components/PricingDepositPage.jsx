@@ -7,10 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.j
 import { Badge } from '@/components/ui/badge.jsx'
 import { CheckCircle2, Clock3, Coins, Loader2, Route, ShieldCheck, Users, Wallet } from 'lucide-react'
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
-import { getHourlyRate, getPricingSeason, HOURLY_RATE_BY_SEASON, SEASON_LABEL } from '@/lib/pricing.js'
+import { getHourlyRate, getPricingSeason, HOURLY_RATE_BY_SEASON, SEASON_LABEL, getDepositKrw, isLastMinuteBooking, LAST_MINUTE_DEPOSIT_KRW } from '@/lib/pricing.js'
 
 const BOOKING_DRAFT_STORAGE_KEY = 'booking_draft_v1'
-const BASE_DEPOSIT_KRW = 15000
 
 const VEHICLE_OPTIONS = [
   {
@@ -102,7 +101,8 @@ function PricingDepositPage() {
       effectiveVehicle: selectedVehicle,
       hourlyRateJpy,
       estimatedFareJpy,
-      baseDepositKrw: Number(summary.depositKrw) || BASE_DEPOSIT_KRW,
+      baseDepositKrw: getDepositKrw(tourDate, { baseKrw: Number(summary.depositKrw) || undefined }),
+      isLastMinute: isLastMinuteBooking(tourDate),
     }
   }, [duration, selectedVehicle, selectedVehicleType, tourDate, summary.depositKrw, summary.estimatedFareJpy])
 
@@ -259,6 +259,11 @@ function PricingDepositPage() {
                     <p className="text-xs tracking-[0.18em] text-yellow-700 font-semibold">최종 결제 금액</p>
                     <p className="mt-1 text-3xl font-bold text-yellow-800">{calculation.baseDepositKrw.toLocaleString()}원</p>
                     <p className="mt-1 text-xs text-gray-600">예약 요청 시 지금 결제되는 금액(예약금)입니다.</p>
+                    {calculation.isLastMinute && (
+                      <p className="mt-1 text-xs font-medium text-amber-700">
+                        당일 또는 전일 예약이라 예약금이 {LAST_MINUTE_DEPOSIT_KRW.toLocaleString()}원으로 적용됩니다.
+                      </p>
+                    )}
                     <p className="mt-2 text-sm text-gray-700">예상 총 택시비: <span className="font-semibold text-gray-900">{calculation.estimatedFareJpy ? `${calculation.estimatedFareJpy.toLocaleString()}엔` : '예약 입력에서 계산된 금액 없음'}</span></p>
                   </div>
 

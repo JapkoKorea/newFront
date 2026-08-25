@@ -12,10 +12,9 @@ import { Clock, MapPin, CreditCard, X, AlertTriangle, Loader2 } from 'lucide-rea
 import { Toaster } from 'react-hot-toast'
 import MapContainer, { COORDS_DICT } from '@/components/MapContainer.jsx'
 import { useRouter } from 'next/navigation'
-import { getHourlyRate } from '@/lib/pricing.js'
+import { getHourlyRate, getDepositKrw, isLastMinuteBooking } from '@/lib/pricing.js'
 
 const BOOKING_DRAFT_STORAGE_KEY = 'booking_draft_v1'
-const BASE_DEPOSIT_KRW = 15000
 const MINIMUM_HOURS = 2
 
 const TIME_OPTIONS = [
@@ -171,6 +170,9 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
   }, [bookingData.duration])
 
   const hourlyRateJpy = getHourlyRate(selectedVehicleType, bookingData.date)
+  // 당일/전일 예약은 예약금이 올라간다.
+  const depositKrw = getDepositKrw(bookingData.date)
+  const isLastMinute = isLastMinuteBooking(bookingData.date)
 
   const estimatedFareJpy = useMemo(() => {
     if (!normalizedHours) return null
@@ -452,7 +454,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
           vehicleType: selectedVehicleType,
           requiresWinter4wd,
           estimatedFareJpy,
-          depositKrw: BASE_DEPOSIT_KRW,
+          depositKrw: depositKrw,
           selectedSpots: bookingData.selectedSpots || [],
         },
         createdAt: new Date().toISOString(),
@@ -762,11 +764,14 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                       예상 총 택시비: <span className="font-semibold text-gray-900">{estimatedFareJpy ? `${estimatedFareJpy.toLocaleString()}엔` : '소요 시간 선택 후 확인'}</span>
                     </p>
                     <p className="text-gray-700">
-                      예약 요청 시 결제 금액(예약금): <span className="font-semibold text-gray-900">{BASE_DEPOSIT_KRW.toLocaleString()}원</span>
+                      예약 요청 시 결제 금액(예약금): <span className="font-semibold text-gray-900">{depositKrw.toLocaleString()}원</span>
+                      {isLastMinute && (
+                        <span className="ml-1 text-xs font-medium text-amber-700">(당일·전일 예약)</span>
+                      )}
                     </p>
                     <div className="rounded-lg border border-yellow-200 bg-white p-3">
                       <p className="text-xs text-yellow-700">최종 비용</p>
-                      <p className="text-2xl font-bold text-yellow-800">{BASE_DEPOSIT_KRW.toLocaleString()}원</p>
+                      <p className="text-2xl font-bold text-yellow-800">{depositKrw.toLocaleString()}원</p>
                     </div>
                     <p className="text-xs text-gray-500">※ 최소 2시간 기준으로 계산되며, 현장 결제 금액은 이용 조건에 따라 달라질 수 있습니다.</p>
                   </div>
@@ -999,7 +1004,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                     </div>
                     <div className="flex justify-between">
                       <span>예약금:</span>
-                      <span className="font-medium">{BASE_DEPOSIT_KRW.toLocaleString()}원</span>
+                      <span className="font-medium">{depositKrw.toLocaleString()}원</span>
                     </div>
                     {bookingData.selectedSpots && bookingData.selectedSpots.length > 0 && (
                       <div className="flex justify-between">

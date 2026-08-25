@@ -12,7 +12,10 @@ This document defines reservation-time pricing and the **initial recommended set
 ### 1.1 Base Deposit
 
 - Base deposit fee: **15,000 KRW**
+- Last-minute deposit (tour date is today or tomorrow): **20,000 KRW**
 - Charged at reservation request step.
+- A course may define its own deposit via `courses.deposit_krw`. The last-minute
+  rule raises the amount but never lowers a higher course-specific deposit.
 
 ### 1.2 Hourly Vehicle Fare (Reference, JPY)
 
@@ -139,6 +142,8 @@ Review model when one of these happens:
 ## 9) Constants (System)
 
 - `base_deposit_krw = 15000`
+- `last_minute_deposit_krw = 20000` (env `LAST_MINUTE_DEPOSIT_KRW`)
+- `last_minute_days = 1`
 - `hourly_rate_jpy` — see `src/lib/pricing.js` (`HOURLY_RATE_BY_SEASON`), season-dependent
 - `base_deposit_krw` override per course: `courses.deposit_krw` (DB), env fallback `BASE_DEPOSIT_KRW`
 - `minimum_hours = 2`

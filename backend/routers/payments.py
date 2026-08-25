@@ -2,7 +2,8 @@ import base64
 import json
 import os
 import uuid
-from datetime import datetime
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 from typing import Any
 
 import httpx
@@ -84,6 +85,32 @@ def _find_reservation_for_payment(user_id: str, reservation_number: str):
         conn.close()
 
 
+# 투어일까지 남은 일수가 이 값 이하이면 임박 예약으로 본다(당일 = 0, 하루 전 = 1).
+LAST_MINUTE_DAYS = 1
+
+# 투어 운행지 기준으로 남은 일수를 센다.
+LOCAL_TZ = ZoneInfo("Asia/Tokyo")
+
+
+def _is_last_minute(tour_date: Any) -> bool:
+    """당일 또는 전일 예약인지 판정한다. 날짜를 알 수 없으면 False."""
+    if tour_date is None:
+        return False
+
+    if isinstance(tour_date, datetime):
+        target = tour_date.date()
+    elif isinstance(tour_date, date):
+        target = tour_date
+    else:
+        try:
+            target = datetime.strptime(str(tour_date), "%Y-%m-%d").date()
+        except ValueError:
+            return False
+
+    today = datetime.now(LOCAL_TZ).date()
+    return (target - today).days <= LAST_MINUTE_DAYS
+
+
 def _calculate_amount_krw(reservation: dict[str, Any]) -> int:
     service_type = reservation.get("service_type", "tour")
 
@@ -107,6 +134,11 @@ def _calculate_amount_krw(reservation: dict[str, Any]) -> int:
 
     default_deposit = int(os.getenv("BASE_DEPOSIT_KRW", "15000"))
     amount = int(reservation.get("course_deposit_krw") or default_deposit)
+
+    # 당일 또는 전일 예약은 배차 조율 부담이 커서 예약금이 올라간다.
+    # 프론트의 src/lib/pricing.js 와 동일한 기준을 유지해야 한다.
+    if _is_last_minute(reservation.get("tour_date")):
+        amount = max(amount, int(os.getenv("LAST_MINUTE_DEPOSIT_KRW", "20000")))
 
     if amount <= 0:
         raise HTTPException(status_code=400, detail="결제 금액이 유효하지 않습니다")
