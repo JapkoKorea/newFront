@@ -13,7 +13,7 @@ export async function generateMetadata({ params }) {
   const page = guidePages[slug]
   if (!page) return {}
   return {
-    title: `${page.title} | 잽코 택시투어`,
+    title: `${page.title}`,
     description: page.description,
   }
 }

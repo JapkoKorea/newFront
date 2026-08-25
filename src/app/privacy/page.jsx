@@ -2,7 +2,7 @@ import PolicyLayout, { Article, Bullets, PolicyTable } from '@/components/Policy
 import { COMPANY, companyValue } from '@/data/company.js'
 
 export const metadata = {
-  title: '개인정보처리방침 | 잽코 택시투어',
+  title: '개인정보처리방침',
   description: '잽코 택시투어의 개인정보 수집, 이용, 제공 및 보호에 관한 방침입니다.',
 }
 

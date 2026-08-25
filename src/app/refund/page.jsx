@@ -2,7 +2,7 @@ import PolicyLayout, { Article, Bullets, PolicyTable } from '@/components/Policy
 import { companyValue } from '@/data/company.js'
 
 export const metadata = {
-  title: '취소 및 환불 정책 | 잽코 택시투어',
+  title: '취소 및 환불 정책',
   description: '잽코 택시투어의 예약 취소, 환불 기준 및 절차를 안내합니다.',
 }
 

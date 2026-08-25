@@ -2,7 +2,7 @@ import PolicyLayout, { Article, Bullets } from '@/components/PolicyLayout.jsx'
 import { COMPANY, companyValue } from '@/data/company.js'
 
 export const metadata = {
-  title: '이용약관 | 잽코 택시투어',
+  title: '이용약관',
   description: '잽코 택시투어 서비스 이용약관입니다.',
 }
 

@@ -3,7 +3,7 @@ import { ChevronRight } from 'lucide-react'
 import { guideIndex } from '@/data/guideContent.js'
 
 export const metadata = {
-  title: '홋카이도 관광 가이드 | 잽코 택시투어',
+  title: '홋카이도 관광 가이드',
   description: '비에이·후라노 관광 명소, 계절별 추천 코스, 렌터카 vs 택시투어 비교까지. 홋카이도 여행 정보를 한곳에서.',
 }
 

@@ -1,3 +1,11 @@
+"""레거시 SEO 라우트.
+
+사이트맵과 robots.txt 는 웹 도메인에서 서빙되어야 검색엔진이 인식하므로
+Next.js 의 src/app/sitemap.js, src/app/robots.js 로 이관되었다.
+이 라우터는 기존 백엔드 주소로 유입되는 크롤러를 위해 유지하되,
+경로 목록의 정본은 프론트엔드에 있다.
+"""
+
 import os
 from fastapi import APIRouter
 from fastapi.responses import Response

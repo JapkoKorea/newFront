@@ -20,7 +20,7 @@ export async function generateMetadata({ params }) {
   const course = await loadCourse(id)
   if (!course) return {}
   return {
-    title: `${course.name} | 잽코 택시투어`,
+    title: `${course.name}`,
     description: `${course.name} — ${course.description} 출발: ${course.departure || '협의'}, 소요시간: ${course.duration}`,
   }
 }

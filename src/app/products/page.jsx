@@ -3,7 +3,7 @@ import { listProducts } from '@/products/registry.js'
 import ProductsPageClient from './ProductsPageClient.jsx'
 
 export const metadata = {
-  title: '투어 상품 | 잽코 택시투어',
+  title: '투어 상품',
   description: '비에이 지역 계절별 택시투어 상품을 확인하고 예약하세요.',
 }
 

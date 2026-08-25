@@ -12,10 +12,10 @@ export async function generateMetadata({ params }) {
   const product = getProduct(slug)
   if (!product) return {}
   return {
-    title: `${product.name} | 잽코 택시투어`,
+    title: `${product.name}`,
     description: product.summary,
     openGraph: {
-      title: `${product.name} | 잽코 택시투어`,
+      title: `${product.name}`,
       description: product.summary,
       images: product.heroImage ? [{ url: product.heroImage }] : undefined,
     },

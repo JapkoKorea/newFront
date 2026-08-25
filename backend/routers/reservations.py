@@ -10,6 +10,7 @@ from services.mysql_reservation_service import (
     record_status_change,
     save_reservation_mysql,
 )
+from services.refund_service import refund_for_cancellation
 from services.mysql_user_service import _connect
 
 
@@ -67,7 +68,8 @@ def _find_reservation(user_id: str, reservation_number: str):
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT reservation_number, status
+                SELECT reservation_number, status, payment_status,
+                       tour_date, tour_start_time, service_type
                 FROM reservations
                 WHERE user_id = %s AND reservation_number = %s
                 LIMIT 1
@@ -185,6 +187,22 @@ async def request_cancel_reservation(
     if current_status in {"cancelled", "rejected", "completed"}:
         raise HTTPException(status_code=400, detail="현재 상태에서는 취소 요청을 진행할 수 없습니다")
 
+    # 결제된 예약이면 환불을 먼저 처리한다. 환불이 실패하면 취소를 진행하지 않는다.
+    # (상태만 취소로 바뀌고 돈은 남아 있는 상황을 만들지 않기 위함)
+    refund_result: dict[str, Any] = {"refunded": False, "reason": "no_paid_order", "amount": 0}
+    if reservation.get("payment_status") == "paid":
+        try:
+            refund_result = await refund_for_cancellation(
+                user_id=user_id,
+                reservation_number=reservation_number,
+                reservation=reservation,
+            )
+        except RuntimeError as error:
+            raise HTTPException(
+                status_code=502,
+                detail=f"환불 처리에 실패하여 취소를 완료하지 못했습니다. 고객센터로 문의해 주세요. ({error})",
+            ) from error
+
     conn = _connect()
     try:
         with conn.cursor() as cursor:
@@ -202,7 +220,7 @@ async def request_cancel_reservation(
                 current_status,
                 "cancelled",
                 changed_by=user_id,
-                reason="user_cancel",
+                reason=f"user_cancel/{refund_result.get('reason')}",
             )
         conn.commit()
     finally:
@@ -212,4 +230,5 @@ async def request_cancel_reservation(
         "message": "취소 요청이 접수되었습니다",
         "reservationNumber": reservation_number,
         "status": "cancelled",
+        "refund": refund_result,
     }
