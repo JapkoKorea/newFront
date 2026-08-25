@@ -16,9 +16,16 @@ This document defines reservation-time pricing and the **initial recommended set
 
 ### 1.2 Hourly Vehicle Fare (Reference, JPY)
 
-- Standard taxi: **7,350 JPY / hour**
-- 4WD vehicle: **9,000 JPY / hour**
-- Jumbo taxi (mandatory for 5+ passengers): **10,500 JPY / hour**
+Rates are season-dependent. **Source of truth: `src/lib/pricing.js`** — update that file
+first; this table mirrors it.
+
+| Vehicle | Winter (Dec–Mar) | Regular (Apr–Nov) |
+|---|---|---|
+| Standard taxi | 10,370 JPY / h | 8,640 JPY / h |
+| 4WD vehicle | 15,370 JPY / h | 13,640 JPY / h |
+| Jumbo taxi (mandatory for 5+ passengers) | 13,130 JPY / h | 10,940 JPY / h |
+
+4WD = standard + 5,000 JPY surcharge.
 
 ### 1.3 Minimum Bookable Duration
 
@@ -132,8 +139,7 @@ Review model when one of these happens:
 ## 9) Constants (System)
 
 - `base_deposit_krw = 15000`
-- `hourly_rate_jpy.standard = 7350`
-- `hourly_rate_jpy.four_wd = 9000`
-- `hourly_rate_jpy.jumbo = 10500`
+- `hourly_rate_jpy` — see `src/lib/pricing.js` (`HOURLY_RATE_BY_SEASON`), season-dependent
+- `base_deposit_krw` override per course: `courses.deposit_krw` (DB), env fallback `BASE_DEPOSIT_KRW`
 - `minimum_hours = 2`
 - `jumbo_min_passengers = 5`

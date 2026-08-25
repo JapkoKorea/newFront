@@ -66,12 +66,14 @@ def _find_reservation_for_payment(user_id: str, reservation_number: str):
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT reservation_number, user_id, status, payment_status,
-                       english_name, contact_number, tour_duration_hours, number_of_people,
-                       departure, destination, tour_date, tour_start_time,
-                       service_type, desired_course, deposit_krw
-                FROM reservations
-                WHERE user_id = %s AND reservation_number = %s
+                SELECT r.reservation_number, r.user_id, r.status, r.payment_status,
+                       r.english_name, r.contact_number, r.tour_duration_hours, r.number_of_people,
+                       r.departure, r.destination, r.tour_date, r.tour_start_time,
+                       r.service_type, r.desired_course, r.deposit_krw, r.course_id,
+                       c.deposit_krw AS course_deposit_krw
+                FROM reservations r
+                LEFT JOIN courses c ON c.id = r.course_id
+                WHERE r.user_id = %s AND r.reservation_number = %s
                 LIMIT 1
                 """,
                 (user_id, reservation_number),
@@ -93,19 +95,17 @@ def _calculate_amount_krw(reservation: dict[str, Any]) -> int:
             )
         return int(amount)
 
-    base_per_hour = int(os.getenv("PAYMENT_BASE_RATE_PER_HOUR", "25000"))
-    extra_per_person = int(os.getenv("PAYMENT_EXTRA_PERSON_RATE", "5000"))
-
+    # 투어 상품: 예약 시점 결제 금액은 "예약금"이다(PRICING_DEPOSIT_POLICY.md 1.1).
+    # 실제 택시 요금(JPY)은 현지에서 정산하며 결제 금액에 포함하지 않는다.
+    # 코스별 예약금이 지정돼 있으면 그 값을, 없으면 기본 예약금을 사용한다.
     duration = float(reservation.get("tour_duration_hours") or 0)
     people = int(reservation.get("number_of_people") or 0)
 
     if duration <= 0 or people <= 0:
         raise HTTPException(status_code=400, detail="결제 금액 계산에 필요한 예약 정보가 올바르지 않습니다")
 
-    base_amount = round(duration * base_per_hour)
-    extra_people = max(0, people - 1)
-    extra_amount = extra_people * extra_per_person
-    amount = base_amount + extra_amount
+    default_deposit = int(os.getenv("BASE_DEPOSIT_KRW", "15000"))
+    amount = int(reservation.get("course_deposit_krw") or default_deposit)
 
     if amount <= 0:
         raise HTTPException(status_code=400, detail="결제 금액이 유효하지 않습니다")
@@ -231,7 +231,7 @@ async def prepare_payment(
         customer_key=user_id,
         customer_name=reservation.get("english_name") or "고객",
         customer_mobile_phone=(reservation.get("contact_number") or "").replace("-", ""),
-        order_name=f"비에이 택시투어 ({reservation.get('tour_date')})",
+        order_name=f"비에이 택시투어 예약금 ({reservation.get('tour_date')})",
         client_key=client_key,
         success_url=f"{frontend_base_url}/payments/success?reservation_number={reservation_number}",
         fail_url=f"{frontend_base_url}/payments/fail?reservation_number={reservation_number}",
