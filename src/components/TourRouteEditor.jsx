@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useLoadScript, GoogleMap, Marker } from '@react-google-maps/api'
-import { COORDS_DICT } from '@/components/MapContainer.jsx'
+import { COORDS_DICT } from '@/lib/spotCoords.js'
 import MarkerWithLabel from '@/components/MarkerWithLabel.jsx'
 import { GripVertical, Clock, Camera, Search, X } from 'lucide-react'
 

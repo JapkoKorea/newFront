@@ -9,11 +9,19 @@ import {
 import toast from 'react-hot-toast';
 import MarkerWithLabel from './MarkerWithLabel';
 import RouteRenderer from './RouteRenderer';
+import { COORDS_DICT } from '@/lib/spotCoords.js';
+
+// 기존 import 경로 호환을 위해 재수출한다.
+export { COORDS_DICT };
 
 const normalizeLocationKey = (value) => {
   if (typeof value !== 'string') return '';
   return value.replace(/\s*\([^)]*\)\s*/g, '').trim();
 };
+
+// useLoadScript 는 libraries 배열의 참조가 바뀌면 로더를 다시 초기화한다.
+// 렌더마다 새 배열을 만들지 않도록 모듈 상수로 고정한다.
+const MAPS_LIBRARIES = ["places"];
 
 // 아사히카와-비에이 지역 중심점
 const centerAsahikawa = { lat: 43.7709, lng: 142.3650 };
@@ -24,26 +32,6 @@ const allowedRegionBounds = {
   south: 43.35,
   west: 142.2,
   east: 142.7,
-};
-// 관광지 좌표 사전
-export const COORDS_DICT = {
-  "크리스마스 나무": { lat: 43.5546, lng: 142.4445 },
-  "세븐스타 나무": { lat: 43.5902, lng: 142.4551 },
-  "켄과 메리 나무": { lat: 43.6093, lng: 142.4647 },
-  "마일드세븐 언덕": { lat: 43.6053, lng: 142.4102 },
-  "탁신관": { lat: 43.53, lng: 142.4894 },
-  "흰수염폭포": { lat: 43.4754, lng: 142.6395 },
-  "청의 호수": { lat: 43.4936, lng: 142.6149 },
-  "패치워크의 길": { lat: 43.6308, lng: 142.4292 },
-  "닝구르 테라스": { lat: 43.3234, lng: 142.3572 },
-  "팜 토미타": { lat: 43.4184, lng: 142.4287 },
-  "사계채언덕 (四季彩の丘)": { lat: 43.5293, lng: 142.4659 },
-  "아사히야마 동물원": { lat: 43.7690, lng: 142.4801 },
-  "아사히카와역": { lat: 43.7629, lng: 142.3593 },
-  "비에이역": { lat: 43.5913, lng: 142.4622 },
-  "지요가오카역": { lat: 43.5695, lng: 142.4886 },
-  "후라노역": { lat: 43.3471, lng: 142.3917 },
-  "아사히카와 공항": { lat: 43.6708, lng: 142.4473 },
 };
 
 const MapContainer = ({
@@ -64,7 +52,7 @@ const MapContainer = ({
 }) => {
   const { isLoaded } = useLoadScript({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY,
-    libraries: ["places"],
+    libraries: MAPS_LIBRARIES,
   });
 
   const mapRef = useRef();

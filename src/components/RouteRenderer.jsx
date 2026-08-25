@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { DirectionsRenderer } from '@react-google-maps/api';
-import { COORDS_DICT } from './MapContainer';
+import { COORDS_DICT } from '@/lib/spotCoords.js';
 
 const normalizeLocationKey = (location) => {
   if (typeof location !== 'string') return '';
