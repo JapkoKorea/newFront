@@ -1,6 +1,7 @@
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import Navigation from '@/components/Navigation'
+import Footer from '@/components/Footer.jsx'
 
 export const metadata = {
   title: '잽코 택시투어 — 비에이·후라노 전문 택시투어',
@@ -18,6 +19,7 @@ export default function RootLayout({ children }) {
       <body>
         <Navigation />
         {children}
+        <Footer />
         <Toaster position="top-center" />
       </body>
     </html>
