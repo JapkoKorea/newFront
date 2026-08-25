@@ -1,0 +1,22 @@
+# Caddy 리버스 프록시 — TLS 인증서를 자동으로 발급하고 갱신한다.
+#
+# WEB_DOMAIN / API_DOMAIN 은 .env 에서 주입된다.
+# 로컬에서 시험할 때는 두 값을 localhost, localhost:8443 처럼 두면
+# Caddy 가 내부 인증서를 쓴다.
+
+{$WEB_DOMAIN} {
+	encode gzip zstd
+
+	# Next.js 정적 자산은 오래 캐시해도 안전하다(빌드마다 해시가 바뀐다).
+	@static path /_next/static/* /favicon.ico
+	header @static Cache-Control "public, max-age=31536000, immutable"
+
+	reverse_proxy web:3000
+}
+
+{$API_DOMAIN} {
+	encode gzip zstd
+
+	# 브라우저 CORS 는 FastAPI 가 CORS_ALLOW_ORIGINS 로 처리한다.
+	reverse_proxy api:8000
+}

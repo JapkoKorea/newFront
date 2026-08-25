@@ -1,14 +1,52 @@
-# 잽코 택시투어 API 서버 배포 구성.
+# 잽코 택시투어 전체 배포 구성 (서버 1대).
 #
-# 웹(Next.js)은 Vercel 에서 서빙하므로 여기에는 API 만 올린다.
-# DB 는 기존 japko_local 을 그대로 사용한다(호스트의 MySQL 또는 별도 관리형 DB).
+#   [브라우저] --443--> [caddy] --> web:3000  (Next.js)
+#                              \--> api:8000  (FastAPI) --> MySQL
 #
 # 사용법:
-#   cp .env.example .env   # 값 채우기
+#   cp .env.example .env      # 값 채우기 (WEB_DOMAIN, API_DOMAIN 포함)
 #   docker compose up -d --build
-#   docker compose logs -f api
+#   docker compose logs -f
+#
+# MySQL 은 이 구성에 포함하지 않는다. 호스트의 MySQL 또는 RDS 를
+# .env 의 MYSQL_HOST 로 지정한다.
 
 services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: japko-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      WEB_DOMAIN: ${WEB_DOMAIN:-localhost}
+      API_DOMAIN: ${API_DOMAIN:-localhost:8443}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data      # 발급받은 인증서. 지우면 재발급되므로 유지할 것
+      - caddy_config:/config
+    depends_on:
+      - web
+      - api
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # NEXT_PUBLIC_* 는 빌드 시점에 번들에 박히므로 build-arg 로 넘긴다.
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+        NEXT_PUBLIC_GOOGLE_MAPS_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_KEY}
+        NEXT_PUBLIC_KAKAO_CLIENT_ID: ${NEXT_PUBLIC_KAKAO_CLIENT_ID}
+        NEXT_PUBLIC_KAKAO_REDIRECT_URI: ${NEXT_PUBLIC_KAKAO_REDIRECT_URI}
+    image: japko-taxi-web:latest
+    container_name: japko-taxi-web
+    restart: unless-stopped
+    expose:
+      - "3000"
+
   api:
     build:
       context: ./backend
@@ -16,17 +54,15 @@ services:
     image: japko-taxi-api:latest
     container_name: japko-taxi-api
     restart: unless-stopped
-    # .env 의 값을 그대로 컨테이너 환경변수로 주입한다.
     env_file:
       - .env
     environment:
-      # 컨테이너에서 호스트의 MySQL 에 붙을 때 사용한다.
-      # 관리형 DB 를 쓰면 .env 의 MYSQL_HOST 가 우선하도록 이 줄을 지운다.
+      # 호스트에 설치된 MySQL 에 붙을 때 사용한다.
+      # RDS 등 외부 DB 를 쓰면 .env 의 MYSQL_HOST 가 그대로 적용된다.
       MYSQL_HOST: ${MYSQL_HOST:-host.docker.internal}
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     extra_hosts:
-      # 리눅스 호스트에서 host.docker.internal 을 쓰기 위해 필요하다.
       - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/courses')\""]
@@ -34,3 +70,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+
+volumes:
+  caddy_data:
+  caddy_config:

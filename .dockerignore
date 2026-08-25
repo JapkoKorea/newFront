@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.env
+.env.*
+!.env.example
+mobile
+backend
+dist
+.venv
+.omc
+*.log
