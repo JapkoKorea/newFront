@@ -789,90 +789,86 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                   </div>
                 </div>
 
-                {!isPageMode && (
-                  <>
-                    <div className="space-y-4">
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="departure">출발지</Label>
-                          <Button type="button" variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => requestMapSelectionMode('departure')}>
-                            지도에서 선택
-                          </Button>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => requestMapSelectionMode('departure')}
-                          className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm hover:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                        >
-                          {bookingData.departure || '출발지를 선택해 주세요'}
-                        </button>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {popularDepartureChips.map((chip) => (
-                            <Button
-                              key={chip}
-                              type="button"
-                              variant={bookingData.departure === chip ? 'default' : 'outline'}
-                              size="sm"
-                              className={bookingData.departure === chip ? 'bg-yellow-500 hover:bg-yellow-600' : ''}
-                              onClick={() => handleInputChange('departure', chip)}
-                            >
-                              {chip}
-                            </Button>
-                          ))}
-                        </div>
-                        <p className="mt-1 text-xs text-gray-500">인기 출발지 칩을 선택하거나, 지도로 직접 고를 수 있어요.</p>
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="destination">도착지</Label>
-                          <Button type="button" variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => requestMapSelectionMode('destination')}>
-                            지도에서 선택
-                          </Button>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => requestMapSelectionMode('destination')}
-                          className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm hover:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                        >
-                          {bookingData.destination || '도착지를 선택해 주세요'}
-                        </button>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {popularDestinationChips.map((chip) => (
-                            <Button
-                              key={`destination-${chip}`}
-                              type="button"
-                              variant={bookingData.destination === chip ? 'default' : 'outline'}
-                              size="sm"
-                              className={bookingData.destination === chip ? 'bg-yellow-500 hover:bg-yellow-600' : ''}
-                              onClick={() => handleInputChange('destination', chip, COORDS_DICT[chip] || null)}
-                            >
-                              {chip}
-                            </Button>
-                          ))}
-                        </div>
-                        <p className="mt-1 text-xs text-gray-500">직접 입력 대신 장소 검색 또는 지도 선택으로 지정됩니다.</p>
-                      </div>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="departure">출발지</Label>
+                      <Button type="button" variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => requestMapSelectionMode('departure')}>
+                        지도에서 선택
+                      </Button>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => requestMapSelectionMode('departure')}
+                      className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm hover:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    >
+                      {bookingData.departure || '출발지를 선택해 주세요'}
+                    </button>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {popularDepartureChips.map((chip) => (
+                        <Button
+                          key={chip}
+                          type="button"
+                          variant={bookingData.departure === chip ? 'default' : 'outline'}
+                          size="sm"
+                          className={bookingData.departure === chip ? 'bg-yellow-500 hover:bg-yellow-600' : ''}
+                          onClick={() => handleInputChange('departure', chip)}
+                        >
+                          {chip}
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">인기 출발지 칩을 선택하거나, 지도로 직접 고를 수 있어요.</p>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="destination">도착지</Label>
+                      <Button type="button" variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => requestMapSelectionMode('destination')}>
+                        지도에서 선택
+                      </Button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => requestMapSelectionMode('destination')}
+                      className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm hover:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    >
+                      {bookingData.destination || '도착지를 선택해 주세요'}
+                    </button>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {popularDestinationChips.map((chip) => (
+                        <Button
+                          key={`destination-${chip}`}
+                          type="button"
+                          variant={bookingData.destination === chip ? 'default' : 'outline'}
+                          size="sm"
+                          className={bookingData.destination === chip ? 'bg-yellow-500 hover:bg-yellow-600' : ''}
+                          onClick={() => handleInputChange('destination', chip, COORDS_DICT[chip] || null)}
+                        >
+                          {chip}
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">직접 입력 대신 장소 검색 또는 지도 선택으로 지정됩니다.</p>
+                  </div>
+                </div>
 
-                    {bookingData.course === 'custom' && (
-                      <div>
-                        <Label>방문하고 싶은 장소 선택</Label>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-                          {popularDestinations.map((dest) => (
-                            <Button
-                              key={dest}
-                              variant={bookingData.selectedSpots?.includes(dest) ? 'default' : 'outline'}
-                              size="sm"
-                              className="text-xs"
-                              onClick={() => handleSpotToggle(dest)}
-                            >
-                              {dest}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
+                {bookingData.course === 'custom' && (
+                  <div>
+                    <Label>방문하고 싶은 장소 선택</Label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
+                      {popularDestinations.map((dest) => (
+                        <Button
+                          key={dest}
+                          variant={bookingData.selectedSpots?.includes(dest) ? 'default' : 'outline'}
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => handleSpotToggle(dest)}
+                        >
+                          {dest}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
                 )}
 
                 <div>
@@ -897,12 +893,12 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                     spots={bookingData.selectedSpots || []}
                     availableSpots={availableSpots}
                     spotMeta={spotMeta}
-                    onPlaceChange={isPageMode ? () => {} : handleInputChange}
-                    onSpotAdd={isPageMode ? () => {} : handleSpotAdd}
-                    onSpotRemove={isPageMode ? () => {} : handleSpotRemove}
+                    onPlaceChange={handleInputChange}
+                    onSpotAdd={handleSpotAdd}
+                    onSpotRemove={handleSpotRemove}
                     hoveredSpot={hoveredSpot}
-                    selectionModeRequest={isPageMode ? null : selectionModeRequest}
-                    controlsEnabled={!isPageMode}
+                    selectionModeRequest={selectionModeRequest}
+                    controlsEnabled
                     customSpotCoords={customSpotCoordinates}
                     departureCoordinate={placeCoordinates.departure}
                     destinationCoordinate={placeCoordinates.destination}
@@ -914,23 +910,23 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label>선택된 관광지</Label>
-                      <span className="text-xs text-gray-500">{isPageMode ? '확정된 경로 확인용입니다' : '드래그로 순서를 변경할 수 있어요'}</span>
+                      <span className="text-xs text-gray-500">드래그로 순서를 변경할 수 있어요</span>
                     </div>
                     <div className="space-y-1">
                       {bookingData.selectedSpots.map((spot, index) => (
                         <div
                           key={index}
-                          draggable={!isPageMode}
-                          onDragStart={() => !isPageMode && handleSpotDragStart(index)}
-                          onDragOver={(event) => !isPageMode && handleSpotDragOver(event, index)}
-                          onDrop={() => !isPageMode && handleSpotDrop(index)}
+                          draggable
+                          onDragStart={() => handleSpotDragStart(index)}
+                          onDragOver={(event) => handleSpotDragOver(event, index)}
+                          onDrop={() => handleSpotDrop(index)}
                           onDragEnd={handleSpotDragEnd}
-                          className={`flex items-center justify-between bg-gray-50 p-2 rounded hover:bg-gray-100 transition-colors ${isPageMode ? 'cursor-default' : 'cursor-move'} ${dragOverSpotIndex === index ? 'ring-2 ring-blue-300 bg-blue-50' : ''}`}
+                          className={`flex items-center justify-between bg-gray-50 p-2 rounded hover:bg-gray-100 transition-colors cursor-move ${dragOverSpotIndex === index ? 'ring-2 ring-blue-300 bg-blue-50' : ''}`}
                           onMouseEnter={() => setHoveredSpot(spot)}
                           onMouseLeave={() => setHoveredSpot(null)}
                         >
                           <span className="text-sm">{spot}</span>
-                          <Button variant="ghost" size="sm" onClick={() => !isPageMode && handleSpotRemove(spot)} disabled={isPageMode}>
+                          <Button variant="ghost" size="sm" onClick={() => handleSpotRemove(spot)}>
                             <X className="h-3 w-3" />
                           </Button>
                         </div>

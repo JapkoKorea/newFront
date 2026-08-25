@@ -10,29 +10,20 @@ import toast from 'react-hot-toast';
 import MarkerWithLabel from './MarkerWithLabel';
 import RouteRenderer from './RouteRenderer';
 import { COORDS_DICT } from '@/lib/spotCoords.js';
+import {
+  MAPS_LIBRARIES,
+  isInAllowedRegion,
+  normalizePlaceName,
+  STATION_CHIPS,
+} from '@/lib/placeUtils.js';
 
 // 기존 import 경로 호환을 위해 재수출한다.
 export { COORDS_DICT };
 
-const normalizeLocationKey = (value) => {
-  if (typeof value !== 'string') return '';
-  return value.replace(/\s*\([^)]*\)\s*/g, '').trim();
-};
-
-// useLoadScript 는 libraries 배열의 참조가 바뀌면 로더를 다시 초기화한다.
-// 렌더마다 새 배열을 만들지 않도록 모듈 상수로 고정한다.
-const MAPS_LIBRARIES = ["places"];
 
 // 아사히카와-비에이 지역 중심점
 const centerAsahikawa = { lat: 43.7709, lng: 142.3650 };
 
-// 허용 지역 폴리곤 (아사히카와-비에이 행정구역)
-const allowedRegionBounds = {
-  north: 43.85,
-  south: 43.35,
-  west: 142.2,
-  east: 142.7,
-};
 
 const MapContainer = ({
   departure,
@@ -148,18 +139,8 @@ const MapContainer = ({
     availableSpots.length > 0
       ? availableSpots.filter((spot) => !!COORDS_DICT[spot])
       : Object.keys(COORDS_DICT).filter(
-          (name) => !["아사히카와역", "비에이역", "지요가오카역", "후라노역"].includes(name)
+          (name) => !STATION_CHIPS.includes(name)
         );
-
-  // 허용 지역 내 좌표인지 확인
-  const isInAllowedRegion = useCallback((lat, lng) => {
-    return (
-      lat >= allowedRegionBounds.south &&
-      lat <= allowedRegionBounds.north &&
-      lng >= allowedRegionBounds.west &&
-      lng <= allowedRegionBounds.east
-    );
-  }, []);
 
   // 지도 클릭 핸들러
   const handleMapClick = useCallback((event) => {
@@ -197,7 +178,7 @@ const MapContainer = ({
 
     // 출발지 마커
     if (departure) {
-      const normalizedDeparture = normalizeLocationKey(departure)
+      const normalizedDeparture = normalizePlaceName(departure)
       const coords = departureCoordinate || COORDS_DICT[normalizedDeparture] || 
         (departure.includes(',') ? {
           lat: parseFloat(departure.split(',')[0]),
@@ -219,7 +200,7 @@ const MapContainer = ({
 
     // 도착지 마커
     if (destination) {
-      const normalizedDestination = normalizeLocationKey(destination)
+      const normalizedDestination = normalizePlaceName(destination)
       const coords = destinationCoordinate || COORDS_DICT[normalizedDestination] || 
         (destination.includes(',') ? {
           lat: parseFloat(destination.split(',')[0]),
@@ -241,7 +222,7 @@ const MapContainer = ({
 
     // 관광지 마커들
     spots.forEach((spot, index) => {
-      const normalizedSpot = normalizeLocationKey(spot)
+      const normalizedSpot = normalizePlaceName(spot)
       const coords = customSpotCoords[normalizedSpot] || COORDS_DICT[normalizedSpot] || 
         (spot.includes(',') ? {
           lat: parseFloat(spot.split(',')[0]),

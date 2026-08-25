@@ -2,80 +2,26 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useLoadScript, GoogleMap, Marker } from '@react-google-maps/api'
-import { COORDS_DICT } from '@/lib/spotCoords.js'
+import {
+  MAPS_LIBRARIES,
+  CENTER_BIEI,
+  ALLOWED_PLACE_NAMES,
+  STATION_CHIPS,
+  WAYPOINT_SUGGESTIONS,
+  BIEI_PAIR_ALERT_MESSAGE,
+  OUT_OF_REGION_MESSAGE,
+  normalizePlaceName,
+  normalizeSearchTerm,
+  getSearchCandidates,
+  resolveCoord,
+  isInAllowedRegion,
+  shouldBlockBieiPair,
+  extractPredictionLabel,
+  makePlace,
+  isSameCoord,
+} from '@/lib/placeUtils.js'
 import MarkerWithLabel from '@/components/MarkerWithLabel.jsx'
 import { GripVertical, Clock, Camera, Search, X } from 'lucide-react'
-
-const LIBRARIES = ['places']
-const CENTER_BIEI = { lat: 43.5913, lng: 142.4622 }
-const STATION_CHIPS = ['아사히카와역', '비에이역', '지요가오카역', '후라노역']
-const WAYPOINT_SUGGESTIONS = Object.keys(COORDS_DICT).filter((name) => !STATION_CHIPS.includes(name))
-const ALLOWED_PLACE_NAMES = Array.from(new Set([...STATION_CHIPS, ...WAYPOINT_SUGGESTIONS]))
-const ALLOWED_BOUNDS = {
-  south: 43.32,
-  north: 43.78,
-  west: 142.35,
-  east: 142.65,
-}
-
-const SEARCH_ALIASES = {
-  '아사히카와역': ['아사히카와', 'asahikawa', 'asahikawa station', '旭川'],
-  '비에이역': ['비에이', 'biei', 'biei station', '美瑛'],
-  '지요가오카역': ['지요가오카', 'chiyogaoka', 'chiyogaoka station'],
-  '후라노역': ['후라노', 'furano', 'furano station', '富良野'],
-  '아사히카와 공항': ['아사히카와공항', 'asahikawa airport', 'airport'],
-  '청의 호수': ['청의호수', 'blue pond', 'aoiike'],
-  '흰수염폭포': ['흰수염', 'shirahige', 'shirahige falls'],
-  '팜 토미타': ['토미타', 'farm tomita', 'tomita'],
-  '닝구르 테라스': ['닝구르', 'ningle terrace', 'ningle'],
-}
-
-const PLACE_ALIASES = {
-  '팜 토미타 (계절 따라 선택)': '팜 토미타',
-  '비에이역 또는 후라노역': '비에이역',
-}
-
-function normalizePlaceName(value) {
-  if (typeof value !== 'string') return ''
-  return value.replace(/\s*\([^)]*\)\s*/g, '').trim()
-}
-
-function normalizeSearchTerm(value) {
-  return normalizePlaceName(value).toLowerCase().replace(/\s+/g, '')
-}
-
-function getSearchCandidates(name) {
-  const normalized = normalizePlaceName(name)
-  const compact = normalizeSearchTerm(name)
-  const aliases = SEARCH_ALIASES[normalized] || SEARCH_ALIASES[name] || []
-  return [name, normalized, compact, ...aliases].map((item) => normalizeSearchTerm(item)).filter(Boolean)
-}
-
-function resolveCoord(name) {
-  const normalized = normalizePlaceName(name)
-  const alias = PLACE_ALIASES[name] || PLACE_ALIASES[normalized] || normalized
-  return COORDS_DICT[alias] || null
-}
-
-function isInAllowedRegion(lat, lng) {
-  return (
-    lat >= ALLOWED_BOUNDS.south &&
-    lat <= ALLOWED_BOUNDS.north &&
-    lng >= ALLOWED_BOUNDS.west &&
-    lng <= ALLOWED_BOUNDS.east
-  )
-}
-
-function shouldBlockBieiPair(departureName, destinationName) {
-  return normalizePlaceName(departureName) === '비에이역' && normalizePlaceName(destinationName) === '비에이역'
-}
-
-const BIEI_PAIR_ALERT_MESSAGE =
-  '교통권 문제로 인해 아사히카와 지역이 출발지 또는 도착지에 포함되어야 합니다.\n비에이역에서 2 전역인 지요가오카역에서 출발 또는 도착하실 수 있습니다.'
-
-function extractPredictionLabel(prediction) {
-  return prediction?.structured_formatting?.main_text || prediction?.description || ''
-}
 
 function getInitialRoutePreset(fixedRouteProfile, departure, destination, spots) {
   if (fixedRouteProfile) {
@@ -86,15 +32,6 @@ function getInitialRoutePreset(fixedRouteProfile, departure, destination, spots)
     }
   }
   return { departure, destination, spots }
-}
-
-function makePlace(name) {
-  return { name: name || '', coord: resolveCoord(name) }
-}
-
-function isSameCoord(a, b) {
-  if (!a || !b) return false
-  return Math.abs(a.lat - b.lat) <= 0.00015 && Math.abs(a.lng - b.lng) <= 0.00015
 }
 
 function buildMarkerGroups(depCoord, destCoord, spotCoords) {
@@ -148,7 +85,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
 
   const { isLoaded } = useLoadScript({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY,
-    libraries: LIBRARIES,
+    libraries: MAPS_LIBRARIES,
   })
 
   const mapRef = useRef(null)
@@ -369,7 +306,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
     const finalCoord = coord || coordFromSelection
     if (!finalCoord) return
     if (!isInAllowedRegion(finalCoord.lat, finalCoord.lng)) {
-      alert('교통권 밖이므로 상담을 통해 예약해주세요')
+      alert(OUT_OF_REGION_MESSAGE)
       return
     }
     addWaypoint(name)
@@ -410,7 +347,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
         const coord = { lat: location.lat(), lng: location.lng() }
 
         if (!isInAllowedRegion(coord.lat, coord.lng)) {
-          alert('교통권 밖이므로 상담을 통해 예약해주세요')
+          alert(OUT_OF_REGION_MESSAGE)
           return
         }
 
@@ -482,7 +419,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
 
     if (!nearest || nearestDistance > 0.04) {
       setSelectionNotice('가까운 선택 가능 지점을 클릭해 주세요. (아사히카와·비에이·후라노 한정)')
-      alert('교통권 밖이므로 상담을 통해 예약해주세요')
+      alert(OUT_OF_REGION_MESSAGE)
       return
     }
 
