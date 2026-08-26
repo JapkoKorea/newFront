@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.j
 import { Badge } from '@/components/ui/badge.jsx'
 import { CheckCircle2, Clock3, Coins, Loader2, Route, ShieldCheck, Users, Wallet } from 'lucide-react'
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
-import { getHourlyRate, HOURLY_RATE, getDepositKrw, isLastMinuteBooking, LAST_MINUTE_DEPOSIT_KRW } from '@/lib/pricing.js'
+import { getHourlyRate, HOURLY_RATE, getDepositKrw, isLastMinuteBooking, BASE_DEPOSIT_KRW, LAST_MINUTE_DEPOSIT_KRW } from '@/lib/pricing.js'
 
 const BOOKING_DRAFT_STORAGE_KEY = 'booking_draft_v1'
 
@@ -148,6 +148,98 @@ function PricingDepositPage() {
     } finally {
       setIsCreatingReservation(false)
     }
+  }
+
+  // 예약 흐름을 거치지 않고 들어온 "요금 안내" 화면.
+  // 가격만 보여주고, 예약을 시작하는 경로 하나만 둔다.
+  if (!bookingDraft) {
+    const rateRows = [
+      { name: '일반 택시', capacity: '4인 이하', rate: HOURLY_RATE['일반차량'] },
+      { name: '사륜구동 차량', capacity: '4인 이하', rate: HOURLY_RATE['사륜구동 차량'] },
+      { name: '점보 택시', capacity: '5인 이상', rate: HOURLY_RATE['점보택시'] },
+    ]
+
+    return (
+      <div className="min-h-screen bg-white px-4 pt-24 pb-16">
+        <div className="mx-auto max-w-3xl">
+          <h1 className="text-3xl font-bold text-gray-900">요금 안내</h1>
+          <p className="mt-3 text-gray-600">
+            택시 요금은 이용 시간에 따라 계산되며, 예약 시에는 예약금만 결제합니다.
+          </p>
+
+          <section className="mt-10">
+            <h2 className="text-lg font-semibold text-gray-900">시간당 택시 요금</h2>
+            <div className="mt-3 overflow-hidden rounded-xl border border-gray-200">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 text-gray-600">
+                    <th className="px-4 py-3 text-left font-medium">차량</th>
+                    <th className="px-4 py-3 text-left font-medium">탑승 인원</th>
+                    <th className="px-4 py-3 text-right font-medium">시간당 요금</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rateRows.map((row) => (
+                    <tr key={row.name} className="border-t border-gray-100">
+                      <td className="px-4 py-3 font-semibold text-gray-900">{row.name}</td>
+                      <td className="px-4 py-3 text-gray-600">{row.capacity}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                        {row.rate.toLocaleString()}엔
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-xs text-gray-500">
+              최소 이용 시간은 2시간입니다. 5인 이상은 점보 택시가 필수이며, 적설기에는
+              사륜구동 차량으로 배차될 수 있습니다. 택시 요금은 현지에서 기사에게 직접 결제합니다.
+            </p>
+          </section>
+
+          <section className="mt-10">
+            <h2 className="text-lg font-semibold text-gray-900">예약금</h2>
+            <div className="mt-3 overflow-hidden rounded-xl border border-gray-200">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 text-gray-600">
+                    <th className="px-4 py-3 text-left font-medium">예약 시점</th>
+                    <th className="px-4 py-3 text-right font-medium">예약금</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-t border-gray-100">
+                    <td className="px-4 py-3 text-gray-900">일반 예약 (투어 2일 전까지)</td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                      {BASE_DEPOSIT_KRW.toLocaleString()}원
+                    </td>
+                  </tr>
+                  <tr className="border-t border-gray-100">
+                    <td className="px-4 py-3 text-gray-900">전일 예약 (투어 당일 또는 하루 전)</td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                      {LAST_MINUTE_DEPOSIT_KRW.toLocaleString()}원
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-xs text-gray-500">
+              예약금은 예약 요청 접수를 위한 선결제 금액이며, 택시 요금과는 별도입니다.
+            </p>
+          </section>
+
+          <div className="mt-12">
+            <Button
+              size="lg"
+              className="w-full bg-yellow-500 hover:bg-yellow-600 sm:w-auto sm:px-10"
+              onClick={() => router.push('/booking')}
+            >
+              예약하기
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
