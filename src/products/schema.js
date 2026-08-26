@@ -70,6 +70,7 @@ export const PRODUCT_SEASON = {
  * @property {string} durationLabel 소요시간 표기, 예: '3~6시간'
  * @property {string[]} highlights  핵심 특징 목록
  * @property {string[]} courseSpots 추천 코스 후보 관광지
+ * @property {string[]} [courseIds] 이 상품에서 고를 수 있는 코스 id (tourCourses.js)
  * @property {VehicleTier[]} [vehicleTiers]  시간당 요금표 (시간당 과금 상품)
  * @property {CharterTier[]} [charterPricing]  전세 정액 요금표 (패키지 상품)
  * @property {string} [jumboNote]   점보 택시 등 추가 차량 안내
@@ -103,6 +104,7 @@ const DEFAULTS = {
   policies: [],
   faq: [],
   reviewEvent: null,
+  courseIds: [],
   cta: { kakaoUrl: '', bookingHref: '/booking?from=product', courseId: null },
 }
 

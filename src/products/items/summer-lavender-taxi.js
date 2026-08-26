@@ -12,7 +12,7 @@ export default defineProduct({
   name: '여름 라벤더 택시투어',
   summary: '7~8월 라벤더 절정기 비에이·후라노를 전세 택시로 둘러보는 여름 한정 투어.',
   season: PRODUCT_SEASON.SUMMER,
-  status: PRODUCT_STATUS.PUBLISHED,
+  status: PRODUCT_STATUS.DRAFT,
   sortOrder: 10,
   badge: '여름 한정',
   heroImage: '/assets/summer-lavender.jpg',

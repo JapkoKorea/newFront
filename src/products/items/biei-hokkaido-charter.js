@@ -10,7 +10,7 @@ export default defineProduct({
   name: '언덕의 마을 비에이, 북쪽 대지 둘러보기',
   summary: '초여름부터 가을까지, 꽃과 풍경이 가장 아름다운 비에이를 택시 전세로 둘러보는 관광 코스.',
   season: PRODUCT_SEASON.SUMMER,
-  status: PRODUCT_STATUS.PUBLISHED,
+  status: PRODUCT_STATUS.DRAFT,
   sortOrder: 20,
   badge: '초여름~가을 추천',
   heroImage: '/assets/biei-hokkaido-charter.jpg',

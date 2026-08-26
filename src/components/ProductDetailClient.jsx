@@ -21,6 +21,7 @@ import {
 import { Button } from '@/components/ui/button.jsx'
 import { saveTourBookingPrefill } from '@/lib/bookingPrefill.js'
 import { formatDeposit, readWishlist, toggleWishlist } from '@/lib/product.js'
+import { tourCourses } from '@/data/tourCourses.js'
 
 const SEASON_COLOR = {
   winter: 'bg-blue-100 text-blue-800',
@@ -80,6 +81,23 @@ export default function ProductDetailClient({ product }) {
   }
 
   const depositLabel = formatDeposit(product)
+
+  // 이 상품에 속한 코스 목록. 상품 파일의 courseIds 순서를 유지한다.
+  const productCourses = (product.courseIds || [])
+    .map((id) => tourCourses.find((course) => course.id === id))
+    .filter(Boolean)
+
+  const startCourseBooking = (course) => {
+    saveTourBookingPrefill({
+      departure: course.departure,
+      destination: course.destination,
+      selectedSpots: course.spots,
+      startStep: 2,
+      courseName: course.name,
+      courseId: course.id,
+    })
+    router.push('/booking?from=product')
+  }
 
   const startBookingFlow = () => {
     saveTourBookingPrefill({
@@ -241,17 +259,59 @@ export default function ProductDetailClient({ product }) {
           </Section>
         ) : null}
 
-        {/* 추천 코스 */}
-        {product.courseSpots.length > 0 ? (
-          <Section icon={MapPin} title="추천 코스 후보">
-            <div className="flex flex-wrap gap-2">
-              {product.courseSpots.map((spot) => (
-                <span
-                  key={spot}
-                  className="rounded-full border border-gray-200 px-3 py-1.5 text-sm text-gray-700"
+        {/* 코스 선택 */}
+        {productCourses.length > 0 ? (
+          <Section icon={MapPin} title="코스 선택">
+            <p className="mb-4 text-sm text-gray-600">
+              원하는 코스를 고르면 출발지·도착지와 방문지가 채워진 상태로 예약을 시작합니다.
+              코스는 예약 중에도 바꿀 수 있습니다.
+            </p>
+            <div className="space-y-3">
+              {productCourses.map((course) => (
+                <div
+                  key={course.id}
+                  className="rounded-xl border border-gray-200 p-4 transition hover:border-yellow-400"
                 >
-                  {spot}
-                </span>
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-gray-900">{course.name}</p>
+                      <p className="mt-1 text-sm text-gray-600">{course.description}</p>
+                    </div>
+                    <span className="whitespace-nowrap rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                      {course.duration}
+                    </span>
+                  </div>
+
+                  <p className="mt-3 text-xs text-gray-500">
+                    {course.departure} 출발 · {course.destination} 도착
+                  </p>
+
+                  {course.spots.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {course.spots.map((spot) => (
+                        <span
+                          key={spot}
+                          className="rounded-full border border-gray-200 px-2.5 py-1 text-xs text-gray-700"
+                        >
+                          {spot}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      className="bg-yellow-500 hover:bg-yellow-600"
+                      onClick={() => startCourseBooking(course)}
+                    >
+                      이 코스로 예약
+                    </Button>
+                    <Link href={`/tours/${course.id}`}>
+                      <Button size="sm" variant="outline">경로 보기</Button>
+                    </Link>
+                  </div>
+                </div>
               ))}
             </div>
           </Section>

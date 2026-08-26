@@ -5,11 +5,16 @@
 // (이 한 곳만 고치면 라우트/목록/SSG가 자동 반영된다.)
 
 import { PRODUCT_STATUS } from './schema.js'
+import winterTaxiTour from './items/winter-taxi-tour.js'
+import summerTaxiTour from './items/summer-taxi-tour.js'
 import summerLavenderTaxi from './items/summer-lavender-taxi.js'
 import bieiHokkaidoCharter from './items/biei-hokkaido-charter.js'
 
 /** 등록된 전체 상품 (status 무관). 새 상품은 여기에 추가. */
 export const allProducts = [
+  winterTaxiTour,
+  summerTaxiTour,
+  // 아래는 비공개(draft) 보관 — 목록에 노출되지 않는다.
   summerLavenderTaxi,
   bieiHokkaidoCharter,
 ]
