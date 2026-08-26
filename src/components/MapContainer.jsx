@@ -50,6 +50,7 @@ const MapContainer = ({
 
   const mapRef = useRef();
   const [selectionMode, setSelectionMode] = useState(null); // 'departure', 'destination', 'spot'
+  const [isExpanded, setIsExpanded] = useState(false);
   const [activeCandidateSpot, setActiveCandidateSpot] = useState(null);
   const [placeSearchInput, setPlaceSearchInput] = useState('');
   const [placePredictions, setPlacePredictions] = useState([]);
@@ -174,6 +175,21 @@ const MapContainer = ({
     },
     [departure, destination, departureCoordinate, destinationCoordinate, onPlaceChange]
   );
+
+  // 확장 상태에서 ESC 로 닫기. 열려 있는 동안 배경 스크롤을 막는다.
+  useEffect(() => {
+    if (!isExpanded) return undefined;
+    const onKey = (event) => {
+      if (event.key === 'Escape') setIsExpanded(false);
+    };
+    window.addEventListener('keydown', onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isExpanded]);
 
   // 지도 클릭 핸들러
   const handleMapClick = useCallback((event) => {
@@ -318,7 +334,22 @@ const MapContainer = ({
   }
 
   return (
-    <div className="h-full w-full relative">
+    <div
+      className={
+        isExpanded
+          ? 'fixed inset-0 z-[60] bg-white'
+          : 'h-full w-full relative'
+      }
+    >
+      {/* 크게 보기 토글 */}
+      <button
+        type="button"
+        onClick={() => setIsExpanded((prev) => !prev)}
+        className="absolute bottom-3 right-3 z-20 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-md hover:bg-gray-50"
+      >
+        {isExpanded ? '작게 보기 (ESC)' : '크게 보기'}
+      </button>
+
       {/* 상단 컨트롤 패널 */}
       {controlsEnabled && <div className="absolute top-2 left-2 right-2 z-10 bg-white rounded-lg shadow-md p-3">
         <div className="flex flex-wrap gap-2 mb-2">
@@ -413,6 +444,9 @@ const MapContainer = ({
         onLoad={(map) => (mapRef.current = map)}
         onClick={handleMapClick}
         options={{
+          fullscreenControl: true,
+          streetViewControl: false,
+          mapTypeControl: !isExpanded ? false : true,
           styles: [
             {
               featureType: "poi",
