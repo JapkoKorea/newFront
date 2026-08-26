@@ -55,6 +55,12 @@ export default function Navigation() {
     // /tours 는 /products 로 리다이렉트되므로 곧장 보낸다.
     router.push('/products')
   }
+  const openCustomBooking = () => {
+    setIsServiceSelectorOpen(false)
+    setIsMobileMenuOpen(false)
+    // 코스 맥락 없이 들어가므로 예약 화면이 코스 선택부터 시작한다.
+    router.push('/booking')
+  }
   const openTransfer = () => {
     setIsServiceSelectorOpen(false)
     setIsMobileMenuOpen(false)
@@ -154,7 +160,7 @@ export default function Navigation() {
       </div>
 
       {/* 모달들 */}
-      <ServiceSelector isOpen={isServiceSelectorOpen} onClose={() => setIsServiceSelectorOpen(false)} onSelectTour={openBooking} onSelectTransfer={openTransfer} />
+      <ServiceSelector isOpen={isServiceSelectorOpen} onClose={() => setIsServiceSelectorOpen(false)} onSelectTour={openBooking} onSelectCustom={openCustomBooking} onSelectTransfer={openTransfer} />
       <FAQ isOpen={isFAQOpen} onClose={() => setIsFAQOpen(false)} onStartChat={openChat} />
       <ChatSupport isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
     </>
