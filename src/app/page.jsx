@@ -165,7 +165,7 @@ export default function HomePage() {
                   <Button
                     size="lg"
                     className="bg-yellow-500 hover:bg-yellow-600 text-white px-8 py-3"
-                    onClick={() => router.push('/booking')}
+                    onClick={() => router.push('/products')}
                   >
                     택시투어 예약하기
                   </Button>

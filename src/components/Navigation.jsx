@@ -52,7 +52,8 @@ export default function Navigation() {
   const openBooking = () => {
     setIsServiceSelectorOpen(false)
     setIsMobileMenuOpen(false)
-    router.push('/tours')
+    // /tours 는 /products 로 리다이렉트되므로 곧장 보낸다.
+    router.push('/products')
   }
   const openTransfer = () => {
     setIsServiceSelectorOpen(false)

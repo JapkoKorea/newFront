@@ -14,6 +14,7 @@ import MapContainer from '@/components/MapContainer.jsx'
 import { COORDS_DICT } from '@/lib/spotCoords.js'
 import { useRouter } from 'next/navigation'
 import { getHourlyRate, getDepositKrw, isLastMinuteBooking } from '@/lib/pricing.js'
+import { tourCourses } from '@/data/tourCourses.js'
 
 const BOOKING_DRAFT_STORAGE_KEY = 'booking_draft_v1'
 const MINIMUM_HOURS = 2
@@ -29,14 +30,16 @@ const TIME_OPTIONS = [
 
 // 시간당 요금은 계절(동절기/평시)에 따라 다름 — src/lib/pricing.js 참조.
 
-const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode = 'modal' }) => {
+const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode = 'modal', hasPrefill = false }) => {
   const router = useRouter()
   const isPageMode = displayMode === 'page'
+  // 상품/코스 페이지를 거쳐 들어온 경우에만 코스 선택 단계를 건너뛴다.
+  const skipCourseStep = isPageMode && hasPrefill
   const today = new Date().toISOString().split('T')[0]
   const flowSteps = [1, 2, 3]
-  const stepLabels = isPageMode
+  const stepLabels = skipCourseStep
     ? ['코스 선택(완료)', '예약 입력', '예약자 정보']
-    : ['코스 선택', '일정 설정', '예약자 정보']
+    : ['코스 선택', '예약 입력', '예약자 정보']
   const totalSteps = flowSteps.length
   const getInitialBookingData = useCallback(() => ({
     departure: '비에이역',
@@ -46,15 +49,15 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
     duration: '',
     passengers: '',
     luggage: 'none',
-    course: isPageMode ? 'custom' : '',
+    course: skipCourseStep ? 'custom' : '',
     specialRequests: '',
     name: '',
     phone: '',
     selectedSpots: []
-  }), [isPageMode])
+  }), [skipCourseStep])
   const [bookingData, setBookingData] = useState(getInitialBookingData)
 
-  const [currentStep, setCurrentStep] = useState(isPageMode ? 2 : 1)
+  const [currentStep, setCurrentStep] = useState(skipCourseStep ? 2 : 1)
   const [hoveredSpot, setHoveredSpot] = useState(null)
   const [showValidation, setShowValidation] = useState(false)
   const [draggedSpotIndex, setDraggedSpotIndex] = useState(null)
@@ -120,15 +123,6 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
     '사계채언덕 (四季彩の丘)': { stayMinutes: 45, photoPoint: '전망 포인트에서 꽃밭 층을 배경으로 촬영하기 좋아요.', nearby: ['비에이역', '팜 토미타'] },
     '아사히야마 동물원': { stayMinutes: 70, photoPoint: '펭귄/물개 관찰관 앞 대기 시간을 고려해 주세요.', nearby: ['아사히카와역', '세븐스타 나무'] },
   }
-
-  const tourCourses = [
-    { id: 'standard', name: '스탠다드 비에이 명소 코스', duration: '3시간', departure: '아사히카와역', destination: '비에이역', spots: ['크리스마스 나무', '탁신관', '흰수염폭포'], description: '가장 인기 있는 정석 루트. 짧은 시간 안에 비에이의 대표 명소를 둘러보는 코스.' },
-    { id: 'nature', name: '비에이 자연 감성 코스', duration: '3시간', departure: '아사히카와역', destination: '비에이역', spots: ['세븐스타 나무', '켄과 메리 나무', '마일드세븐 언덕', '청의 호수'], description: '사진 촬영을 좋아하거나 자연경관 중심의 여유로운 투어를 원하는 분께 추천.' },
-    { id: 'family', name: '가족 맞춤 코스', duration: '3시간', departure: '아사히카와역', destination: '아사히카와역', spots: ['크리스마스 나무', '사계채언덕 (四季彩の丘)', '아사히야마 동물원'], description: '아이가 있는 가족에게 적합한 코스. 동물원 + 가벼운 자연 관광 조합.' },
-    { id: 'extended', name: '비에이~후라노 확장 코스', duration: '4-6시간', departure: '비에이역', destination: '아사히카와역', spots: ['청의 호수', '흰수염폭포', '닝구르 테라스', '팜 토미타'], description: '꽃이 피는 계절(6~8월)에는 후라노까지 연결된 장거리 루트로 추천.' },
-    { id: 'photo', name: '감성 사진 명소 투어', duration: '4-6시간', departure: '아사히카와역', destination: '아사히카와역', spots: ['세븐스타 나무', '켄과 메리 나무', '마일드세븐 언덕', '패치워크의 길', '크리스마스 나무'], description: '사진 찍기 좋은 장소들만 모아 구성. 인스타 감성 코스로 인기.' },
-    { id: 'custom', name: '커스텀 코스 구성하기', duration: '협의', departure: '', destination: '', spots: [], description: '원하는 장소와 시간으로 맞춤 제작' }
-  ]
 
   const availableSpots = Array.from(new Set([...popularDestinations, ...tourCourses.flatMap((c) => c.spots)]))
 
@@ -230,17 +224,17 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
     setCustomSpotCoordinates(draftSpotCoordinates)
 
     const requestedStep = Number.isFinite(initialDraft.startStep) ? initialDraft.startStep : 2
-    const nextStep = isPageMode ? Math.max(2, Math.min(3, requestedStep)) : Math.max(1, Math.min(3, requestedStep))
+    const nextStep = skipCourseStep ? Math.max(2, Math.min(3, requestedStep)) : Math.max(1, Math.min(3, requestedStep))
     setCurrentStep(nextStep)
     setShowValidation(false)
     if (blockedPair) setShowBieiPairWarning(true)
   }, [displayMode, isOpen, initialDraft, isPageMode, getInitialBookingData])
 
   useEffect(() => {
-    if (!isPageMode) return
+    if (!skipCourseStep) return
     setBookingData((prev) => (prev.course ? prev : { ...prev, course: 'custom' }))
     if (currentStep < 2) setCurrentStep(2)
-  }, [isPageMode, currentStep])
+  }, [skipCourseStep, currentStep])
 
   useEffect(() => {
     if (isJumboByLuggage && !jumboByLuggageAlertedRef.current) {
@@ -346,7 +340,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
   }
 
   const getStepErrors = (step) => {
-    if (isPageMode && step === 1) return []
+    if (skipCourseStep && step === 1) return []
     if (step === 1) return bookingData.course ? [] : ['투어 코스를 하나 선택해 주세요.']
     if (step === 2) {
       const errors = []
@@ -371,8 +365,9 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
   const handleStepClick = (targetStep) => {
     if (!flowSteps.includes(targetStep) || targetStep === currentStep) return
 
-    if (isPageMode && targetStep === 1) {
-      router.push('/tours')
+    // 상품에서 들어온 경우 1단계는 상품 목록으로 되돌아가는 의미다.
+    if (skipCourseStep && targetStep === 1) {
+      router.push('/products')
       return
     }
 
@@ -402,7 +397,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
   }
 
   const handlePrev = () => {
-    if (isPageMode && currentStep <= 2) return
+    if (skipCourseStep && currentStep <= 2) return
     if (currentStep > 1) setCurrentStep(currentStep - 1)
   }
 
@@ -503,7 +498,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
         <div className="flex justify-between items-center p-6 border-b">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">택시 투어 예약</h2>
-            <p className="text-sm text-gray-500 mt-1">{isPageMode ? '코스 선택은 완료되었습니다. 남은 2단계를 입력해 주세요.' : '3단계로 간단하게 예약을 완료할 수 있어요.'}</p>
+            <p className="text-sm text-gray-500 mt-1">{skipCourseStep ? '코스 선택은 완료되었습니다. 남은 2단계를 입력해 주세요.' : '3단계로 간단하게 예약을 완료할 수 있어요.'}</p>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <X className="h-5 w-5" />
@@ -570,7 +565,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
             </div>
           )}
 
-          {currentStep === 1 && !isPageMode && (
+          {currentStep === 1 && !skipCourseStep && (
              <div className="space-y-6">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-start">
@@ -1018,7 +1013,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
 
         {/* 하단 버튼 */}
         <div className="flex justify-between items-center p-6 border-t bg-gray-50">
-          <Button variant="outline" onClick={handlePrev} disabled={isPageMode ? currentStep <= 2 : currentStep === 1}>
+          <Button variant="outline" onClick={handlePrev} disabled={skipCourseStep ? currentStep <= 2 : currentStep === 1}>
             이전
           </Button>
           <div className="flex gap-2">
