@@ -135,6 +135,46 @@ const MapContainer = ({
     [selectionMode, onPlaceChange]
   );
 
+  // 출발/도착 마커를 끌어다 놓았을 때: 교통권을 확인하고 새 좌표의 지명을 찾아 반영한다.
+  const handleMarkerDragEnd = useCallback(
+    (mode, event) => {
+      const lat = event.latLng.lat();
+      const lng = event.latLng.lng();
+
+      if (!isInAllowedRegion(lat, lng)) {
+        toast.error(OUT_OF_REGION_MESSAGE);
+        // 원위치로 되돌리기 위해 현재 값을 다시 적용한다.
+        onPlaceChange(mode, mode === 'departure' ? departure : destination,
+          mode === 'departure' ? departureCoordinate : destinationCoordinate);
+        return;
+      }
+
+      const coord = { lat, lng };
+      const applyName = (name) => {
+        onPlaceChange(mode, name, coord);
+        toast.success(`${mode === 'departure' ? '출발지' : '도착지'}를 ${name}(으)로 옮겼습니다`);
+      };
+
+      // 좌표만 남기지 않고 지명을 붙여 준다. 실패하면 좌표 표기로 대체한다.
+      if (!window.google?.maps?.Geocoder) {
+        applyName(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+        return;
+      }
+
+      new window.google.maps.Geocoder().geocode({ location: coord, language: 'ko' }, (results, status) => {
+        if (status !== 'OK' || !results?.length) {
+          applyName(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+          return;
+        }
+        // 가장 구체적인 결과의 지명을 쓴다.
+        const best = results[0];
+        const poi = best.address_components?.find((c) => c.types?.includes('point_of_interest'));
+        applyName(poi?.long_name || best.formatted_address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+      });
+    },
+    [departure, destination, departureCoordinate, destinationCoordinate, onPlaceChange]
+  );
+
   // 지도 클릭 핸들러
   const handleMapClick = useCallback((event) => {
     if (!controlsEnabled) return;
@@ -186,6 +226,9 @@ const MapContainer = ({
             label="출발"
             color="#22c55e"
             isHovered={false}
+            draggable={controlsEnabled}
+            onDragEnd={(event) => handleMarkerDragEnd('departure', event)}
+            title={controlsEnabled ? '끌어서 출발지를 옮길 수 있습니다' : undefined}
           />
         );
       }
@@ -208,6 +251,9 @@ const MapContainer = ({
             label="도착"
             color="#ef4444"
             isHovered={false}
+            draggable={controlsEnabled}
+            onDragEnd={(event) => handleMarkerDragEnd('destination', event)}
+            title={controlsEnabled ? '끌어서 도착지를 옮길 수 있습니다' : undefined}
           />
         );
       }
@@ -313,6 +359,10 @@ const MapContainer = ({
             + 장소 추가
           </button>
         </div>
+
+        <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
+          지도의 출발/도착 마커를 끌어서 위치를 옮길 수 있습니다.
+        </p>
 
         {(selectionMode === 'departure' || selectionMode === 'destination') && (
           <div className="mb-2">

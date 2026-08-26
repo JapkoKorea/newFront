@@ -55,31 +55,48 @@ const RouteRenderer = ({
 
   // 경로 계산 (디바운싱 적용)
   const calculateRoute = useCallback(() => {
-    if (!directionsService.current || !departure || !destination) {
+    const bail = () => {
       requestSequenceRef.current += 1;
       setDirectionsResult(null);
       onRouteChange?.(null);
+    };
+
+    if (!directionsService.current || !departure) {
+      bail();
       return;
     }
 
     const departureCoords = departureCoordinate || getCoordinates(departure);
-    const destinationCoords = destinationCoordinate || getCoordinates(destination);
-
-    if (!departureCoords || !destinationCoords) {
-      requestSequenceRef.current += 1;
-      setDirectionsResult(null);
-      onRouteChange?.(null);
+    if (!departureCoords) {
+      bail();
       return;
     }
 
+    const spotCoords = spots
+      .map((spot) => getCoordinates(spot))
+      .filter((coords) => coords !== null);
+
+    // 도착지가 아직 정해지지 않았어도 선택한 코스가 있으면 순서대로 경로를 그린다.
+    // 마지막 코스를 임시 도착점으로 삼는다. 도착지를 정하면 그 지점으로 대체된다.
+    let destinationCoords = destination
+      ? destinationCoordinate || getCoordinates(destination)
+      : null;
+    let waypointCoords = spotCoords;
+
+    if (!destinationCoords) {
+      if (spotCoords.length === 0) {
+        bail();
+        return;
+      }
+      destinationCoords = spotCoords[spotCoords.length - 1];
+      waypointCoords = spotCoords.slice(0, -1);
+    }
+
     // 경유지 처리
-    const waypoints = spots
-      .map(spot => getCoordinates(spot))
-      .filter(coords => coords !== null)
-      .map(coords => ({
-        location: coords,
-        stopover: true,
-      }));
+    const waypoints = waypointCoords.map((coords) => ({
+      location: coords,
+      stopover: true,
+    }));
 
     // 디바운싱 처리
     if (debounceTimeoutRef.current) {

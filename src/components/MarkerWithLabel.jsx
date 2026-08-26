@@ -7,6 +7,9 @@ const MarkerWithLabel = ({
   color = "#f59e0b",
   isHovered = false,
   onClick,
+  draggable = false,
+  onDragEnd,
+  title,
 }) => {
   const [isVisible] = useState(true);
 
@@ -24,6 +27,10 @@ const MarkerWithLabel = ({
       position={position}
       icon={createMarkerIcon(color, isHovered)}
       onClick={onClick}
+      draggable={draggable}
+      onDragEnd={onDragEnd}
+      title={title}
+      cursor={draggable ? 'grab' : undefined}
       animation={isHovered ? window.google?.maps?.Animation?.BOUNCE : null}
       label={{
         text: label,

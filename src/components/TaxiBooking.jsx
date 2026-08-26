@@ -10,19 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx'
 import { Clock, MapPin, CreditCard, X, AlertTriangle, Loader2 } from 'lucide-react'
 import { Toaster } from 'react-hot-toast'
-import dynamic from 'next/dynamic'
+import MapContainer from '@/components/MapContainer.jsx'
 import { COORDS_DICT } from '@/lib/spotCoords.js'
-
-// 지도는 Google Maps SDK 를 끌어와 무겁다. 초기 번들에서 떼어내고
-// 실제로 화면에 필요할 때 받아온다.
-const MapContainer = dynamic(() => import('@/components/MapContainer.jsx'), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full items-center justify-center bg-gray-50 text-sm text-gray-500">
-      지도를 불러오는 중입니다...
-    </div>
-  ),
-})
 import { useRouter } from 'next/navigation'
 import { getHourlyRate, getDepositKrw, isLastMinuteBooking } from '@/lib/pricing.js'
 

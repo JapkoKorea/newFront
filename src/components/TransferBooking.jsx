@@ -9,17 +9,7 @@ import { Textarea } from '@/components/ui/textarea.jsx'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx'
 import { X, ChevronLeft, ChevronRight, Navigation, MapPin, Clock, Users, AlertTriangle, Loader2, Luggage } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import dynamic from 'next/dynamic'
-
-// 지도는 Google Maps SDK 를 끌어와 무겁다. 초기 번들에서 떼어낸다.
-const MapContainer = dynamic(() => import('@/components/MapContainer.jsx'), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full items-center justify-center bg-gray-50 text-sm text-gray-500">
-      지도를 불러오는 중입니다...
-    </div>
-  ),
-})
+import MapContainer from '@/components/MapContainer.jsx'
 import { COORDS_DICT } from '@/lib/spotCoords.js'
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
 
