@@ -127,7 +127,7 @@ export default defineProduct({
 
   cta: {
     kakaoUrl: 'https://pf.kakao.com/_japko',
-    bookingHref: '/booking',
+    bookingHref: '/booking?from=product',
     courseId: 'lavender-road',
   },
 })

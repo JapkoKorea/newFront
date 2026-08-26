@@ -45,7 +45,7 @@ export default function TourDetailClient({ course, spotGuideData, fixedRouteProf
 
   const startBookingFlow = () => {
     saveTourBookingPrefill(bookingPrefill)
-    router.push('/booking')
+    router.push('/booking?from=product')
   }
 
   return (

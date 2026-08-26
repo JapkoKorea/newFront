@@ -103,7 +103,7 @@ const DEFAULTS = {
   policies: [],
   faq: [],
   reviewEvent: null,
-  cta: { kakaoUrl: '', bookingHref: '/booking', courseId: null },
+  cta: { kakaoUrl: '', bookingHref: '/booking?from=product', courseId: null },
 }
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
