@@ -32,12 +32,18 @@ export default function ProductCard({ product }) {
       className="group flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white transition hover:shadow-md"
     >
       <div className="relative">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={product.heroImage}
-          alt={product.heroImageAlt}
-          className="h-44 w-full object-cover"
-        />
+        {product.heroImage ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={product.heroImage}
+            alt={product.heroImageAlt}
+            className="h-44 w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-44 w-full items-center justify-center bg-gradient-to-br from-yellow-50 to-amber-100">
+            <span className="text-sm font-medium text-amber-800">{product.name}</span>
+          </div>
+        )}
         <button
           type="button"
           onClick={onToggleWish}

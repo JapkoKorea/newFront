@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button.jsx'
 import { saveTourBookingPrefill } from '@/lib/bookingPrefill.js'
 import { formatDeposit, readWishlist, toggleWishlist } from '@/lib/product.js'
 import { tourCourses } from '@/data/tourCourses.js'
+import CourseSelectModal from '@/components/CourseSelectModal.jsx'
 
 const SEASON_COLOR = {
   winter: 'bg-blue-100 text-blue-800',
@@ -82,12 +83,15 @@ export default function ProductDetailClient({ product }) {
 
   const depositLabel = formatDeposit(product)
 
+  const [isCourseModalOpen, setIsCourseModalOpen] = useState(false)
+
   // 이 상품에 속한 코스 목록. 상품 파일의 courseIds 순서를 유지한다.
   const productCourses = (product.courseIds || [])
     .map((id) => tourCourses.find((course) => course.id === id))
     .filter(Boolean)
 
   const startCourseBooking = (course) => {
+    setIsCourseModalOpen(false)
     saveTourBookingPrefill({
       departure: course.departure,
       destination: course.destination,
@@ -100,6 +104,12 @@ export default function ProductDetailClient({ product }) {
   }
 
   const startBookingFlow = () => {
+    // 코스가 있는 상품은 먼저 코스를 고르게 한다.
+    if (productCourses.length > 0) {
+      setIsCourseModalOpen(true)
+      return
+    }
+
     saveTourBookingPrefill({
       selectedSpots: product.courseSpots,
       startStep: 1,
@@ -132,12 +142,18 @@ export default function ProductDetailClient({ product }) {
 
         {/* 히어로 */}
         <div className="relative overflow-hidden rounded-2xl">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={product.heroImage}
-            alt={product.heroImageAlt}
-            className="h-56 w-full object-cover sm:h-72"
-          />
+          {product.heroImage ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={product.heroImage}
+              alt={product.heroImageAlt}
+              className="h-56 w-full object-cover sm:h-72"
+            />
+          ) : (
+            <div className="flex h-56 w-full items-center justify-center bg-gradient-to-br from-yellow-50 to-amber-100 sm:h-72">
+              <span className="text-base font-semibold text-amber-800">{product.name}</span>
+            </div>
+          )}
           <button
             type="button"
             onClick={onToggleWish}
@@ -263,15 +279,12 @@ export default function ProductDetailClient({ product }) {
         {productCourses.length > 0 ? (
           <Section icon={MapPin} title="코스 선택">
             <p className="mb-4 text-sm text-gray-600">
-              원하는 코스를 고르면 출발지·도착지와 방문지가 채워진 상태로 예약을 시작합니다.
-              코스는 예약 중에도 바꿀 수 있습니다.
+              아래 코스 중에서 선택할 수 있습니다. 예약 신청 시 코스를 고르면
+              출발지·도착지와 방문지가 채워진 상태로 시작합니다.
             </p>
             <div className="space-y-3">
               {productCourses.map((course) => (
-                <div
-                  key={course.id}
-                  className="rounded-xl border border-gray-200 p-4 transition hover:border-yellow-400"
-                >
+                <div key={course.id} className="rounded-xl border border-gray-200 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="font-semibold text-gray-900">{course.name}</p>
@@ -298,19 +311,6 @@ export default function ProductDetailClient({ product }) {
                       ))}
                     </div>
                   ) : null}
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      className="bg-yellow-500 hover:bg-yellow-600"
-                      onClick={() => startCourseBooking(course)}
-                    >
-                      이 코스로 예약
-                    </Button>
-                    <Link href={`/tours/${course.id}`}>
-                      <Button size="sm" variant="outline">경로 보기</Button>
-                    </Link>
-                  </div>
                 </div>
               ))}
             </div>
@@ -421,6 +421,14 @@ export default function ProductDetailClient({ product }) {
           </Button>
         </div>
       </div>
+
+      <CourseSelectModal
+        isOpen={isCourseModalOpen}
+        onClose={() => setIsCourseModalOpen(false)}
+        productName={product.name}
+        courses={productCourses}
+        onSelect={startCourseBooking}
+      />
     </div>
   )
 }

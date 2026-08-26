@@ -15,7 +15,7 @@ export default defineProduct({
   status: PRODUCT_STATUS.DRAFT,
   sortOrder: 10,
   badge: '여름 한정',
-  heroImage: '/assets/summer-lavender.jpg',
+  heroImage: '/assets/biei-winter-tree.jpg',
   heroImageAlt: '여름 비에이의 보랏빛 라벤더 밭과 언덕',
   durationLabel: '3~6시간',
 

@@ -22,8 +22,10 @@ export default defineProduct({
   status: PRODUCT_STATUS.PUBLISHED,
   sortOrder: 20,
   badge: '여름 시즌',
-  heroImage: '/assets/summer-lavender.jpg',
-  heroImageAlt: '여름 비에이의 보랏빛 라벤더 밭과 언덕',
+  // TODO: 여름 대표 사진(라벤더 밭 등)이 준비되면 채운다.
+  // 저장소에 있는 사진은 전부 설경이라, 잘못된 계절 사진을 쓰는 대신 비워 둔다.
+  heroImage: null,
+  heroImageAlt: '여름 비에이의 라벤더 밭과 언덕',
   durationLabel: '3~6시간',
 
   highlights: [

@@ -84,13 +84,16 @@ export const PRODUCT_SEASON = {
  */
 
 // 요금은 vehicleTiers(시간당) 또는 charterPricing(전세) 중 최소 하나 필요 — 별도 검증.
-const REQUIRED_FIELDS = ['slug', 'name', 'summary', 'heroImage']
+// heroImage 는 선택. 계절에 맞는 사진이 없으면 잘못된 사진을 쓰기보다
+// 비워 두고 화면에서 대체 표시를 그린다.
+const REQUIRED_FIELDS = ['slug', 'name', 'summary']
 
 const DEFAULTS = {
   season: PRODUCT_SEASON.ALL_SEASON,
   status: PRODUCT_STATUS.DRAFT,
   sortOrder: 100,
   badge: null,
+  heroImage: null,
   heroImageAlt: '',
   durationLabel: '협의',
   highlights: [],
