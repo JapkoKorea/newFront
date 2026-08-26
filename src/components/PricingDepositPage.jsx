@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.j
 import { Badge } from '@/components/ui/badge.jsx'
 import { CheckCircle2, Clock3, Coins, Loader2, Route, ShieldCheck, Users, Wallet } from 'lucide-react'
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
-import { getHourlyRate, getPricingSeason, HOURLY_RATE_BY_SEASON, SEASON_LABEL, getDepositKrw, isLastMinuteBooking, LAST_MINUTE_DEPOSIT_KRW } from '@/lib/pricing.js'
+import { getHourlyRate, HOURLY_RATE, getDepositKrw, isLastMinuteBooking, LAST_MINUTE_DEPOSIT_KRW } from '@/lib/pricing.js'
 
 const BOOKING_DRAFT_STORAGE_KEY = 'booking_draft_v1'
 
@@ -35,12 +35,6 @@ const VEHICLE_OPTIONS = [
   },
 ]
 
-// 계절별 시간당 요금표 — 공용 소스(src/lib/pricing.js)에서 파생.
-const SEASONAL_HOURLY_RATES = ['winter', 'spring'].map((season) => ({
-  season: SEASON_LABEL[season],
-  standardJpy: HOURLY_RATE_BY_SEASON[season]['일반차량'],
-  jumboJpy: HOURLY_RATE_BY_SEASON[season]['점보택시'],
-}))
 
 function PricingDepositPage() {
   const router = useRouter()
@@ -70,7 +64,6 @@ function PricingDepositPage() {
   const duration = Number(summary.duration || 0)
   const selectedVehicleType = summary.vehicleType || ''
   const tourDate = reservationPayload.tour_date || summary.date || ''
-  const pricingSeason = getPricingSeason(tourDate)
 
   const selectedVehicle = VEHICLE_OPTIONS.find((vehicle) => vehicle.type === selectedVehicleType) || VEHICLE_OPTIONS[0]
   const hasValidSummary = useMemo(() => {
@@ -92,7 +85,7 @@ function PricingDepositPage() {
 
   const calculation = useMemo(() => {
     const normalizedHours = duration > 0 ? Math.max(2, duration) : 0
-    const hourlyRateJpy = getHourlyRate(selectedVehicleType, tourDate)
+    const hourlyRateJpy = getHourlyRate(selectedVehicleType)
     const fallbackFare = normalizedHours > 0 ? hourlyRateJpy * normalizedHours : null
     const estimatedFareJpy = Number(summary.estimatedFareJpy) || fallbackFare
 
@@ -319,13 +312,12 @@ function PricingDepositPage() {
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Coins className="h-5 w-5 text-yellow-600" />
                     차량별 시간당 요금
-                    <Badge className="border border-yellow-200 bg-yellow-100 text-yellow-800">{SEASON_LABEL[pricingSeason]}</Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {VEHICLE_OPTIONS.map((vehicle) => {
                     const isSelected = calculation.effectiveVehicle.type === vehicle.type
-                    const rateJpy = getHourlyRate(vehicle.type, tourDate)
+                    const rateJpy = getHourlyRate(vehicle.type)
                     return (
                       <div
                         key={vehicle.id}
@@ -353,7 +345,7 @@ function PricingDepositPage() {
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Coins className="h-5 w-5 text-yellow-600" />
-                    계절별 시간당 요금
+                    시간당 요금표
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -361,24 +353,29 @@ function PricingDepositPage() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-gray-50 text-gray-600">
-                          <th className="px-4 py-3 text-left font-medium">계절</th>
-                          <th className="px-4 py-3 text-right font-medium">일반 택시</th>
-                          <th className="px-4 py-3 text-right font-medium">점보 택시</th>
+                          <th className="px-4 py-3 text-left font-medium">차량</th>
+                          <th className="px-4 py-3 text-left font-medium">탑승 인원</th>
+                          <th className="px-4 py-3 text-right font-medium">시간당 요금</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {SEASONAL_HOURLY_RATES.map((row) => (
-                          <tr key={row.season} className="border-t border-gray-100">
-                            <td className="px-4 py-3 font-semibold text-gray-900">{row.season}</td>
-                            <td className="px-4 py-3 text-right text-gray-900">{row.standardJpy.toLocaleString()}엔/시간</td>
-                            <td className="px-4 py-3 text-right text-gray-900">{row.jumboJpy.toLocaleString()}엔/시간</td>
+                        {[
+                          { name: '일반 택시', capacity: '4인 이하', rate: HOURLY_RATE['일반차량'] },
+                          { name: '사륜구동 차량', capacity: '4인 이하', rate: HOURLY_RATE['사륜구동 차량'] },
+                          { name: '점보 택시', capacity: '5인 이상', rate: HOURLY_RATE['점보택시'] },
+                        ].map((row) => (
+                          <tr key={row.name} className="border-t border-gray-100">
+                            <td className="px-4 py-3 font-semibold text-gray-900">{row.name}</td>
+                            <td className="px-4 py-3 text-gray-600">{row.capacity}</td>
+                            <td className="px-4 py-3 text-right text-gray-900">{row.rate.toLocaleString()}엔/시간</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                   <p className="mt-3 text-xs text-gray-500">
-                    성수기·노면 상황에 따라 계절별로 요금이 다르게 적용됩니다. 5인 이상은 점보 택시가 필수입니다.
+                    요금은 계절과 무관하게 동일하게 적용됩니다. 5인 이상은 점보 택시가 필수이며,
+                    적설기에는 사륜구동 차량으로 배차될 수 있습니다.
                   </p>
                 </CardContent>
               </Card>

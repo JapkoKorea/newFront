@@ -3,11 +3,9 @@
 // 새 상품을 만들 때 이 파일을 복사해서 값만 바꾸면 된다.
 
 import { defineProduct, PRODUCT_SEASON, PRODUCT_STATUS } from '../schema.js'
-import { HOURLY_RATE_BY_SEASON, PRICING_SEASON } from '@/lib/pricing.js'
+import { HOURLY_RATE } from '@/lib/pricing.js'
 
-// 여름 상품이므로 평시(4~11월) 요금표를 따른다.
 // 요금이 바뀌면 src/lib/pricing.js 한 곳만 고치면 이 상품에도 반영된다.
-const RATES = HOURLY_RATE_BY_SEASON[PRICING_SEASON.SPRING]
 
 export default defineProduct({
   slug: 'summer-lavender-taxi',
@@ -43,13 +41,13 @@ export default defineProduct({
     {
       name: '일반 택시 (5인승 소형)',
       capacity: '4인 이하',
-      regularPerHourJpy: RATES['일반차량'],
+      regularPerHourJpy: HOURLY_RATE['일반차량'],
       note: '4인 예약 시 캐리어가 있으면 점보 택시를 이용해야 합니다.',
     },
     {
       name: '점보 택시 (12인승 미니 밴)',
       capacity: '5인 이상',
-      regularPerHourJpy: RATES['점보택시'],
+      regularPerHourJpy: HOURLY_RATE['점보택시'],
       note: '수요가 많아 미리 예약 요청을 주셔야 배차가 가능합니다.',
     },
   ],

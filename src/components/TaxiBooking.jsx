@@ -164,7 +164,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
     return Math.max(MINIMUM_HOURS, durationValue)
   }, [bookingData.duration])
 
-  const hourlyRateJpy = getHourlyRate(selectedVehicleType, bookingData.date)
+  const hourlyRateJpy = getHourlyRate(selectedVehicleType)
   // 당일/전일 예약은 예약금이 올라간다.
   const depositKrw = getDepositKrw(bookingData.date)
   const isLastMinute = isLastMinuteBooking(bookingData.date)
