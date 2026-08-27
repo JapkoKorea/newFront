@@ -23,8 +23,8 @@ export default defineProduct({
   status: PRODUCT_STATUS.PUBLISHED,
   sortOrder: 10,
   badge: '겨울 시즌',
-  heroImage: '/assets/winter-snow.webp',
-  heroImageAlt: '눈 덮인 비에이 언덕에 홀로 선 크리스마스 나무',
+  heroImage: '/assets/winter-biei-field.jpeg',
+  heroImageAlt: '햇살이 비치는 설원 언덕에 홀로 선 비에이의 크리스마스 나무',
   durationLabel: '3~6시간',
 
   highlights: [
