@@ -121,6 +121,38 @@ def ensure_reservation_tables() -> None:
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                 """
             )
+            # 예약 변경 요청 — RESERVATION_CHANGE_PLAN.md
+            # 즉시 반영이 아니라 "신청"을 쌓아두고 운영자가 처리한다.
+            # 요청 시점의 일정을 함께 남겨, 나중에 원본이 바뀌어도 무엇을
+            # 무엇으로 바꿔달라고 했는지 추적할 수 있게 한다.
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS reservation_change_requests (
+                    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    reservation_number CHAR(36) NOT NULL,
+                    user_id CHAR(36) NOT NULL,
+                    request_type VARCHAR(16) NOT NULL,
+                    current_tour_date DATE NOT NULL,
+                    current_tour_start_time TIME NOT NULL,
+                    requested_tour_date DATE NULL,
+                    requested_tour_start_time TIME NULL,
+                    reason TEXT NULL,
+                    status VARCHAR(16) NOT NULL DEFAULT 'pending',
+                    admin_note TEXT NULL,
+                    resolved_by CHAR(36) NULL,
+                    resolved_at DATETIME(6) NULL,
+                    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+                    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+                    PRIMARY KEY (id),
+                    KEY idx_rcr_res (reservation_number, created_at),
+                    KEY idx_rcr_user (user_id, created_at),
+                    KEY idx_rcr_status (status, created_at),
+                    CONSTRAINT fk_rcr_res FOREIGN KEY (reservation_number)
+                        REFERENCES reservations(reservation_number) ON DELETE CASCADE,
+                    CONSTRAINT fk_rcr_user FOREIGN KEY (user_id) REFERENCES users(id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                """
+            )
         conn.commit()
     finally:
         conn.close()

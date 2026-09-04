@@ -11,7 +11,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from dependencies.auth import get_current_user
-from services.mysql_reservation_service import record_status_change
 from services.mysql_user_service import _connect
 
 
@@ -365,32 +364,9 @@ async def confirm_payment(
                 ("paid", payload.amount, payload.orderId, user_id, user_id),
             )
 
-            # 결제가 승인되면 예약을 확정 상태로 전환한다.
-            # 이미 취소/거절된 예약은 건드리지 않는다.
-            reservation_number = order.get("reservation_number")
-            cursor.execute(
-                "SELECT status FROM reservations WHERE reservation_number = %s LIMIT 1",
-                (reservation_number,),
-            )
-            current = cursor.fetchone() or {}
-            previous_status = current.get("status")
-            if previous_status not in {"cancelled", "rejected", "completed", "confirmed"}:
-                cursor.execute(
-                    """
-                    UPDATE reservations
-                    SET status = %s
-                    WHERE reservation_number = %s AND user_id = %s
-                    """,
-                    ("confirmed", reservation_number, user_id),
-                )
-                record_status_change(
-                    cursor,
-                    reservation_number,
-                    previous_status,
-                    "confirmed",
-                    changed_by=user_id,
-                    reason="payment_confirmed",
-                )
+            # 결제와 예약 상태(status)는 분리해 둔다.
+            # 결제 승인은 payment_status 만 바꾸고, 예약 확정(confirmed)은
+            # 배차 확인 후 운영자가 별도로 처리한다.
         conn.commit()
     finally:
         conn.close()

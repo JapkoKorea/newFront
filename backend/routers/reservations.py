@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from dependencies.auth import get_current_user
 from services.mysql_reservation_service import (
@@ -11,10 +11,27 @@ from services.mysql_reservation_service import (
     save_reservation_mysql,
 )
 from services.refund_service import refund_for_cancellation
+from services.change_request_service import (
+    ChangeRequestError,
+    create_change_request,
+    describe_window,
+    has_pending_request,
+    list_change_requests,
+    validate_change_request,
+    REASON_MAX_LENGTH,
+)
 from services.mysql_user_service import _connect
 
 
 router = APIRouter(prefix="/api/reservations", tags=["reservations"])
+
+
+class ChangeRequestPayload(BaseModel):
+    """변경 희망 날짜/시간. 하나만 보내도 된다. 사유는 비워도 된다."""
+
+    tour_date: str | None = None
+    tour_start_time: str | None = None
+    reason: str | None = Field(default=None, max_length=REASON_MAX_LENGTH)
 
 
 class RoutePointInput(BaseModel):
@@ -60,6 +77,16 @@ def _serialize_row(row: dict[str, Any]) -> dict[str, Any]:
         if isinstance(value, datetime):
             result[key] = value.isoformat()
     return result
+
+
+def _with_change_window(row: dict[str, Any]) -> dict[str, Any]:
+    """예약에 변경 가능 여부를 붙여 준다.
+
+    프론트가 날짜 계산을 다시 구현하면 서버 판정과 어긋나므로,
+    화면은 이 값만 보고 버튼을 열고 닫는다.
+    """
+    row["change_window"] = describe_window(row.get("tour_date"))
+    return row
 
 
 def _find_reservation(user_id: str, reservation_number: str):
@@ -148,7 +175,7 @@ async def list_reservations(
                 reservation = cursor.fetchone()
                 if not reservation:
                     raise HTTPException(status_code=404, detail="Reservation not found")
-                return {"reservations": [_serialize_row(reservation)]}
+                return {"reservations": [_with_change_window(_serialize_row(reservation))]}
 
             cursor.execute(
                 """
@@ -165,7 +192,7 @@ async def list_reservations(
                 (user_id,),
             )
             rows = cursor.fetchall()
-            return {"reservations": [_serialize_row(row) for row in rows]}
+            return {"reservations": [_with_change_window(_serialize_row(row)) for row in rows]}
     finally:
         conn.close()
 
@@ -232,3 +259,68 @@ async def request_cancel_reservation(
         "status": "cancelled",
         "refund": refund_result,
     }
+
+
+@router.post("/{reservation_number}/change-requests")
+async def request_reservation_change(
+    reservation_number: str,
+    payload: ChangeRequestPayload,
+    current_user: dict[str, Any] = Depends(get_current_user),
+):
+    """예약 변경을 신청한다.
+
+    즉시 반영하지 않는다. 약관상 변경은 "신청"이며, 배차 확인 후
+    운영자가 처리한다. 요청은 reservation_change_requests 에 쌓인다.
+    """
+    user_id = str(current_user.get("user_id") or "").strip()
+    if not _user_exists(user_id):
+        raise HTTPException(status_code=404, detail="User not found")
+
+    reservation = _find_reservation(user_id, reservation_number)
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+
+    if has_pending_request(reservation_number):
+        raise HTTPException(
+            status_code=409,
+            detail="이미 처리 대기 중인 변경 요청이 있습니다. 처리 후 다시 신청해 주세요.",
+        )
+
+    try:
+        normalized = validate_change_request(
+            reservation,
+            payload.tour_date,
+            payload.tour_start_time,
+        )
+    except ChangeRequestError as error:
+        # 기한이 지난 경우와 상태 문제는 409, 입력 오류는 400 으로 구분한다.
+        status_code = 409 if error.code in {"inactive", "not_changeable", "date_window_closed", "time_window_closed"} else 400
+        raise HTTPException(status_code=status_code, detail=error.message) from error
+
+    request_id = create_change_request(
+        reservation_number=reservation_number,
+        user_id=user_id,
+        normalized=normalized,
+        reason=payload.reason,
+    )
+
+    return {
+        "message": "변경 요청이 접수되었습니다. 확인 후 안내드리겠습니다.",
+        "requestId": request_id,
+        "reservationNumber": reservation_number,
+        "requestType": normalized["request_type"],
+    }
+
+
+@router.get("/{reservation_number}/change-requests")
+async def get_reservation_change_requests(
+    reservation_number: str,
+    current_user: dict[str, Any] = Depends(get_current_user),
+):
+    """이 예약에 대해 내가 넣은 변경 요청 목록."""
+    user_id = str(current_user.get("user_id") or "").strip()
+    reservation = _find_reservation(user_id, reservation_number)
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+
+    return {"requests": list_change_requests(user_id, reservation_number)}

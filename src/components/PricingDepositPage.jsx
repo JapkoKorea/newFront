@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge.jsx'
 import { CheckCircle2, Clock3, Coins, Loader2, Route, ShieldCheck, Users, Wallet } from 'lucide-react'
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
 import { getHourlyRate, HOURLY_RATE, getDepositKrw, isLastMinuteBooking, BASE_DEPOSIT_KRW, LAST_MINUTE_DEPOSIT_KRW } from '@/lib/pricing.js'
+import { PRICING_FAQ } from '@/data/pricingFaq.js'
 
 const BOOKING_DRAFT_STORAGE_KEY = 'booking_draft_v1'
 
@@ -226,6 +227,18 @@ function PricingDepositPage() {
             <p className="mt-3 text-xs text-gray-500">
               예약금은 예약 요청 접수를 위한 선결제 금액이며, 택시 요금과는 별도입니다.
             </p>
+          </section>
+
+          <section className="mt-12">
+            <h2 className="text-lg font-semibold text-gray-900">자주 묻는 질문</h2>
+            <dl className="mt-4 divide-y divide-gray-200 border-y border-gray-200">
+              {PRICING_FAQ.map((item) => (
+                <div key={item.q} className="py-4">
+                  <dt className="text-sm font-semibold text-gray-900">{item.q}</dt>
+                  <dd className="mt-1.5 text-sm leading-relaxed text-gray-600">{item.a}</dd>
+                </div>
+              ))}
+            </dl>
           </section>
 
           <div className="mt-12">
