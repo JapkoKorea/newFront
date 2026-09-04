@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime, time, timedelta
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -72,10 +72,28 @@ def _user_exists(user_id: str) -> bool:
 
 def _serialize_row(row: dict[str, Any]) -> dict[str, Any]:
     result = dict(row)
-    for key in ("created_at", "updated_at"):
+    for key in ("created_at", "updated_at", "payment_updated_at"):
         value = result.get(key)
         if isinstance(value, datetime):
             result[key] = value.isoformat()
+
+    # MySQL TIME 은 드라이버가 timedelta 로 준다. 그대로 내보내면 초 단위 숫자
+    # (09:00 -> 32400)가 화면에 그대로 찍힌다.
+    for key in ("tour_start_time",):
+        value = result.get(key)
+        if isinstance(value, timedelta):
+            total = int(value.total_seconds())
+            result[key] = f"{total // 3600:02d}:{(total % 3600) // 60:02d}"
+        elif isinstance(value, time):
+            result[key] = value.strftime("%H:%M")
+
+    for key in ("tour_date",):
+        value = result.get(key)
+        if isinstance(value, datetime):
+            result[key] = value.date().isoformat()
+        elif isinstance(value, date):
+            result[key] = value.isoformat()
+
     return result
 
 

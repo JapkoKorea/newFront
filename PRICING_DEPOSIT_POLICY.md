@@ -30,7 +30,24 @@ Rates are the same year-round (unified 2026-08).
 
 4WD = standard + 5,000 JPY surcharge.
 
-### 1.3 Minimum Bookable Duration
+### 1.3 Cancellation and Change Windows
+
+Both follow the product terms (`src/products/common.js` POLICIES), counted in
+local dates at the tour destination (Asia/Tokyo).
+
+| Action | Window |
+|---|---|
+| Full deposit refund | 5+ days before the tour |
+| No refund | within 5 days |
+| Date change request | 5+ days before |
+| Time change request | 1+ day before |
+| Same day | reservation is inactive; consult support |
+
+Implemented in `backend/services/refund_service.py` (`FULL_REFUND_DAYS`) and
+`backend/services/change_request_service.py` (`DATE_CHANGE_MIN_DAYS`,
+`TIME_CHANGE_MIN_DAYS`). Keep the three in sync.
+
+### 1.4 Minimum Bookable Duration
 
 - Minimum duration: **2 hours**
 - Reservations below 2 hours are not accepted.

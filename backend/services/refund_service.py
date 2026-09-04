@@ -1,7 +1,14 @@
 """취소에 따른 환불 금액 산정과 토스페이먼츠 결제 취소 처리.
 
-환불 기준은 웹의 취소 및 환불 정책(/refund)과 동일하게 유지한다.
-정책을 바꾸면 src/app/refund/page.jsx 도 함께 수정해야 한다.
+기준은 상품 이용 규칙(src/products/common.js POLICIES)이다.
+
+  - 투어 일자 5일 전까지 취소하면 예약 수수료를 전액 환불한다.
+  - 투어 일자 5일 이내에는 환불하지 않는다.
+  - 투어 당일 취소와 노쇼는 별도로 택시 이용요금이 청구된다(현지 정산, 여기서 다루지 않는다).
+
+예약 변경 기한(RESERVATION_CHANGE_PLAN.md)과 같은 5일 기준을 쓴다.
+정책을 바꾸면 src/app/refund/page.jsx, src/components/FAQ.jsx,
+src/products/common.js 를 함께 고쳐야 한다.
 """
 
 import base64
@@ -21,7 +28,8 @@ TOSS_CANCEL_URL = "https://api.tosspayments.com/v1/payments/{payment_key}/cancel
 # 투어 운행지(홋카이도) 기준 시각으로 취소 시점을 판정한다.
 LOCAL_TZ = ZoneInfo("Asia/Tokyo")
 
-FULL_REFUND_HOURS = 24
+# 약관 기준일. 변경 요청 기한(change_request_service.DATE_CHANGE_MIN_DAYS)과 같다.
+FULL_REFUND_DAYS = 5
 
 
 def _tour_datetime(reservation: dict[str, Any]) -> datetime | None:
@@ -52,9 +60,8 @@ def calculate_refund_krw(
     """환불 금액과 산정 사유를 돌려준다.
 
     - 예약 확정 전: 전액 (배차가 확정되지 않았으므로)
-    - 투어 시작 24시간 이전: 전액
-    - 투어 시작 24시간 이내(전날): 50%
-    - 투어 당일 또는 시작 시각 이후: 환불 없음
+    - 투어 5일 전까지: 전액
+    - 투어 5일 이내: 환불 없음
     """
     if paid_amount <= 0:
         return 0, "no_payment"
@@ -67,16 +74,14 @@ def calculate_refund_krw(
         return paid_amount, "unknown_tour_date_full_refund"
 
     current = now or datetime.now(LOCAL_TZ)
-    remaining = tour_at - current
+    # 남은 일수는 날짜(자정) 기준으로 센다. 변경 요청 판정과 같은 방식이다.
+    days_left = (tour_at.date() - current.date()).days
 
-    if remaining >= timedelta(hours=FULL_REFUND_HOURS):
-        return paid_amount, "before_24h_full_refund"
-    if remaining <= timedelta(0):
-        return 0, "after_start_no_refund"
-    # 당일 취소는 24시간 이내라도 환불하지 않는다(FAQ 및 /refund 정책과 동일).
-    if current.date() == tour_at.date():
+    if days_left >= FULL_REFUND_DAYS:
+        return paid_amount, "before_5days_full_refund"
+    if days_left <= 0:
         return 0, "same_day_no_refund"
-    return paid_amount // 2, "within_24h_half_refund"
+    return 0, "within_5days_no_refund"
 
 
 def _find_paid_order(user_id: str, reservation_number: str) -> dict[str, Any] | None:

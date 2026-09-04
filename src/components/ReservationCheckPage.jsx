@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button.jsx'
+import ChangeRequestModal from '@/components/ChangeRequestModal.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
 import { Calendar, Clock, CreditCard, MapPin, RefreshCcw, UserRound } from 'lucide-react'
@@ -51,6 +52,8 @@ function ReservationCheckPage() {
     () => reservations.find((item) => item.reservation_number === selectedReservationNumber) || reservations[0],
     [reservations, selectedReservationNumber]
   )
+
+  const [isChangeModalOpen, setIsChangeModalOpen] = useState(false)
 
   const canCancel = selectedReservation && !['cancelled', 'rejected', 'completed'].includes(selectedReservation.status)
 
@@ -269,8 +272,14 @@ function ReservationCheckPage() {
                     <CreditCard className="h-4 w-4 mr-2" />
                     {selectedReservation.payment_status === 'paid' ? '결제 완료' : '결제하기'}
                   </Button>
-                  <Button variant="outline" onClick={() => router.push('/')}>문의하기</Button>
-                  <Button variant="outline" onClick={() => router.push('/')}>변경 요청</Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsChangeModalOpen(true)}
+                    disabled={!selectedReservation.change_window?.isActive}
+                    title={selectedReservation.change_window?.notice || undefined}
+                  >
+                    변경 요청
+                  </Button>
                   <Button variant="outline" onClick={handleCancelRequest} disabled={!canCancel || canceling}>
                     {canceling ? '요청 중...' : '취소 요청'}
                   </Button>
@@ -280,6 +289,17 @@ function ReservationCheckPage() {
           </div>
         )}
       </div>
+
+      <ChangeRequestModal
+        isOpen={isChangeModalOpen}
+        onClose={() => setIsChangeModalOpen(false)}
+        reservation={selectedReservation}
+        onSubmitted={() => {
+          setIsChangeModalOpen(false)
+          alert('변경 요청이 접수되었습니다. 확인 후 안내드리겠습니다.')
+          loadReservations()
+        }}
+      />
     </div>
   )
 }
