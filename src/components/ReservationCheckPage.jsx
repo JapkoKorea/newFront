@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button.jsx'
 import ChangeRequestModal from '@/components/ChangeRequestModal.jsx'
+import ChatSupport from '@/components/ChatSupport.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
 import { Calendar, Clock, CreditCard, MapPin, RefreshCcw, UserRound } from 'lucide-react'
@@ -54,6 +55,7 @@ function ReservationCheckPage() {
   )
 
   const [isChangeModalOpen, setIsChangeModalOpen] = useState(false)
+  const [isChatOpen, setIsChatOpen] = useState(false)
 
   const canCancel = selectedReservation && !['cancelled', 'rejected', 'completed'].includes(selectedReservation.status)
 
@@ -280,6 +282,9 @@ function ReservationCheckPage() {
                   >
                     변경 요청
                   </Button>
+                  <Button variant="outline" onClick={() => setIsChatOpen(true)}>
+                    문의하기
+                  </Button>
                   <Button variant="outline" onClick={handleCancelRequest} disabled={!canCancel || canceling}>
                     {canceling ? '요청 중...' : '취소 요청'}
                   </Button>
@@ -289,6 +294,13 @@ function ReservationCheckPage() {
           </div>
         )}
       </div>
+
+      {/* 예약 맥락을 붙여 상담을 연다. 어느 예약 문의인지 대화에 기록된다. */}
+      <ChatSupport
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        reservationNumber={selectedReservation?.reservation_number || null}
+      />
 
       <ChangeRequestModal
         isOpen={isChangeModalOpen}

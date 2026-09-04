@@ -32,7 +32,11 @@ export async function fetchMessages(conversationId, afterId = 0) {
   return data.messages || []
 }
 
-/** 메시지를 전송하고 저장된 메시지를 반환한다. */
+/**
+ * 메시지를 전송한다.
+ * 서버가 봇의 1차 응답을 함께 만들어 주므로 둘 다 돌려준다.
+ * @returns {{ message: object, botMessage: object | null, needsAdmin: boolean }}
+ */
 export async function sendMessage(conversationId, body) {
   const res = await fetch(`${API_BASE_URL}/api/chat/messages`, {
     method: 'POST',
@@ -42,5 +46,9 @@ export async function sendMessage(conversationId, body) {
   if (res.status === 401) throw new ChatAuthError('로그인이 필요합니다')
   if (!res.ok) throw new Error(`메시지를 보내지 못했습니다 (${res.status})`)
   const data = await res.json()
-  return data.message
+  return {
+    message: data.message,
+    botMessage: data.botMessage || null,
+    needsAdmin: Boolean(data.needsAdmin),
+  }
 }

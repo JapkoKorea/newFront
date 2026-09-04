@@ -200,3 +200,116 @@ def create_message(
         return _serialize_message(row) if row else None
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# 운영자용
+# ---------------------------------------------------------------------------
+
+def list_conversations_for_admin(
+    only_unanswered: bool = False,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    """운영자 인박스 목록.
+
+    "미답변"은 별도 컬럼을 두지 않고 계산한다. 마지막 사람 메시지 이후에
+    운영자 답변이 없으면 미답변이다. 봇 응답은 사람 답변으로 치지 않는다.
+    상태 컬럼을 따로 두면 메시지와 어긋날 수 있어 메시지에서 직접 판정한다.
+    """
+    conn = _connect()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT c.id, c.user_id, c.channel, c.reservation_number, c.status,
+                       c.created_at, c.updated_at,
+                       u.display_name AS user_display_name,
+                       (SELECT body FROM messages m WHERE m.conversation_id = c.id
+                         ORDER BY m.id DESC LIMIT 1) AS last_body,
+                       (SELECT sender FROM messages m WHERE m.conversation_id = c.id
+                         ORDER BY m.id DESC LIMIT 1) AS last_sender,
+                       (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id) AS message_count,
+                       (SELECT MAX(m.id) FROM messages m
+                         WHERE m.conversation_id = c.id AND m.sender = 'user') AS last_user_id,
+                       (SELECT MAX(m.id) FROM messages m
+                         WHERE m.conversation_id = c.id AND m.sender = 'admin') AS last_admin_id
+                FROM conversations c
+                JOIN users u ON u.id = c.user_id
+                ORDER BY c.updated_at DESC
+                LIMIT %s
+                """,
+                (int(limit),),
+            )
+            rows = cursor.fetchall()
+    finally:
+        conn.close()
+
+    result = []
+    for row in rows:
+        last_user = row.get("last_user_id") or 0
+        last_admin = row.get("last_admin_id") or 0
+        unanswered = last_user > last_admin
+
+        if only_unanswered and not unanswered:
+            continue
+
+        item = _serialize_conversation(row)
+        item.update(
+            {
+                "userDisplayName": row.get("user_display_name"),
+                "lastBody": row.get("last_body"),
+                "lastSender": row.get("last_sender"),
+                "messageCount": row.get("message_count"),
+                "unanswered": unanswered,
+            }
+        )
+        result.append(item)
+    return result
+
+
+def list_messages_for_admin(conversation_id: str, after_id: int = 0) -> list[dict[str, Any]]:
+    """운영자는 소유자 확인 없이 대화를 볼 수 있다(권한은 라우터에서 검사)."""
+    conn = _connect()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, conversation_id, sender, body, created_at
+                FROM messages
+                WHERE conversation_id = %s AND id > %s
+                ORDER BY id
+                """,
+                (conversation_id, int(after_id)),
+            )
+            return [_serialize_message(row) for row in cursor.fetchall()]
+    finally:
+        conn.close()
+
+
+def create_admin_message(conversation_id: str, body: str) -> dict[str, Any] | None:
+    """운영자 답변을 남긴다. 없는 대화면 None."""
+    conn = _connect()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id FROM conversations WHERE id = %s LIMIT 1", (conversation_id,))
+            if cursor.fetchone() is None:
+                return None
+
+            cursor.execute(
+                "INSERT INTO messages (conversation_id, sender, body) VALUES (%s, 'admin', %s)",
+                (conversation_id, body),
+            )
+            message_id = cursor.lastrowid
+            cursor.execute(
+                "UPDATE conversations SET updated_at = CURRENT_TIMESTAMP(6) WHERE id = %s",
+                (conversation_id,),
+            )
+            cursor.execute(
+                "SELECT id, conversation_id, sender, body, created_at FROM messages WHERE id = %s",
+                (message_id,),
+            )
+            row = cursor.fetchone()
+        conn.commit()
+        return _serialize_message(row) if row else None
+    finally:
+        conn.close()

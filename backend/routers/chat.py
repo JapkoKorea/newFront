@@ -15,6 +15,7 @@ from services.mysql_chat_service import (
     get_or_create_open_conversation,
     list_messages,
 )
+from services.support_bot_service import build_reply
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -74,7 +75,23 @@ async def post_message(
     body = payload.body.strip()
     if not body:
         raise HTTPException(status_code=400, detail="메시지를 입력해 주세요")
+
     message = create_message(payload.conversation_id, _user_id(current_user), body)
     if message is None:
         raise HTTPException(status_code=404, detail="대화를 찾을 수 없습니다")
-    return {"message": message}
+
+    # 봇이 즉시 1차 응답을 남긴다. 답하지 못한 문의는 운영자 대기열로 넘어간다
+    # (운영자 목록에서 마지막 발신자가 user 또는 bot-fallback 인 대화로 판별).
+    bot = build_reply(body)
+    bot_message = create_message(
+        payload.conversation_id,
+        _user_id(current_user),
+        bot["reply"],
+        sender="bot",
+    )
+
+    return {
+        "message": message,
+        "botMessage": bot_message,
+        "needsAdmin": bot["needs_admin"],
+    }

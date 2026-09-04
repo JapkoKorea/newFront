@@ -93,8 +93,9 @@ const ChatSupport = ({ isOpen, onClose, reservationNumber = null }) => {
     setError('')
     setInputMessage('')
     try {
-      const saved = await sendMessage(conversationId, body)
-      mergeMessages([saved])
+      const { message, botMessage } = await sendMessage(conversationId, body)
+      // 봇 응답은 같은 요청에서 돌아온다. 폴링을 기다리지 않고 바로 그린다.
+      mergeMessages(botMessage ? [message, botMessage] : [message])
     } catch (err) {
       if (err instanceof ChatAuthError) setIsLoggedIn(false)
       else setError('메시지를 보내지 못했습니다.')
@@ -173,13 +174,21 @@ const ChatSupport = ({ isOpen, onClose, reservationNumber = null }) => {
 
               {messages.map((msg) => {
                 const isUser = msg.sender === 'user'
+                const isBot = msg.sender === 'bot'
                 return (
                   <div key={msg.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
                     <div className={`flex items-start gap-2 max-w-[80%] ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isUser ? 'bg-yellow-500' : 'bg-green-500'}`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                        isUser ? 'bg-yellow-500' : isBot ? 'bg-gray-400' : 'bg-green-500'
+                      }`}>
                         {isUser ? <User className="h-4 w-4 text-white" /> : <Headset className="h-4 w-4 text-white" />}
                       </div>
                       <div className={`rounded-lg p-3 ${isUser ? 'bg-yellow-500 text-white' : 'bg-gray-100 text-gray-900'}`}>
+                        {!isUser ? (
+                          <p className="mb-1 text-[11px] font-medium text-gray-500">
+                            {isBot ? '자동 안내' : '상담원'}
+                          </p>
+                        ) : null}
                         <p className="text-sm whitespace-pre-wrap">{msg.body}</p>
                         <p className={`text-xs mt-1 ${isUser ? 'text-yellow-100' : 'text-gray-500'}`}>
                           {formatTime(msg.createdAt)}

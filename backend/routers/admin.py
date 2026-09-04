@@ -3,8 +3,8 @@
 권한은 users.role 로 판정하며, 토큰이 아니라 매 요청 DB 에서 읽는다
 (dependencies/auth.py 의 get_current_admin 참고).
 
-지금은 예약 변경 요청 처리만 다룬다. 예약 확정/거절 등 다른 운영 동작은
-필요해질 때 이 라우터에 추가한다.
+예약 변경 요청 처리와 상담 인박스를 다룬다. 예약 확정/거절 등 다른 운영
+동작은 필요해질 때 이 라우터에 추가한다.
 """
 
 from typing import Any, Literal
@@ -18,6 +18,11 @@ from services.change_request_service import (
     get_change_request,
     list_all_change_requests,
     resolve_change_request,
+)
+from services.mysql_chat_service import (
+    create_admin_message,
+    list_conversations_for_admin,
+    list_messages_for_admin,
 )
 
 
@@ -77,3 +82,43 @@ async def resolve_request(
         **result,
         "request": get_change_request(request_id),
     }
+
+
+class AdminReplyPayload(BaseModel):
+    body: str = Field(min_length=1, max_length=2000)
+
+
+@router.get("/conversations")
+async def get_conversations(
+    unanswered: bool = Query(False, description="답변이 필요한 대화만"),
+    limit: int = Query(100, ge=1, le=500),
+    current_admin: dict[str, Any] = Depends(get_current_admin),
+):
+    """상담 인박스 목록.
+
+    unanswered 는 마지막 고객 메시지 이후 운영자 답변이 없는 대화다.
+    봇 응답은 답변으로 치지 않는다.
+    """
+    return {"conversations": list_conversations_for_admin(only_unanswered=unanswered, limit=limit)}
+
+
+@router.get("/conversations/{conversation_id}/messages")
+async def get_conversation_messages(
+    conversation_id: str,
+    after: int = Query(0, ge=0),
+    current_admin: dict[str, Any] = Depends(get_current_admin),
+):
+    return {"messages": list_messages_for_admin(conversation_id, after)}
+
+
+@router.post("/conversations/{conversation_id}/messages")
+async def reply_to_conversation(
+    conversation_id: str,
+    payload: AdminReplyPayload,
+    current_admin: dict[str, Any] = Depends(get_current_admin),
+):
+    """운영자 답변. 고객 화면에는 폴링으로 곧 나타난다."""
+    message = create_admin_message(conversation_id, payload.body.strip())
+    if message is None:
+        raise HTTPException(status_code=404, detail="대화를 찾을 수 없습니다")
+    return {"message": message}
