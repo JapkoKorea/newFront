@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea.jsx'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx'
 import { X, ChevronLeft, ChevronRight, Navigation, MapPin, Clock, Users, AlertTriangle, Loader2, Luggage } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { getLocalDateString } from '@/lib/date.js'
 import MapContainer from '@/components/MapContainer.jsx'
 import { COORDS_DICT } from '@/lib/spotCoords.js'
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
@@ -39,13 +40,13 @@ const stepLabels = ['경로 설정', '일정·인원', '예약자 정보']
 
 export default function TransferBooking({ isOpen = false, onClose, displayMode = 'modal' }) {
   const router = useRouter()
-  const today = new Date().toISOString().split('T')[0]
+  const today = getLocalDateString()
 
   const getInitialData = () => ({
     departure: '',
     destination: '',
     selectedSpots: [],
-    date: new Date().toISOString().split('T')[0],
+    date: '',
     time: '',
     passengers: '',
     luggage: '0',

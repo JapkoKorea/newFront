@@ -13,6 +13,7 @@ import { Toaster } from 'react-hot-toast'
 import MapContainer from '@/components/MapContainer.jsx'
 import { COORDS_DICT } from '@/lib/spotCoords.js'
 import { useRouter } from 'next/navigation'
+import { getLocalDateString } from '@/lib/date.js'
 import { getHourlyRate, getDepositKrw, isLastMinuteBooking } from '@/lib/pricing.js'
 import { tourCourses } from '@/data/tourCourses.js'
 
@@ -35,7 +36,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
   const isPageMode = displayMode === 'page'
   // 상품/코스 페이지를 거쳐 들어온 경우에만 코스 선택 단계를 건너뛴다.
   const skipCourseStep = isPageMode && hasPrefill
-  const today = new Date().toISOString().split('T')[0]
+  const today = getLocalDateString()
   const flowSteps = [1, 2, 3]
   const stepLabels = skipCourseStep
     ? ['코스 선택(완료)', '예약 입력', '예약자 정보']
@@ -44,7 +45,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
   const getInitialBookingData = useCallback(() => ({
     departure: '비에이역',
     destination: '',
-    date: new Date().toISOString().split('T')[0],
+    date: '',
     time: '',
     duration: '',
     passengers: '',

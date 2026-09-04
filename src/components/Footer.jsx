@@ -8,8 +8,6 @@ const POLICY_LINKS = [
 ]
 
 const SERVICE_LINKS = [
-  { href: '/products', label: '투어 상품' },
-  { href: '/guide', label: '관광 가이드' },
   { href: '/pricing', label: '요금 안내' },
   { href: '/reservations', label: '예약 확인' },
 ]
