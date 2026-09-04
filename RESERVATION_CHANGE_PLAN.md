@@ -124,21 +124,40 @@ GET /api/reservations/{reservation_number}/change-requests
 }
 ```
 
-### 운영자용 (다음 단계)
-
-관리자 계정에서 요청을 확인하고 처리하는 경로. 아직 구현하지 않았다.
+### 운영자용 (구현 완료)
 
 ```
-GET   /api/admin/change-requests?status=pending
+GET   /api/admin/me
+  200 → { userId, displayName, role }   관리자 화면 진입 시 권한 확인
+
+GET   /api/admin/change-requests?status=pending&limit=100
+  200 → { requests: [...] }   대기 중인 요청이 먼저, 예약자 이름·연락처 포함
+
 PATCH /api/admin/change-requests/{id}
   body: { status: 'approved' | 'rejected', admin_note? }
+  200 → { message, requestId, status, applied, request }
+  404 → 없는 요청
+  409 → 이미 처리된 요청
 ```
 
 **승인 시 처리**: `reservations`의 일정을 갱신하고, `reservation_status_history`에
-이력을 남기고, 요청을 `approved`로 닫는다. 이 세 가지는 한 트랜잭션이어야 한다.
+이력을 남기고, 요청을 `approved`로 닫는다. 셋을 한 트랜잭션으로 묶어
+"일정은 바뀌었는데 요청은 대기 중" 같은 어긋난 상태가 생기지 않게 한다.
+동시 처리를 막기 위해 요청 행을 `FOR UPDATE`로 잠근다.
 
-**인증**: `users.role` 컬럼이 이미 있으나 아직 아무 데서도 쓰지 않는다.
-관리자 판별을 이 컬럼으로 할지 별도 토큰으로 할지 결정이 필요하다.
+### 관리자 판별
+
+`users.role` 컬럼을 쓴다. `role = 'admin'` 이면 관리자다.
+
+**권한은 토큰이 아니라 매 요청 DB 에서 읽는다.** 토큰에 담으면 권한을
+회수해도 만료될 때까지(기본 24시간) 관리자로 남고, 새로 부여해도 재로그인
+전까지 반영되지 않는다. 관리자 API 는 호출 빈도가 낮아 조회 1회가 문제되지 않는다.
+
+별도의 `is_admin` 불린 컬럼을 두지 않은 이유는, 같은 사실이 두 컬럼에 생기면
+어긋날 수 있기 때문이다. `role` 은 나중에 `operator`, `partner` 같은 값을
+추가하기도 쉽다.
+
+응답 코드는 인증 실패(401)와 권한 없음(403)을 구분한다.
 
 ---
 
@@ -171,9 +190,8 @@ PATCH /api/admin/change-requests/{id}
 
 ## 8. 남은 결정
 
-1. **취소 정책 이원화** — `/refund` 페이지는 24시간 기준, 상품 약관은 5일 기준으로
-   서로 다르다. 구현(`refund_service.py`)은 24시간 기준을 따른다. 어느 쪽이 운영 기준인지
-   확정하고 한쪽으로 통일해야 한다. 변경 정책과도 맞물린다.
-2. **관리자 인증 방식** — `users.role` 활용 여부
-3. **승인 시 재검증** — 요청 접수 후 시간이 지나 기한이 지났을 때 승인할 수 있는지
-   (운영자 재량으로 허용할지, 규칙으로 막을지)
+1. **취소 정책** — 상품 약관 기준(5일)으로 통일했다. `/refund` 페이지, FAQ,
+   `refund_service.py` 가 모두 같은 기준을 쓴다.
+2. **승인 시 재검증** — 요청 접수 후 시간이 지나 기한이 지났을 때 승인할 수 있는지.
+   현재는 운영자 재량으로 승인할 수 있다(규칙으로 막지 않는다).
+3. **운영자 화면** — API 만 있고 화면은 없다. 당분간은 API 를 직접 호출해 처리한다.

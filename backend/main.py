@@ -85,6 +85,14 @@ payments_router = _load_optional_router(
 if payments_router is not None:
     app.include_router(payments_router)
 
+admin_router = _load_optional_router(
+    "routers.admin",
+    route_name="admin",
+    optional_missing={"jose", "jwt"},
+)
+if admin_router is not None:
+    app.include_router(admin_router)
+
 chat_router = _load_optional_router(
     "routers.chat",
     route_name="chat",

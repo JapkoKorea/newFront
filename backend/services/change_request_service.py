@@ -305,3 +305,148 @@ def list_change_requests(user_id: str, reservation_number: str | None = None) ->
             return [_serialize(row) for row in cursor.fetchall()]
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# 운영자용
+# ---------------------------------------------------------------------------
+
+RESOLVABLE_STATUSES = {"approved", "rejected"}
+
+
+def list_all_change_requests(
+    status: str | None = None,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    """운영자용 목록. 예약자 이름과 예약 정보를 함께 붙여 준다."""
+    conn = _connect()
+    try:
+        with conn.cursor() as cursor:
+            sql = """
+                SELECT cr.*,
+                       u.display_name AS user_display_name,
+                       r.english_name, r.contact_number, r.status AS reservation_status,
+                       r.desired_course, r.number_of_people
+                FROM reservation_change_requests cr
+                JOIN users u ON u.id = cr.user_id
+                JOIN reservations r ON r.reservation_number = cr.reservation_number
+            """
+            params: list[Any] = []
+            if status:
+                sql += " WHERE cr.status = %s"
+                params.append(status)
+            # 대기 중인 요청이 먼저, 그다음 최신순.
+            sql += " ORDER BY (cr.status = 'pending') DESC, cr.created_at DESC LIMIT %s"
+            params.append(int(limit))
+
+            cursor.execute(sql, tuple(params))
+            return [_serialize(row) for row in cursor.fetchall()]
+    finally:
+        conn.close()
+
+
+def get_change_request(request_id: int) -> dict[str, Any] | None:
+    conn = _connect()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT * FROM reservation_change_requests WHERE id = %s LIMIT 1",
+                (request_id,),
+            )
+            row = cursor.fetchone()
+            return _serialize(row) if row else None
+    finally:
+        conn.close()
+
+
+def resolve_change_request(
+    request_id: int,
+    decision: str,
+    admin_user_id: str,
+    admin_note: str | None = None,
+) -> dict[str, Any]:
+    """요청을 승인하거나 거절한다.
+
+    승인이면 예약 일정을 실제로 바꾸고 상태 이력을 남긴다. 예약 갱신과
+    요청 종결이 따로 커밋되면 "일정은 바뀌었는데 요청은 대기 중" 같은
+    어긋난 상태가 생기므로 한 트랜잭션으로 처리한다.
+    """
+    if decision not in RESOLVABLE_STATUSES:
+        raise ChangeRequestError("invalid_decision", "처리 결과는 approved 또는 rejected 여야 합니다.")
+
+    conn = _connect()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT * FROM reservation_change_requests WHERE id = %s FOR UPDATE",
+                (request_id,),
+            )
+            request = cursor.fetchone()
+            if not request:
+                raise ChangeRequestError("not_found", "변경 요청을 찾을 수 없습니다.")
+            if request["status"] != "pending":
+                raise ChangeRequestError(
+                    "already_resolved",
+                    f"이미 처리된 요청입니다 (현재 {request['status']}).",
+                )
+
+            applied: dict[str, Any] = {}
+
+            if decision == "approved":
+                new_date = request.get("requested_tour_date")
+                new_time = request.get("requested_tour_start_time")
+
+                sets, params = [], []
+                if new_date is not None:
+                    sets.append("tour_date = %s")
+                    params.append(new_date)
+                    applied["tour_date"] = str(new_date)
+                if new_time is not None:
+                    sets.append("tour_start_time = %s")
+                    params.append(new_time)
+                    applied["tour_start_time"] = str(new_time)
+
+                if sets:
+                    params.append(request["reservation_number"])
+                    cursor.execute(
+                        f"UPDATE reservations SET {', '.join(sets)} WHERE reservation_number = %s",
+                        tuple(params),
+                    )
+
+                # 일정 변경도 예약 이력에 남긴다. 상태 자체는 바뀌지 않으므로
+                # from/to 를 같게 두고 사유로 구분한다.
+                cursor.execute(
+                    "SELECT status FROM reservations WHERE reservation_number = %s LIMIT 1",
+                    (request["reservation_number"],),
+                )
+                current_status = (cursor.fetchone() or {}).get("status")
+                cursor.execute(
+                    """
+                    INSERT INTO reservation_status_history
+                        (reservation_number, from_status, to_status, changed_by, reason)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (
+                        request["reservation_number"],
+                        current_status,
+                        current_status,
+                        admin_user_id,
+                        f"change_request_approved/{request['request_type']}",
+                    ),
+                )
+
+            cursor.execute(
+                """
+                UPDATE reservation_change_requests
+                SET status = %s, admin_note = %s, resolved_by = %s, resolved_at = UTC_TIMESTAMP(6)
+                WHERE id = %s
+                """,
+                (decision, (admin_note or "").strip() or None, admin_user_id, request_id),
+            )
+        conn.commit()
+        return {"requestId": request_id, "status": decision, "applied": applied}
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
