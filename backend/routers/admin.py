@@ -19,6 +19,12 @@ from services.change_request_service import (
     list_all_change_requests,
     resolve_change_request,
 )
+from services.reservation_admin_service import (
+    ReservationAdminError,
+    change_reservation_status,
+    get_reservation_for_admin,
+    list_reservations_for_admin,
+)
 from services.mysql_chat_service import (
     create_admin_message,
     list_conversations_for_admin,
@@ -27,6 +33,11 @@ from services.mysql_chat_service import (
 
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+class ReservationStatusPayload(BaseModel):
+    status: Literal["confirmed", "rejected", "cancelled", "completed"]
+    reason: str | None = Field(default=None, max_length=255)
 
 
 class ResolvePayload(BaseModel):
@@ -41,6 +52,47 @@ async def whoami(current_admin: dict[str, Any] = Depends(get_current_admin)):
         "userId": current_admin.get("user_id"),
         "displayName": current_admin.get("display_name"),
         "role": current_admin.get("role"),
+    }
+
+
+@router.get("/reservations")
+async def get_reservations(
+    status: Literal["pending", "confirmed", "rejected", "cancelled", "completed"] | None = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    current_admin: dict[str, Any] = Depends(get_current_admin),
+):
+    """예약 목록. 처리해야 할 접수 건이 먼저 나온다."""
+    return {"reservations": list_reservations_for_admin(status=status, limit=limit)}
+
+
+@router.patch("/reservations/{reservation_number}/status")
+async def update_reservation_status(
+    reservation_number: str,
+    payload: ReservationStatusPayload,
+    current_admin: dict[str, Any] = Depends(get_current_admin),
+):
+    """예약을 확정하거나 반려한다.
+
+    결제와 무관하다. 결제 승인은 payment_status 만 다루고, 확정 여부는
+    배차 확인 결과이므로 운영자가 정한다.
+    """
+    admin_id = str(current_admin.get("user_id") or "").strip()
+
+    try:
+        result = change_reservation_status(
+            reservation_number=reservation_number,
+            new_status=payload.status,
+            admin_user_id=admin_id,
+            reason=payload.reason,
+        )
+    except ReservationAdminError as error:
+        status_code = 404 if error.code == "not_found" else 409
+        raise HTTPException(status_code=status_code, detail=error.message) from error
+
+    return {
+        "message": "상태를 변경했습니다.",
+        **result,
+        "reservation": get_reservation_for_admin(reservation_number),
     }
 
 
