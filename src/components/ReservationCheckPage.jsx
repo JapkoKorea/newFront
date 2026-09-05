@@ -5,40 +5,11 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button.jsx'
 import ChangeRequestModal from '@/components/ChangeRequestModal.jsx'
 import ChatSupport from '@/components/ChatSupport.jsx'
+import { statusLabel, statusTone, paymentLabel, paymentTone } from '@/lib/reservationStatus.js'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
 import { Calendar, Clock, CreditCard, MapPin, RefreshCcw, UserRound } from 'lucide-react'
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
-
-const statusLabel = {
-  pending: '접수 완료',
-  confirmed: '확정',
-  cancelled: '취소',
-  rejected: '반려',
-  completed: '이용 완료',
-}
-
-const statusTone = {
-  pending: 'bg-amber-100 text-amber-800 border-amber-200',
-  confirmed: 'bg-green-100 text-green-800 border-green-200',
-  cancelled: 'bg-rose-100 text-rose-800 border-rose-200',
-  rejected: 'bg-red-100 text-red-800 border-red-200',
-  completed: 'bg-blue-100 text-blue-800 border-blue-200',
-}
-
-const paymentLabel = {
-  unpaid: '결제 전',
-  ready: '결제 대기',
-  paid: '결제 완료',
-  failed: '결제 실패',
-}
-
-const paymentTone = {
-  unpaid: 'bg-slate-100 text-slate-700 border-slate-200',
-  ready: 'bg-amber-100 text-amber-800 border-amber-200',
-  paid: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  failed: 'bg-rose-100 text-rose-800 border-rose-200',
-}
 
 function ReservationCheckPage() {
   const router = useRouter()
@@ -216,18 +187,18 @@ function ReservationCheckPage() {
                   <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle className="text-lg">예약 상태</CardTitle>
                     <div className="flex items-center gap-2">
-                      <Badge className={`border ${statusTone[selectedReservation.status] || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
-                        {statusLabel[selectedReservation.status] || selectedReservation.status}
+                      <Badge className={`border ${statusTone(selectedReservation.status)}`}>
+                        {statusLabel(selectedReservation.status)}
                       </Badge>
-                      <Badge className={`border ${paymentTone[selectedReservation.payment_status] || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
-                        {paymentLabel[selectedReservation.payment_status] || selectedReservation.payment_status || '결제 전'}
+                      <Badge className={`border ${paymentTone(selectedReservation.payment_status)}`}>
+                        {paymentLabel(selectedReservation.payment_status)}
                       </Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                     <p><span className="text-gray-500">예약번호:</span> <span className="font-medium break-all">{selectedReservation.reservation_number}</span></p>
                     <p><span className="text-gray-500">접수일시:</span> <span className="font-medium">{selectedReservation.created_at?.replace('T', ' ').slice(0, 16) || '-'}</span></p>
-                    <p><span className="text-gray-500">결제 상태:</span> <span className="font-medium">{paymentLabel[selectedReservation.payment_status] || selectedReservation.payment_status || '결제 전'}</span></p>
+                    <p><span className="text-gray-500">결제 상태:</span> <span className="font-medium">{paymentLabel(selectedReservation.payment_status)}</span></p>
                     <p><span className="text-gray-500">결제 금액:</span> <span className="font-medium">{selectedReservation.payment_amount_krw ? `${Number(selectedReservation.payment_amount_krw).toLocaleString()}원` : '-'}</span></p>
                   </CardContent>
                 </Card>

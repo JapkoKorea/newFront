@@ -14,6 +14,7 @@ import {
   resolveChangeRequest,
   updateReservationStatus,
 } from '@/lib/admin.js'
+import { statusLabel, statusTone } from '@/lib/reservationStatus.js'
 
 const TABS = [
   { key: 'reservations', label: '예약' },
@@ -21,26 +22,10 @@ const TABS = [
   { key: 'chats', label: '상담' },
 ]
 
-const STATUS_LABEL = {
-  pending: '접수 완료',
-  confirmed: '확정',
-  rejected: '반려',
-  cancelled: '취소',
-  completed: '이용 완료',
-}
-
-const STATUS_TONE = {
-  pending: 'bg-amber-100 text-amber-800',
-  confirmed: 'bg-emerald-100 text-emerald-800',
-  rejected: 'bg-rose-100 text-rose-800',
-  cancelled: 'bg-gray-200 text-gray-700',
-  completed: 'bg-blue-100 text-blue-800',
-}
-
 function Badge({ status }) {
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_TONE[status] || 'bg-gray-100 text-gray-700'}`}>
-      {STATUS_LABEL[status] || status}
+    <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${statusTone(status)}`}>
+      {statusLabel(status)}
     </span>
   )
 }

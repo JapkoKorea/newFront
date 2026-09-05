@@ -10,7 +10,6 @@ from services.mysql_reservation_service import (
     record_status_change,
     save_reservation_mysql,
 )
-from services.refund_service import refund_for_cancellation
 from services.change_request_service import (
     ChangeRequestError,
     create_change_request,
@@ -232,21 +231,10 @@ async def request_cancel_reservation(
     if current_status in {"cancelled", "rejected", "completed"}:
         raise HTTPException(status_code=400, detail="현재 상태에서는 취소 요청을 진행할 수 없습니다")
 
-    # 결제된 예약이면 환불을 먼저 처리한다. 환불이 실패하면 취소를 진행하지 않는다.
-    # (상태만 취소로 바뀌고 돈은 남아 있는 상황을 만들지 않기 위함)
-    refund_result: dict[str, Any] = {"refunded": False, "reason": "no_paid_order", "amount": 0}
-    if reservation.get("payment_status") == "paid":
-        try:
-            refund_result = await refund_for_cancellation(
-                user_id=user_id,
-                reservation_number=reservation_number,
-                reservation=reservation,
-            )
-        except RuntimeError as error:
-            raise HTTPException(
-                status_code=502,
-                detail=f"환불 처리에 실패하여 취소를 완료하지 못했습니다. 고객센터로 문의해 주세요. ({error})",
-            ) from error
+    # 취소는 결제·결제취소를 건드리지 않는다. 결제가 아직 라이브가 아니어서
+    # 의도적으로 떼어 둔 상태다. 환불 규칙(refund_service)은 그대로 두고,
+    # 결제를 붙일 때 여기서 호출한다(RESERVATION_CHANGE_PLAN.md 9장).
+    refund_result: dict[str, Any] = {"refunded": False, "reason": "payment_not_connected", "amount": 0}
 
     conn = _connect()
     try:

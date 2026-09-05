@@ -224,11 +224,16 @@ rejected / cancelled / completed 는 종결
 | `completed` | 없음 | 이미 이용했다 |
 | `cancelled` | 없음 | 중복 환불 방지 |
 
-### 취소 경로는 두 가지, 규칙은 하나
+### 지금은 결제와 연결하지 않는다
 
-고객 취소(`PATCH /api/reservations/{번호}/cancel`)와 운영자 취소·반려
-(`PATCH /api/admin/reservations/{번호}/status`) 모두 같은 `refund_service` 를 탄다.
+위 표는 **환불 규칙**이며, 아직 실제 결제취소와 연결하지 않았다.
+결제가 라이브가 아니므로 취소·반려는 예약 상태만 바꾼다.
 
-두 경로 모두 **환불을 먼저 처리하고 성공했을 때만 상태를 바꾼다.**
+- 규칙은 `refund_service.calculate_refund_krw` 에 그대로 있다.
+- 토스 결제취소 호출도 `refund_service.refund_for_cancellation` 에 준비돼 있으나
+  어느 라우터에서도 호출하지 않는다.
+
+결제를 붙일 때 두 취소 경로(고객 `PATCH /api/reservations/{번호}/cancel`,
+운영자 `PATCH /api/admin/reservations/{번호}/status`)에서 호출하면 된다.
+그때는 **환불을 먼저 처리하고 성공했을 때만 상태를 바꿔야 한다.**
 반대로 하면 상태는 취소인데 결제는 남아 있는 상황이 생긴다.
-환불이 실패하면 502 를 돌려주고 예약은 원래 상태 그대로 둔다.
