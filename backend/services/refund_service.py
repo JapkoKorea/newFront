@@ -41,11 +41,23 @@ def _tour_datetime(reservation: dict[str, Any]) -> datetime | None:
 
     if isinstance(tour_date, datetime):
         base = tour_date
+    elif isinstance(tour_date, str):
+        # 직렬화된 예약(문자열 날짜)이 넘어와도 동작해야 한다. 돈이 걸린 경로다.
+        try:
+            base = datetime.strptime(tour_date[:10], "%Y-%m-%d")
+        except ValueError:
+            return None
     else:
         base = datetime.combine(tour_date, datetime.min.time())
 
     if isinstance(tour_time, timedelta):
         base = base + tour_time
+    elif isinstance(tour_time, str) and ":" in tour_time:
+        hour, _, minute = tour_time.partition(":")
+        try:
+            base = base.replace(hour=int(hour), minute=int(minute[:2]))
+        except ValueError:
+            pass
     elif tour_time is not None and hasattr(tour_time, "hour"):
         base = base.replace(hour=tour_time.hour, minute=tour_time.minute)
 
@@ -59,15 +71,31 @@ def calculate_refund_krw(
 ) -> tuple[int, str]:
     """환불 금액과 산정 사유를 돌려준다.
 
-    - 예약 확정 전: 전액 (배차가 확정되지 않았으므로)
-    - 투어 5일 전까지: 전액
-    - 투어 5일 이내: 환불 없음
+    상태별로 판정이 다르다. "확정이 아니면 전액"으로 뭉뚱그리면 이미 이용을
+    마친 예약(completed)까지 전액 환불로 떨어진다.
+
+    - pending   확정 전이라 배차가 잡히지 않았다. 전액 환불.
+    - confirmed 날짜 기준을 적용한다. 5일 전까지 전액, 그 뒤로는 환불 없음.
+    - rejected  배차 불가로 예약이 성립하지 않았다. 전액 환불(이용약관 제7조).
+    - completed 이미 이용을 마쳤다. 환불 없음.
+    - cancelled 이미 취소돼 환불이 처리된 건이다. 중복 환불하지 않는다.
     """
     if paid_amount <= 0:
         return 0, "no_payment"
 
-    if reservation.get("status") != "confirmed":
+    status = str(reservation.get("status") or "")
+
+    if status == "pending":
         return paid_amount, "not_confirmed_full_refund"
+    if status == "rejected":
+        return paid_amount, "rejected_full_refund"
+    if status == "completed":
+        return 0, "completed_no_refund"
+    if status == "cancelled":
+        return 0, "already_cancelled"
+    if status != "confirmed":
+        # 알 수 없는 상태는 자동 환불하지 않는다. 사람이 확인해야 한다.
+        return 0, f"unknown_status/{status}"
 
     tour_at = _tour_datetime(reservation)
     if tour_at is None:

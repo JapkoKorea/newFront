@@ -25,6 +25,7 @@ from services.reservation_admin_service import (
     get_reservation_for_admin,
     list_reservations_for_admin,
 )
+from services.refund_service import refund_for_cancellation
 from services.mysql_chat_service import (
     create_admin_message,
     list_conversations_for_admin,
@@ -78,6 +79,27 @@ async def update_reservation_status(
     """
     admin_id = str(current_admin.get("user_id") or "").strip()
 
+    reservation = get_reservation_for_admin(reservation_number)
+    if not reservation:
+        raise HTTPException(status_code=404, detail="예약을 찾을 수 없습니다.")
+
+    # 취소와 반려는 돈이 걸린 전이다. 고객 취소와 같은 순서로,
+    # 환불을 먼저 처리하고 성공했을 때만 상태를 바꾼다. 반대로 하면
+    # 상태만 취소되고 결제는 남아 있는 상황이 생긴다.
+    refund_result: dict[str, Any] = {"refunded": False, "reason": "not_applicable", "amount": 0}
+    if payload.status in {"cancelled", "rejected"} and reservation.get("payment_status") == "paid":
+        try:
+            refund_result = await refund_for_cancellation(
+                user_id=str(reservation.get("user_id") or ""),
+                reservation_number=reservation_number,
+                reservation=reservation,
+            )
+        except RuntimeError as error:
+            raise HTTPException(
+                status_code=502,
+                detail=f"환불 처리에 실패해 상태를 바꾸지 않았습니다. ({error})",
+            ) from error
+
     try:
         result = change_reservation_status(
             reservation_number=reservation_number,
@@ -92,6 +114,7 @@ async def update_reservation_status(
     return {
         "message": "상태를 변경했습니다.",
         **result,
+        "refund": refund_result,
         "reservation": get_reservation_for_admin(reservation_number),
     }
 
