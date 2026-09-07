@@ -4,11 +4,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button.jsx'
 import ChangeRequestModal from '@/components/ChangeRequestModal.jsx'
+import ReviewModal from '@/components/ReviewModal.jsx'
+import { fetchReviewEligibility } from '@/lib/reviews.js'
 import ChatSupport from '@/components/ChatSupport.jsx'
 import { statusLabel, statusTone, paymentLabel, paymentTone } from '@/lib/reservationStatus.js'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
-import { Calendar, Clock, CreditCard, MapPin, RefreshCcw, UserRound } from 'lucide-react'
+import { Calendar, Clock, CreditCard, MapPin, RefreshCcw, Star, UserRound } from 'lucide-react'
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
 
 function ReservationCheckPage() {
@@ -27,6 +29,21 @@ function ReservationCheckPage() {
 
   const [isChangeModalOpen, setIsChangeModalOpen] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
+  const [reviewEligibility, setReviewEligibility] = useState(null)
+
+  // 후기 작성 자격은 서버가 판정한다(이용 완료 + 미작성). 화면이 다시 계산하지 않는다.
+  useEffect(() => {
+    setReviewEligibility(null)
+    if (!selectedReservation || selectedReservation.status !== 'completed') return
+    let alive = true
+    fetchReviewEligibility(selectedReservation.reservation_number).then((result) => {
+      if (alive) setReviewEligibility(result)
+    })
+    return () => {
+      alive = false
+    }
+  }, [selectedReservation?.reservation_number, selectedReservation?.status])
 
   const canCancel = selectedReservation && !['cancelled', 'rejected', 'completed'].includes(selectedReservation.status)
 
@@ -253,6 +270,15 @@ function ReservationCheckPage() {
                   >
                     변경 요청
                   </Button>
+                  {reviewEligibility?.canWrite ? (
+                    <Button
+                      className="bg-gray-900 hover:bg-gray-800"
+                      onClick={() => setIsReviewModalOpen(true)}
+                    >
+                      <Star className="h-4 w-4 mr-2" />
+                      후기 작성
+                    </Button>
+                  ) : null}
                   <Button variant="outline" onClick={() => setIsChatOpen(true)}>
                     문의하기
                   </Button>
@@ -271,6 +297,17 @@ function ReservationCheckPage() {
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
         reservationNumber={selectedReservation?.reservation_number || null}
+      />
+
+      <ReviewModal
+        isOpen={isReviewModalOpen}
+        onClose={() => setIsReviewModalOpen(false)}
+        reservation={selectedReservation}
+        allowedTags={reviewEligibility?.allowedTags || []}
+        onSubmitted={() => {
+          alert('후기가 등록되었습니다. 감사합니다.')
+          setReviewEligibility((prev) => (prev ? { ...prev, canWrite: false, alreadyWritten: true } : prev))
+        }}
       />
 
       <ChangeRequestModal

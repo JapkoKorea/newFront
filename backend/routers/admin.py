@@ -25,6 +25,11 @@ from services.reservation_admin_service import (
     get_reservation_for_admin,
     list_reservations_for_admin,
 )
+from services.review_service import (
+    ReviewError,
+    list_reviews_for_admin,
+    set_review_status,
+)
 from services.mysql_chat_service import (
     create_admin_message,
     list_conversations_for_admin,
@@ -183,3 +188,32 @@ async def reply_to_conversation(
     if message is None:
         raise HTTPException(status_code=404, detail="대화를 찾을 수 없습니다")
     return {"message": message}
+
+
+class ReviewStatusPayload(BaseModel):
+    status: Literal["visible", "hidden"]
+    reason: str | None = Field(default=None, max_length=500)
+
+
+@router.get("/reviews")
+async def get_reviews(
+    status: Literal["visible", "hidden", "reported"] | None = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    current_admin: dict[str, Any] = Depends(get_current_admin),
+):
+    """후기 목록. status=reported 로 신고된 후기부터 처리한다."""
+    return {"reviews": list_reviews_for_admin(status=status, limit=limit)}
+
+
+@router.patch("/reviews/{review_id}")
+async def update_review_status(
+    review_id: int,
+    payload: ReviewStatusPayload,
+    current_admin: dict[str, Any] = Depends(get_current_admin),
+):
+    """후기 노출/숨김 전환. 삭제하지 않고 숨겨서 기록을 남긴다."""
+    try:
+        return set_review_status(review_id, payload.status, payload.reason)
+    except ReviewError as error:
+        status_code = 404 if error.code == "not_found" else 400
+        raise HTTPException(status_code=status_code, detail=error.message) from error

@@ -8,8 +8,9 @@ import { formatPrimaryPrice, formatDeposit, readWishlist, toggleWishlist } from 
 const SEASON_LABEL = { winter: '겨울', summer: '여름', all_season: '사계절' }
 
 // 커머스형 상품 카드 — 홈 추천 피드와 /products 목록에서 공통 사용.
-// 사진 + 시즌/badge + 제목 + 요약 + 가격 + 후기(placeholder) + 찜(로컬).
-export default function ProductCard({ product }) {
+// 사진 + 시즌/badge + 제목 + 요약 + 가격 + 평점 + 찜(로컬).
+// rating 은 목록 화면이 한 번에 받아 내려준다(lib/reviews.js fetchReviewSummaries).
+export default function ProductCard({ product, rating }) {
   const [wished, setWished] = useState(false)
 
   useEffect(() => {
@@ -76,10 +77,13 @@ export default function ProductCard({ product }) {
         </p>
         <p className="mt-1 line-clamp-2 text-sm text-gray-600">{product.summary}</p>
 
-        <div className="mt-2 flex items-center gap-1 text-xs text-gray-400">
-          <Star className="h-3.5 w-3.5" />
-          후기 준비중
-        </div>
+        {rating?.count > 0 ? (
+          <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
+            <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+            <span className="font-medium text-gray-900">{rating.average.toFixed(1)}</span>
+            <span className="text-gray-400">({rating.count})</span>
+          </div>
+        ) : null}
 
         <div className="mt-auto pt-3">
           {price ? (

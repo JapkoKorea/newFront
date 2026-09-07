@@ -53,3 +53,13 @@ export const replyToConversation = (conversationId, body) =>
     method: 'POST',
     body: JSON.stringify({ body }),
   })
+
+export const fetchAdminReviews = (status) =>
+  request(`/reviews${status ? `?status=${encodeURIComponent(status)}` : ''}`)
+
+/** 후기 노출/숨김. 삭제하지 않고 숨겨서 기록을 남긴다. */
+export const setReviewVisibility = (reviewId, status, reason) =>
+  request(`/reviews/${reviewId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, reason: reason || null }),
+  })

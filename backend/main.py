@@ -14,6 +14,7 @@ from routers import courses
 from services.mysql_reservation_service import ensure_reservation_tables
 from services.mysql_catalog_service import ensure_catalog_tables, seed_catalog
 from services.mysql_chat_service import ensure_chat_tables
+from services.review_service import ensure_review_tables
 
 
 def _load_kakao_router() -> APIRouter | None:
@@ -85,6 +86,14 @@ payments_router = _load_optional_router(
 if payments_router is not None:
     app.include_router(payments_router)
 
+reviews_router = _load_optional_router(
+    "routers.reviews",
+    route_name="reviews",
+    optional_missing={"jose", "jwt"},
+)
+if reviews_router is not None:
+    app.include_router(reviews_router)
+
 admin_router = _load_optional_router(
     "routers.admin",
     route_name="admin",
@@ -128,6 +137,11 @@ async def startup_event():
         ensure_chat_tables()
     except Exception as error:
         print(f"[WARN] chat table initialization skipped: {error}")
+
+    try:
+        ensure_review_tables()
+    except Exception as error:
+        print(f"[WARN] review table initialization skipped: {error}")
 
 import uvicorn
 

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button.jsx'
 import { ChevronDown, MapPin, Clock, Users, Star, MessageCircle, ChevronRight, Search, Plane } from 'lucide-react'
 import ChatSupport from '@/components/ChatSupport.jsx'
 import ProductCard from '@/components/ProductCard.jsx'
+import { aggregateRating, fetchReviewSummaries } from '@/lib/reviews.js'
 import { listProducts } from '@/products/registry.js'
 
 const FEATURED_PRODUCTS = listProducts().slice(0, 3)
@@ -31,6 +32,12 @@ export default function HomePage() {
   const [isScrolling, setIsScrolling] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [homeQuery, setHomeQuery] = useState('')
+  const [courseRatings, setCourseRatings] = useState({})
+
+  // 추천 카드 평점. 코스별로 한 번에 받아 상품 단위로 합친다.
+  useEffect(() => {
+    fetchReviewSummaries().then(setCourseRatings)
+  }, [])
 
   const submitSearch = (e) => {
     e.preventDefault()
@@ -279,7 +286,7 @@ export default function HomePage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {FEATURED_PRODUCTS.map((product) => (
-                <ProductCard key={product.slug} product={product} />
+                <ProductCard key={product.slug} product={product} rating={aggregateRating(courseRatings, product.courseIds)} />
               ))}
             </div>
 

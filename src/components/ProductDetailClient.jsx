@@ -23,6 +23,7 @@ import { saveTourBookingPrefill } from '@/lib/bookingPrefill.js'
 import { formatDeposit, readWishlist, toggleWishlist } from '@/lib/product.js'
 import { tourCourses } from '@/data/tourCourses.js'
 import CourseSelectModal from '@/components/CourseSelectModal.jsx'
+import ReviewList from '@/components/ReviewList.jsx'
 
 const SEASON_COLOR = {
   winter: 'bg-blue-100 text-blue-800',
@@ -84,6 +85,7 @@ export default function ProductDetailClient({ product }) {
   const depositLabel = formatDeposit(product)
 
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false)
+  const [reviewSummary, setReviewSummary] = useState(null)
 
   // 이 상품에 속한 코스 목록. 상품 파일의 courseIds 순서를 유지한다.
   const productCourses = (product.courseIds || [])
@@ -183,10 +185,13 @@ export default function ProductDetailClient({ product }) {
             <Clock className="h-4 w-4" />
             소요시간 {product.durationLabel}
           </span>
-          <span className="flex items-center gap-1">
-            <Star className="h-4 w-4" />
-            후기 준비중
-          </span>
+          {reviewSummary?.count > 0 ? (
+            <a href="#reviews" className="flex items-center gap-1 hover:text-gray-700">
+              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+              <span className="font-medium text-gray-900">{reviewSummary.average.toFixed(1)}</span>
+              후기 {reviewSummary.count}건
+            </a>
+          ) : null}
         </div>
 
         {/* 핵심 특징 */}
@@ -387,16 +392,12 @@ export default function ProductDetailClient({ product }) {
           </Section>
         ) : null}
 
-        {/* 후기 (준비중 placeholder — 실제 후기 시스템 연동 예정) */}
-        <Section icon={Star} title="이용 후기">
-          <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center">
-            <Star className="mx-auto h-6 w-6 text-gray-300" />
-            <p className="mt-2 text-sm font-medium text-gray-700">후기 기능을 준비하고 있습니다.</p>
-            <p className="mt-1 text-xs text-gray-500">
-              투어 후 포토 리뷰를 남기면 이곳에 표시됩니다.
-            </p>
-          </div>
-        </Section>
+        {/* 이용 후기 — 실제 이용을 마친 예약자만 작성할 수 있다 */}
+        <div id="reviews" className="scroll-mt-20">
+          <Section icon={Star} title="이용 후기">
+            <ReviewList courseIds={product.courseIds} onSummary={setReviewSummary} />
+          </Section>
+        </div>
       </div>
 
       {/* 하단 고정 CTA */}

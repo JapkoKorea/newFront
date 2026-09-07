@@ -2,16 +2,18 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, RefreshCw, Send } from 'lucide-react'
+import { Eye, EyeOff, Loader2, RefreshCw, Send, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
 import {
   fetchAdminMe,
   fetchAdminReservations,
+  fetchAdminReviews,
   fetchChangeRequests,
   fetchConversationMessages,
   fetchConversations,
   replyToConversation,
   resolveChangeRequest,
+  setReviewVisibility,
   updateReservationStatus,
 } from '@/lib/admin.js'
 import { statusLabel, statusTone } from '@/lib/reservationStatus.js'
@@ -20,6 +22,7 @@ const TABS = [
   { key: 'reservations', label: '예약' },
   { key: 'changes', label: '변경 요청' },
   { key: 'chats', label: '상담' },
+  { key: 'reviews', label: '후기' },
 ]
 
 function Badge({ status }) {
@@ -43,6 +46,7 @@ export default function AdminDashboard() {
   const [reservations, setReservations] = useState([])
   const [changes, setChanges] = useState([])
   const [conversations, setConversations] = useState([])
+  const [reviews, setReviews] = useState([])
   const [activeChat, setActiveChat] = useState(null)
   const [chatMessages, setChatMessages] = useState([])
   const [reply, setReply] = useState('')
@@ -53,14 +57,16 @@ export default function AdminDashboard() {
   const loadAll = useCallback(async () => {
     setLoading(true)
     try {
-      const [r, c, v] = await Promise.all([
+      const [r, c, v, w] = await Promise.all([
         fetchAdminReservations(),
         fetchChangeRequests(),
         fetchConversations(),
+        fetchAdminReviews(),
       ])
       setReservations(r.reservations || [])
       setChanges(c.requests || [])
       setConversations(v.conversations || [])
+      setReviews(w.reviews || [])
     } catch (error) {
       if (error.status === 401 || error.status === 403) setAuthError(error.message)
     } finally {
@@ -103,6 +109,9 @@ export default function AdminDashboard() {
       setBusy('')
     }
   }
+
+  const hideReview = (reviewId, status) =>
+    act(`review-${reviewId}`, () => setReviewVisibility(reviewId, status))
 
   const openChat = async (conversation) => {
     setActiveChat(conversation)
@@ -150,7 +159,14 @@ export default function AdminDashboard() {
   const pendingReservations = reservations.filter((r) => r.status === 'pending').length
   const pendingChanges = changes.filter((c) => c.status === 'pending').length
   const unansweredChats = conversations.filter((c) => c.unanswered).length
-  const counts = { reservations: pendingReservations, changes: pendingChanges, chats: unansweredChats }
+  // 신고된 후기가 먼저 눈에 띄어야 한다. 나머지는 배지로 알리지 않는다.
+  const reportedReviews = reviews.filter((r) => r.status === 'reported').length
+  const counts = {
+    reservations: pendingReservations,
+    changes: pendingChanges,
+    chats: unansweredChats,
+    reviews: reportedReviews,
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 pt-24 pb-16">
@@ -426,6 +442,88 @@ export default function AdminDashboard() {
                   )}
                 </div>
               </div>
+            ) : null}
+
+            {tab === 'reviews' ? (
+              reviews.length === 0 ? (
+                <Empty>등록된 후기가 없습니다.</Empty>
+              ) : (
+                <ul className="space-y-3">
+                  {reviews.map((item) => (
+                    <li
+                      key={item.id}
+                      className={`rounded-xl border bg-white p-4 ${
+                        item.status === 'reported' ? 'border-rose-200' : 'border-gray-200'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 text-sm font-semibold text-gray-900">
+                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                              {item.rating}
+                            </span>
+                            <span className="text-sm text-gray-700">{item.author_display}</span>
+                            {item.status === 'reported' ? (
+                              <span className="rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700">
+                                신고됨
+                              </span>
+                            ) : item.status === 'hidden' ? (
+                              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                                숨김
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-1 text-xs text-gray-400">
+                            {String(item.created_at || '').slice(0, 10)}
+                            {item.reservation_number ? ` · ${item.reservation_number}` : ''}
+                            {item.product_slug ? ` · ${item.product_slug}` : ''}
+                          </p>
+                        </div>
+
+                        {item.status === 'visible' ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={busy === `review-${item.id}`}
+                            onClick={() => hideReview(item.id, 'hidden')}
+                          >
+                            <EyeOff className="mr-1 h-4 w-4" />
+                            숨기기
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={busy === `review-${item.id}`}
+                            onClick={() => hideReview(item.id, 'visible')}
+                          >
+                            <Eye className="mr-1 h-4 w-4" />
+                            노출하기
+                          </Button>
+                        )}
+                      </div>
+
+                      {item.tags?.length > 0 ? (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {item.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded-full bg-yellow-50 px-2 py-0.5 text-xs text-yellow-800"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      {item.body ? (
+                        <p className="mt-2 whitespace-pre-line text-sm text-gray-700">{item.body}</p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )
             ) : null}
           </div>
         )}
