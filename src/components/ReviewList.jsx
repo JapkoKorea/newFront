@@ -10,12 +10,13 @@ const PAGE_SIZE = 5
 /**
  * 상품 상세의 후기 영역. 요약(평균 + 분포)과 목록을 함께 그린다.
  *
+ * 후기는 예약 상품 하나에 모인다. 정해진 코스로 갔든 자유 코스로 갔든
+ * 같은 상품을 이용한 후기이므로 한자리에 쌓인다.
+ *
  * 후기가 아직 없을 때가 오래 갈 것이므로, 빈 상태를 "준비중"이 아니라
  * 첫 후기를 기다리는 상태로 쓴다. 예약 전환을 막지 않도록 톤을 낮춘다.
  */
-export default function ReviewList({ courseIds, onSummary }) {
-  // 배열 그대로 의존성에 넣으면 매 렌더 새 참조가 되어 무한 조회가 된다.
-  const courseKey = (courseIds || []).join(',')
+export default function ReviewList({ productSlug, onSummary }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(false)
@@ -24,7 +25,7 @@ export default function ReviewList({ courseIds, onSummary }) {
   useEffect(() => {
     let alive = true
     setLoading(true)
-    fetchReviews({ courseIds, limit: 50 }).then((result) => {
+    fetchReviews({ productSlug, limit: 50 }).then((result) => {
       if (!alive) return
       setData(result)
       setLoading(false)
@@ -33,9 +34,7 @@ export default function ReviewList({ courseIds, onSummary }) {
     return () => {
       alive = false
     }
-    // courseIds 배열 대신 courseKey 로 비교한다 — 배열은 매 렌더 새 참조라 무한 조회가 된다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseKey, onSummary])
+  }, [productSlug, onSummary])
 
   const report = async (reviewId) => {
     try {

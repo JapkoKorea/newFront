@@ -144,7 +144,7 @@ def find_reviewable_reservation(user_id: str, reservation_number: str) -> dict[s
             cursor.execute(
                 """
                 SELECT reservation_number, user_id, status, desired_course, course_id,
-                       tour_date, english_name
+                       product_slug, tour_date, english_name
                 FROM reservations
                 WHERE user_id = %s AND reservation_number = %s
                 LIMIT 1
@@ -177,7 +177,6 @@ def create_own_review(
     body: str | None,
     tags: list[str] | None,
     display_name: str | None,
-    product_slug: str | None = None,
 ) -> int:
     """자체 후기를 저장한다. 이용 완료 예약에만 허용."""
     if not isinstance(rating, int) or not (RATING_MIN <= rating <= RATING_MAX):
@@ -212,7 +211,7 @@ def create_own_review(
                 (
                     reservation_number,
                     user_id,
-                    product_slug,
+                    reservation.get("product_slug"),
                     reservation.get("course_id"),
                     rating,
                     clean_body,
@@ -232,15 +231,15 @@ def create_own_review(
 
 def list_reviews(
     product_slug: str | None = None,
-    course_ids: list[str] | None = None,
+    course_id: str | None = None,
     source: str | None = None,
     limit: int = 50,
 ) -> list[dict[str, Any]]:
     """공개된 후기 목록. 숨김·신고된 후기는 나오지 않는다.
 
-    상품은 코스의 묶음이므로 course_ids 로 조회한다. 예약에는 상품 slug 가
-    없고 course_id 만 남기 때문이다. 커스텀 코스로 남긴 후기(course_id 없음)는
-    상품 페이지에 붙지 않는다 — 어느 상품의 후기인지 말할 수 없어서다.
+    후기는 예약 상품 하나에 붙는다. 자유 코스로 예약해도 상품은 정해져
+    있으므로, 코스가 아니라 product_slug 로 모은다. course_id 는 코스별로
+    좁혀 볼 때만 쓰는 부가 필터다.
     """
     conn = _connect()
     try:
@@ -250,10 +249,9 @@ def list_reviews(
             if product_slug:
                 sql += " AND product_slug = %s"
                 params.append(product_slug)
-            if course_ids:
-                placeholders = ",".join(["%s"] * len(course_ids))
-                sql += f" AND course_id IN ({placeholders})"
-                params.extend(course_ids)
+            if course_id:
+                sql += " AND course_id = %s"
+                params.append(course_id)
             if source:
                 sql += " AND source = %s"
                 params.append(source)
@@ -280,7 +278,7 @@ def list_reviews(
         conn.close()
 
 
-def summarize_reviews(product_slug: str | None = None, course_ids: list[str] | None = None) -> dict[str, Any]:
+def summarize_reviews(product_slug: str | None = None, course_id: str | None = None) -> dict[str, Any]:
     """평점 요약. 자체 후기만 집계한다.
 
     외부 후기는 검증할 수 없어 우리 평점에 넣지 않는다. 화면에서도
@@ -298,10 +296,9 @@ def summarize_reviews(product_slug: str | None = None, course_ids: list[str] | N
             if product_slug:
                 sql += " AND product_slug = %s"
                 params.append(product_slug)
-            if course_ids:
-                placeholders = ",".join(["%s"] * len(course_ids))
-                sql += f" AND course_id IN ({placeholders})"
-                params.extend(course_ids)
+            if course_id:
+                sql += " AND course_id = %s"
+                params.append(course_id)
             sql += " GROUP BY rating"
             cursor.execute(sql, tuple(params))
             buckets = {int(r["rating"]): int(r["n"]) for r in cursor.fetchall()}
@@ -317,22 +314,17 @@ def summarize_reviews(product_slug: str | None = None, course_ids: list[str] | N
     }
 
 
-def summarize_by_course() -> dict[str, dict[str, Any]]:
-    """코스별 평점 요약을 한 번에.
-
-    목록 화면이 카드마다 조회하지 않도록 한 번에 내려준다. 상품 단위 평점은
-    화면이 상품의 courseIds 로 가중평균해서 만든다 — 어떤 코스가 어떤 상품에
-    속하는지는 프론트의 상품 카탈로그만 알기 때문이다.
-    """
+def summarize_by_product() -> dict[str, dict[str, Any]]:
+    """상품별 평점 요약을 한 번에. 목록 화면이 카드마다 조회하지 않도록 한다."""
     conn = _connect()
     try:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT course_id, COUNT(*) AS n, AVG(rating) AS avg_rating
+                SELECT product_slug, COUNT(*) AS n, AVG(rating) AS avg_rating
                 FROM reviews
-                WHERE status = %s AND source = 'own' AND course_id IS NOT NULL
-                GROUP BY course_id
+                WHERE status = %s AND source = 'own' AND product_slug IS NOT NULL
+                GROUP BY product_slug
                 """,
                 (VISIBLE,),
             )
@@ -341,7 +333,7 @@ def summarize_by_course() -> dict[str, dict[str, Any]]:
         conn.close()
 
     return {
-        row["course_id"]: {
+        row["product_slug"]: {
             "count": int(row["n"]),
             "average": round(float(row["avg_rating"]), 1),
         }
@@ -353,7 +345,7 @@ def refresh_course_rating(course_id: str | None) -> None:
     """코스 집계를 갱신한다. 목록에서 매번 평균을 계산하지 않기 위함."""
     if not course_id:
         return
-    summary = summarize_reviews(course_ids=[course_id])
+    summary = summarize_reviews(course_id=course_id)
     conn = _connect()
     try:
         with conn.cursor() as cursor:

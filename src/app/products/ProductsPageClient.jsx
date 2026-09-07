@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import ProductCard from '@/components/ProductCard.jsx'
-import { aggregateRating, fetchReviewSummaries } from '@/lib/reviews.js'
+import { fetchReviewSummaries } from '@/lib/reviews.js'
 
 // 시즌 필터 탭. value === null 은 '전체'.
 const SEASON_TABS = [
@@ -20,11 +20,11 @@ export default function ProductsPageClient({ products, initialSeason = null, ini
     VALID_SEASONS.includes(initialSeason) ? initialSeason : null
   )
   const [query, setQuery] = useState(initialQuery)
-  const [courseRatings, setCourseRatings] = useState({})
+  const [productRatings, setProductRatings] = useState({})
 
-  // 카드 평점은 코스별로 한 번에 받아, 상품의 courseIds 로 합친다.
+  // 카드 평점은 상품별 요약을 한 번에 받아 나눠 준다.
   useEffect(() => {
-    fetchReviewSummaries().then(setCourseRatings)
+    fetchReviewSummaries().then(setProductRatings)
   }, [])
 
   const filtered = useMemo(() => {
@@ -84,7 +84,7 @@ export default function ProductsPageClient({ products, initialSeason = null, ini
       ) : (
         <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((product) => (
-            <ProductCard key={product.slug} product={product} rating={aggregateRating(courseRatings, product.courseIds)} />
+            <ProductCard key={product.slug} product={product} rating={productRatings[product.slug]} />
           ))}
         </div>
       )}

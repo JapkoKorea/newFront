@@ -48,6 +48,10 @@ def ensure_reservation_tables() -> None:
                 "ALTER TABLE reservations ADD COLUMN quote_note TEXT NULL",
                 # 정규화/분석 (DB_DESIGN.md 4장)
                 "ALTER TABLE reservations ADD COLUMN course_id VARCHAR(64) NULL",
+                # 예약이 어느 상품에서 왔는지. 후기가 상품에 붙으려면 필요하다
+                # (코스는 자유 구성이면 비어 있어서 상품을 알 수 없다).
+                "ALTER TABLE reservations ADD COLUMN product_slug VARCHAR(64) NULL",
+                "ALTER TABLE reservations ADD KEY idx_res_product (product_slug, status)",
                 "ALTER TABLE reservations ADD COLUMN is_custom TINYINT(1) NOT NULL DEFAULT 0",
                 # 유입 채널 (LINE 백엔드가 이미 추가했을 수 있으나 idempotent)
                 "ALTER TABLE reservations ADD COLUMN source_channel VARCHAR(32) NULL",
@@ -256,11 +260,12 @@ def save_reservation_mysql(data: dict[str, Any]) -> None:
                     destination,
                     desired_course,
                     course_id,
+                    product_slug,
                     is_custom,
                     source_channel,
                     created_at_source
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 )
                 """,
                 (
@@ -279,6 +284,7 @@ def save_reservation_mysql(data: dict[str, Any]) -> None:
                     data["destination"],
                     data["tourCourse"],
                     data.get("courseId"),
+                    data.get("productSlug"),
                     1 if data.get("isCustom") else 0,
                     data.get("sourceChannel", "web"),
                     data.get("createdAt"),

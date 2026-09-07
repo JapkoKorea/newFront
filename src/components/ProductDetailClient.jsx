@@ -101,6 +101,7 @@ export default function ProductDetailClient({ product }) {
       startStep: 2,
       courseName: course.name,
       courseId: course.id,
+      productSlug: product.slug,
     })
     router.push('/booking?from=product')
   }
@@ -117,6 +118,7 @@ export default function ProductDetailClient({ product }) {
       startStep: 1,
       courseName: product.name,
       courseId: product.cta.courseId,
+      productSlug: product.slug,
     })
     router.push(product.cta.bookingHref)
   }
@@ -395,7 +397,7 @@ export default function ProductDetailClient({ product }) {
         {/* 이용 후기 — 실제 이용을 마친 예약자만 작성할 수 있다 */}
         <div id="reviews" className="scroll-mt-20">
           <Section icon={Star} title="이용 후기">
-            <ReviewList courseIds={product.courseIds} onSummary={setReviewSummary} />
+            <ReviewList productSlug={product.slug} onSummary={setReviewSummary} />
           </Section>
         </div>
       </div>

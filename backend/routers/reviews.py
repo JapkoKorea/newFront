@@ -19,7 +19,7 @@ from services.review_service import (
     get_review_by_reservation,
     list_reviews,
     report_review,
-    summarize_by_course,
+    summarize_by_product,
     summarize_reviews,
 )
 
@@ -32,29 +32,27 @@ class ReviewInput(BaseModel):
     rating: int = Field(ge=1, le=5)
     body: str | None = Field(default=None, max_length=BODY_MAX_LENGTH)
     tags: list[str] | None = None
-    product_slug: str | None = None
 
 
 @router.get("")
 async def get_reviews(
     product_slug: str | None = Query(None),
-    course_ids: str | None = Query(None, description="쉼표로 구분한 코스 id. 상품 = 코스 묶음"),
+    course_id: str | None = Query(None, description="상품 안에서 특정 코스만 좁혀 볼 때"),
     source: Literal["own", "naver"] | None = Query(None),
     limit: int = Query(50, ge=1, le=200),
 ):
     """공개 후기 목록과 평점 요약. 로그인 불필요."""
-    ids = [c.strip() for c in (course_ids or "").split(",") if c.strip()] or None
     return {
-        "reviews": list_reviews(product_slug=product_slug, course_ids=ids, source=source, limit=limit),
-        "summary": summarize_reviews(product_slug=product_slug, course_ids=ids),
+        "reviews": list_reviews(product_slug=product_slug, course_id=course_id, source=source, limit=limit),
+        "summary": summarize_reviews(product_slug=product_slug, course_id=course_id),
         "allowedTags": ALLOWED_TAGS,
     }
 
 
 @router.get("/summaries")
 async def get_summaries():
-    """코스별 평점 요약. 목록/홈 카드가 한 번에 받아 상품 단위로 합친다."""
-    return {"summaries": summarize_by_course()}
+    """상품별 평점 요약. 목록/홈 카드가 한 번에 받아 간다."""
+    return {"summaries": summarize_by_product()}
 
 
 @router.get("/eligibility/{reservation_number}")
@@ -102,7 +100,6 @@ async def write_review(
             body=payload.body,
             tags=payload.tags,
             display_name=current_user.get("nickname") or current_user.get("display_name"),
-            product_slug=payload.product_slug,
         )
     except ReviewError as error:
         status_code = 404 if error.code == "not_found" else 409 if error.code in {"already_reviewed", "not_reviewable"} else 400

@@ -188,12 +188,19 @@ CREATE TABLE IF NOT EXISTS favorites (
 ```sql
 ALTER TABLE reservations ADD COLUMN course_id VARCHAR(64) NULL;
 ALTER TABLE reservations ADD COLUMN is_custom TINYINT(1) NOT NULL DEFAULT 0;
+ALTER TABLE reservations ADD COLUMN product_slug VARCHAR(64) NULL;
 ALTER TABLE reservations ADD CONSTRAINT fk_res_course
     FOREIGN KEY (course_id) REFERENCES courses(id);
 ALTER TABLE reservations ADD KEY idx_res_service_status (service_type, status, created_at);
+ALTER TABLE reservations ADD KEY idx_res_product (product_slug, status);
 ```
 - `desired_course` TEXT는 **표시용 스냅샷**으로 유지(주문 시점 경로 보존). 분석은 아래 정규화 테이블 사용.
 - `course_id` NULL + `is_custom=1` = 직접 만든 경로.
+- `product_slug`는 **어느 상품에서 시작한 예약인지**. 상품 정의는 프론트(`src/products`)에
+  있고 DB는 slug만 들고 있으므로 외래키를 걸지 않는다. 후기가 이 값으로 상품에 붙기
+  때문에 코스를 안 고른 예약에도 채워야 한다. 웹은 예약 생성 시 함께 보내고,
+  앱·챗 예약은 서버가 시즌/코스로 되짚는다(`backend/services/product_catalog.py`).
+  과거 예약은 `backend/scripts/backfill_reservation_product.py`로 채웠다.
 
 ### 4.2 reservation_route_points (정규화된 경로 — 분석용)
 `desired_course` TEXT를 대체하는 구조화 경로. service_type 무관(투어=출발+경유+도착, 송영=출발+도착).
@@ -293,7 +300,16 @@ CREATE TABLE IF NOT EXISTS reservation_quotes (
 ## 6. 후기 / 별점
 
 ### 6.1 reviews
-완료된 예약당 1건. 직접 만들기 예약은 `course_id` NULL(집계 제외, 후기 자체는 가능).
+완료된 예약당 1건.
+
+후기는 **예약 상품**(`product_slug`)에 붙는다. 코스가 아니다 — 자유 코스로 다녀온
+예약도 같은 상품을 이용한 후기이므로 상품 페이지 한자리에 모여야 한다. `course_id`는
+상품 안에서 코스별로 좁혀 볼 때 쓰는 부가 정보라 직접 만들기 예약에서는 NULL 이다.
+
+실제 구현된 스키마는 `backend/services/review_service.py`의 `ensure_review_tables()`가
+정본이다. 아래는 설계 시점 스케치이며 다음이 다르다: 본문 컬럼은 `content`가 아니라
+`body`, 여기에 `source`(own|naver), `product_slug`, `tags`, `author_display`,
+`external_id`, `external_url`, `hidden_reason`이 더해졌고 사진은 `review_photos`에 있다.
 ```sql
 CREATE TABLE IF NOT EXISTS reviews (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

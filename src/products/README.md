@@ -57,6 +57,17 @@ DB 카탈로그로 옮길 때 `registry.js`의 조회 함수만 API 호출로 �
 렌더(`ProductDetailClient`)는 그대로 재사용된다.
 (`tourCourses.js` 정적 데이터 -> `fetchCourse` API 폴백과 동일한 패턴.)
 
+## 예약·후기와의 연결
+
+예약은 `product_slug` 로 상품을 기억한다(`reservations.product_slug`). 후기는 그
+값으로 상품에 붙으므로, 코스를 고르지 않은 자유 예약도 상품 페이지에 후기가 쌓인다.
+
+- 상품 상세에서 예약을 시작하면 `saveTourBookingPrefill({ productSlug })` 로 전달된다.
+- 상품을 거치지 않고 바로 예약하면 `resolveProductSlug({ courseId, season })` 가
+  고른 코스와 투어 날짜의 시즌으로 되짚는다 (`registry.js`).
+- 서버도 같은 판정을 한다 — 앱·챗 예약용 (`backend/services/product_catalog.py`).
+  상품을 늘리거나 시즌 구성을 바꾸면 그쪽도 함께 고친다.
+
 ## 주의
 
 - UI 텍스트/데이터에 이모지 금지 (프로젝트 hook으로 강제).

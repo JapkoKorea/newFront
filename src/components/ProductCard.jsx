@@ -9,7 +9,7 @@ const SEASON_LABEL = { winter: '겨울', summer: '여름', all_season: '사계�
 
 // 커머스형 상품 카드 — 홈 추천 피드와 /products 목록에서 공통 사용.
 // 사진 + 시즌/badge + 제목 + 요약 + 가격 + 평점 + 찜(로컬).
-// rating 은 목록 화면이 한 번에 받아 내려준다(lib/reviews.js fetchReviewSummaries).
+// rating 은 목록 화면이 상품별 요약을 한 번에 받아 내려준다(lib/reviews.js).
 export default function ProductCard({ product, rating }) {
   const [wished, setWished] = useState(false)
 

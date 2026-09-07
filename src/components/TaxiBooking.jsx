@@ -15,7 +15,12 @@ import { COORDS_DICT } from '@/lib/spotCoords.js'
 import { useRouter } from 'next/navigation'
 import { getLocalDateString } from '@/lib/date.js'
 import { getHourlyRate, getDepositKrw, isLastMinuteBooking } from '@/lib/pricing.js'
-import { tourCourses } from '@/data/tourCourses.js'
+import { resolveProductSlug } from '@/products/registry.js'
+import { detectSeason, tourCourses } from '@/data/tourCourses.js'
+
+// tourCourses 안의 'custom' 은 "장소를 직접 고르는 모드"를 뜻하는 화면 전용
+// 항목이다. courses 테이블에는 없으므로 예약에 코스로 보내면 외래키에서 막힌다.
+const CUSTOM_COURSE_ID = 'custom'
 
 const BOOKING_DRAFT_STORAGE_KEY = 'booking_draft_v1'
 const MINIMUM_HOURS = 2
@@ -57,6 +62,11 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
     selectedSpots: []
   }), [skipCourseStep])
   const [bookingData, setBookingData] = useState(getInitialBookingData)
+  // 어느 상품에서 들어왔는지. 후기가 상품에 붙으려면 예약이 이 값을 들고 있어야 한다.
+  const [productSlug, setProductSlug] = useState(null)
+  // 상품에서 고르고 들어온 코스. 화면은 장소를 자유 편집하는 모드로 바뀌지만
+  // "무슨 코스로 시작했는지"는 예약에 남겨야 한다.
+  const [originCourseId, setOriginCourseId] = useState(null)
 
   const [currentStep, setCurrentStep] = useState(skipCourseStep ? 2 : 1)
   const [hoveredSpot, setHoveredSpot] = useState(null)
@@ -217,6 +227,11 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
       selectedSpots,
       specialRequests: initialDraft.specialRequests || prev.specialRequests || '',
     }))
+
+    setProductSlug(initialDraft.productSlug || null)
+    setOriginCourseId(
+      initialDraft.courseId && initialDraft.courseId !== CUSTOM_COURSE_ID ? initialDraft.courseId : null
+    )
 
     setPlaceCoordinates({
       departure: COORDS_DICT[nextDeparture] || null,
@@ -417,9 +432,18 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
       return
     }
 
-    const selectedCourse = tourCourses.find((c) => c.id === bookingData.course)
-    const desiredCourse = selectedCourse
-      ? `${selectedCourse.name}${bookingData.selectedSpots?.length ? `: ${bookingData.selectedSpots.join(' > ')}` : ''}`
+    const pickedCourse = tourCourses.find((c) => c.id === bookingData.course)
+    // 화면 표기는 고른 코스를 그대로 쓰되, 저장하는 코스 id 는 실제 코스만 남긴다.
+    const selectedCourse = pickedCourse?.id === CUSTOM_COURSE_ID ? null : pickedCourse
+    const courseIdForRecord = selectedCourse?.id || originCourseId || null
+    // 상품에서 코스를 고르고 들어오면 화면 모드는 'custom' 이 된다. 기록에는
+    // "커스텀 코스 구성하기"가 아니라 실제로 고른 코스 이름을 남긴다.
+    const recordCourseName =
+      (pickedCourse?.id === CUSTOM_COURSE_ID
+        ? tourCourses.find((c) => c.id === originCourseId)?.name
+        : pickedCourse?.name) || pickedCourse?.name
+    const desiredCourse = recordCourseName
+      ? `${recordCourseName}${bookingData.selectedSpots?.length ? `: ${bookingData.selectedSpots.join(' > ')}` : ''}`
       : bookingData.selectedSpots.join(' > ')
 
     const payload = {
@@ -433,15 +457,21 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
       destination: bookingData.destination,
       desired_course: `${desiredCourse} [차량:${selectedVehicleType}${requiresWinter4wd ? ', 겨울4WD' : ''}]`,
       source_channel: 'web',
-      course_id: bookingData.course || null,
-      is_custom: !bookingData.course,
+      season: detectSeason(bookingData.date),
+      course_id: courseIdForRecord,
+      product_slug:
+        productSlug || resolveProductSlug({
+          courseId: courseIdForRecord,
+          season: detectSeason(bookingData.date),
+        }),
+      is_custom: !selectedCourse,
       selected_spots: (bookingData.selectedSpots || []).map((name) => ({ name })),
     }
 
     const draft = {
       reservationPayload: payload,
         summary: {
-          courseName: tourCourses.find((c) => c.id === bookingData.course)?.name || '미선택',
+          courseName: recordCourseName || '미선택',
           departure: bookingData.departure,
           destination: bookingData.destination,
           date: bookingData.date,
@@ -475,6 +505,11 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
   const visibleStepIndex = Math.max(0, flowSteps.indexOf(currentStep))
   const progressPercent = Math.round(((visibleStepIndex + 1) / totalSteps) * 100)
   const selectedCourse = tourCourses.find(c => c.id === bookingData.course)
+  // 상품에서 코스를 골라 들어오면 화면은 자유 편집 모드가 된다. 그래도
+  // 요약에는 "커스텀 코스 구성하기"가 아니라 고른 코스 이름이 나와야 한다.
+  const originCourse = tourCourses.find(c => c.id === originCourseId)
+  const summaryCourseName = (selectedCourse?.id === CUSTOM_COURSE_ID ? originCourse?.name : selectedCourse?.name)
+    || selectedCourse?.name
   const currentStepErrors = getStepErrors(currentStep)
 
   const shouldRender = displayMode === 'page' || isOpen
@@ -557,7 +592,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
             <div className="mb-5 rounded-lg border bg-gray-50 p-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
               <div>
                 <p className="text-gray-500">선택 코스</p>
-                <p className="font-medium text-gray-900">{selectedCourse?.name || '아직 선택 전'}</p>
+                <p className="font-medium text-gray-900">{summaryCourseName || '아직 선택 전'}</p>
               </div>
               <div>
                 <p className="text-gray-500">방문 장소 수</p>

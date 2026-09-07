@@ -10,6 +10,7 @@ from services.mysql_reservation_service import (
     record_status_change,
     save_reservation_mysql,
 )
+from services.product_catalog import resolve_product_slug
 from services.change_request_service import (
     ChangeRequestError,
     create_change_request,
@@ -54,6 +55,8 @@ class ReservationPayload(BaseModel):
     season: Literal["winter", "summer", "all_season"] | None = None
     # 정규화/분석 (하위호환: 모두 선택)
     course_id: str | None = None
+    # 어느 상품에서 시작한 예약인지. 후기는 이 값으로 상품에 붙는다.
+    product_slug: str | None = None
     is_custom: bool = False
     source_channel: Literal["web", "app"] = "web"
     selected_spots: list[RoutePointInput] | None = None
@@ -106,6 +109,16 @@ def _with_change_window(row: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
+def _course_exists(course_id: str) -> bool:
+    conn = _connect()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT 1 FROM courses WHERE id = %s LIMIT 1", (course_id,))
+            return cursor.fetchone() is not None
+    finally:
+        conn.close()
+
+
 def _find_reservation(user_id: str, reservation_number: str):
     conn = _connect()
     try:
@@ -137,6 +150,11 @@ async def create_reservation(
     if payload.service_type == "transfer" and payload.season is not None:
         raise HTTPException(status_code=400, detail="송영서비스는 season 값을 받을 수 없습니다")
 
+    # course_id 는 courses 를 참조한다. 없는 값이 오면 INSERT 가 외래키에서
+    # 터져 500 이 되므로, 여기서 걸러 무엇이 잘못됐는지 알려 준다.
+    if payload.course_id and not _course_exists(payload.course_id):
+        raise HTTPException(status_code=400, detail=f"알 수 없는 코스입니다: {payload.course_id}")
+
     reservation_number = str(uuid.uuid4())
     record = {
         "pk": user_id,
@@ -154,6 +172,14 @@ async def create_reservation(
         "serviceType": payload.service_type,
         "season": payload.season,
         "courseId": payload.course_id,
+        # 앱·챗 예약은 상품을 실어 보내지 않는다. 그래도 후기를 남길 수 있도록
+        # 시즌과 코스로 되짚는다.
+        "productSlug": payload.product_slug
+        or resolve_product_slug(
+            course_id=payload.course_id,
+            season=payload.season,
+            tour_date=payload.tour_date,
+        ),
         "isCustom": payload.is_custom,
         "sourceChannel": payload.source_channel,
         "selectedSpots": [spot.model_dump() for spot in (payload.selected_spots or [])],
@@ -180,7 +206,7 @@ async def list_reservations(
                     SELECT reservation_number, status, english_name, contact_number,
                            tour_date, tour_start_time, tour_duration_hours, number_of_people,
                            departure, destination, desired_course,
-                           service_type, season,
+                           service_type, season, course_id, product_slug,
                            payment_status, payment_amount_krw, payment_updated_at,
                            created_at, updated_at
                     FROM reservations
@@ -199,7 +225,7 @@ async def list_reservations(
                 SELECT reservation_number, status, english_name, contact_number,
                        tour_date, tour_start_time, tour_duration_hours, number_of_people,
                        departure, destination, desired_course,
-                       service_type, season,
+                       service_type, season, course_id, product_slug,
                        payment_status, payment_amount_krw, payment_updated_at,
                        created_at, updated_at
                 FROM reservations

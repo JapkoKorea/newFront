@@ -56,3 +56,28 @@ export function listProducts({ season, includeDrafts = false } = {}) {
   if (season) pool = pool.filter((p) => p.season === season)
   return pool
 }
+
+/**
+ * 예약이 속한 상품을 찾는다.
+ *
+ * 예약 화면은 상품을 거치지 않고 바로 들어올 수도 있다(내비 "예약하기").
+ * 그때는 고른 코스와 투어 날짜로 상품을 되짚는다. 코스가 여름·겨울 상품에
+ * 모두 들어 있으면 날짜의 시즌으로 가른다.
+ *
+ * @param {{ courseId?: string|null, season?: string|null }} hints
+ * @returns {string|null} 상품 slug
+ */
+export function resolveProductSlug({ courseId, season } = {}) {
+  if (!courseId) {
+    // 코스를 안 골랐어도 시즌 상품은 정해진다 — 자유 코스도 상품 안의 이용이다.
+    const bySeason = publishedProducts.find((p) => p.season === season)
+    return bySeason?.slug || null
+  }
+
+  const owners = publishedProducts.filter((p) => (p.courseIds || []).includes(courseId))
+  if (owners.length === 0) return null
+  if (owners.length === 1) return owners[0].slug
+
+  const seasonMatch = owners.find((p) => p.season === season)
+  return (seasonMatch || owners[0]).slug
+}

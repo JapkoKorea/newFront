@@ -6,10 +6,10 @@ import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
  * 후기가 없거나 백엔드가 내려가 있어도 화면은 떠야 하므로
  * 실패는 빈 결과로 흡수한다 — 후기는 예약을 막는 요소가 아니다.
  */
-export async function fetchReviews({ productSlug, courseIds, source, limit = 20 } = {}) {
+export async function fetchReviews({ productSlug, courseId, source, limit = 20 } = {}) {
   const url = new URL(`${API_BASE_URL}/api/reviews`)
   if (productSlug) url.searchParams.set('product_slug', productSlug)
-  if (courseIds?.length) url.searchParams.set('course_ids', courseIds.join(','))
+  if (courseId) url.searchParams.set('course_id', courseId)
   if (source) url.searchParams.set('source', source)
   url.searchParams.set('limit', String(limit))
 
@@ -58,7 +58,7 @@ export function formatReviewDate(value) {
 }
 
 /**
- * 코스별 평점 요약(course id -> {average, count}).
+ * 상품별 평점 요약(product slug -> {average, count}).
  *
  * 목록 화면이 카드마다 조회하지 않도록 한 번에 받는다.
  * 실패하면 빈 객체 — 카드는 평점 줄 없이 그려진다.
@@ -72,23 +72,4 @@ export async function fetchReviewSummaries() {
   } catch {
     return {}
   }
-}
-
-/**
- * 상품 단위 평점. 코스별 요약을 상품의 courseIds 로 가중평균한다.
- *
- * 어떤 코스가 어떤 상품에 속하는지는 프론트 카탈로그만 알기 때문에
- * 합치는 일도 여기서 한다.
- */
-export function aggregateRating(courseSummaries, courseIds) {
-  let count = 0
-  let sum = 0
-  for (const id of courseIds || []) {
-    const entry = courseSummaries?.[id]
-    if (!entry?.count) continue
-    count += entry.count
-    sum += entry.average * entry.count
-  }
-  if (count === 0) return null
-  return { count, average: Math.round((sum / count) * 10) / 10 }
 }
