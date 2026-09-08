@@ -62,10 +62,15 @@ export const CUSTOMER_STAGE = {
     detail: '예약금 결제를 진행해 주세요.',
     tone: 'bg-gray-100 text-gray-700 border-gray-200',
   },
+  checking: {
+    label: '입금 확인중',
+    detail: '입금 여부를 확인하고 있습니다. 확인되면 예약이 진행됩니다.',
+    tone: 'bg-amber-100 text-amber-800 border-amber-200',
+  },
   in_progress: {
     label: '예약 진행중',
-    detail: '결제 확인 중입니다. 확인되면 예약이 확정됩니다.',
-    tone: 'bg-amber-100 text-amber-800 border-amber-200',
+    detail: '결제가 확인되었습니다. 배차를 조율한 뒤 확정해 드립니다.',
+    tone: 'bg-sky-100 text-sky-800 border-sky-200',
   },
   confirmed: {
     label: '예약 확정',
@@ -94,13 +99,25 @@ export const CUSTOMER_STAGE = {
  *
  * 종결 상태(취소·반려·이용 완료)가 우선한다. 그 외에는 확정 여부를 먼저 보고,
  * 아직이면 결제를 어디까지 했는지로 나눈다.
+ *
+ * 결제를 알린 직후가 수단에 따라 갈린다.
+ *  - 스마트스토어 + 주문번호: 대조할 근거가 있으니 바로 "예약 진행중"
+ *  - 그 외(계좌이체, 주문번호 없는 스마트스토어): "입금 확인중"
+ *
+ * 데이터는 어느 쪽이든 결제 대기(ready)다. 여기서 갈리는 것은 고객에게
+ * 보이는 라벨뿐이고, 운영자 화면에는 그대로 미확인으로 남는다.
+ *
+ * @param {{channel?: string|null, orderNo?: string|null}} [payment]
  */
-export function customerStage(status, paymentStatus) {
+export function customerStage(status, paymentStatus, payment = {}) {
   if (status === 'cancelled') return CUSTOMER_STAGE.cancelled
   if (status === 'rejected') return CUSTOMER_STAGE.rejected
   if (status === 'completed') return CUSTOMER_STAGE.completed
   if (status === 'confirmed') return CUSTOMER_STAGE.confirmed
-  // 결제했다고 알렸거나 확인까지 끝났으면 진행중. 확정은 운영자가 따로 한다.
-  if (paymentStatus === 'ready' || paymentStatus === 'paid') return CUSTOMER_STAGE.in_progress
+  if (paymentStatus === 'paid') return CUSTOMER_STAGE.in_progress
+  if (paymentStatus === 'ready') {
+    const trusted = payment?.channel === 'naver' && Boolean(payment?.orderNo)
+    return trusted ? CUSTOMER_STAGE.in_progress : CUSTOMER_STAGE.checking
+  }
   return CUSTOMER_STAGE.waiting
 }

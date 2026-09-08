@@ -156,6 +156,8 @@ function PaymentPage() {
   const paymentStatus = info?.paymentStatus || 'unpaid'
   const declared = paymentStatus === 'ready'
   const settled = paymentStatus === 'paid'
+  // 스마트스토어 주문번호가 있으면 대조할 근거가 있어 바로 진행중으로 안내한다.
+  const naverTrusted = info?.paymentChannel === 'naver' && Boolean(info?.paymentOrderNo)
   const accountReady = hasBankAccount()
   // 취소·반려·이용 완료 예약은 더 받을 돈이 없다. 계좌를 보여주면 고객이
   // 송금한 뒤에야 안 되는 예약임을 알게 된다. 서버 판정을 그대로 따른다.
@@ -234,20 +236,31 @@ function PaymentPage() {
                 <Check className="h-4 w-4" />
                 입금이 확인되었습니다.
               </p>
-              <p className="mt-1 text-emerald-700">예약 확정 여부는 예약 확인 화면에서 알려드립니다.</p>
+              <p className="mt-1 text-emerald-700">배차를 조율한 뒤 예약을 확정해 드립니다.</p>
             </CardContent>
           </Card>
         ) : null}
 
         {declared && !settled ? (
-          <Card className="border-amber-200 bg-amber-50">
-            <CardContent className="py-5 text-sm text-amber-900">
-              <p className="font-medium">입금 확인을 요청하셨습니다.</p>
-              <p className="mt-1 text-amber-800">
-                통장 확인 후 결제 완료로 변경해 드립니다. 확인까지 시간이 걸릴 수 있습니다.
-              </p>
-            </CardContent>
-          </Card>
+          naverTrusted ? (
+            <Card className="border-sky-200 bg-sky-50">
+              <CardContent className="py-5 text-sm text-sky-900">
+                <p className="font-medium">예약이 진행중입니다.</p>
+                <p className="mt-1 text-sky-800">
+                  주문번호 {info.paymentOrderNo} 로 접수했습니다. 배차를 조율한 뒤 확정해 드립니다.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="py-5 text-sm text-amber-900">
+                <p className="font-medium">입금 확인중입니다.</p>
+                <p className="mt-1 text-amber-800">
+                  통장을 확인한 뒤 예약을 진행해 드립니다. 확인까지 시간이 걸릴 수 있습니다.
+                </p>
+              </CardContent>
+            </Card>
+          )
         ) : null}
 
         {!canPay ? (

@@ -45,7 +45,14 @@ function ReservationCheckPage() {
     }
   }, [selectedReservation?.reservation_number, selectedReservation?.status])
 
-  const stage = customerStage(selectedReservation?.status, selectedReservation?.payment_status)
+  const stage = customerStage(
+    selectedReservation?.status,
+    selectedReservation?.payment_status,
+    {
+      channel: selectedReservation?.payment_channel,
+      orderNo: selectedReservation?.payment_order_no,
+    },
+  )
 
   const canCancel = selectedReservation && !['cancelled', 'rejected', 'completed'].includes(selectedReservation.status)
 
@@ -195,8 +202,8 @@ function ReservationCheckPage() {
                     <p className="text-xs text-gray-500">예약번호</p>
                     <p className="text-sm font-semibold break-all">{reservation.reservation_number}</p>
                     <p className="text-sm text-gray-600 mt-1">{reservation.tour_date} {String(reservation.tour_start_time).slice(0, 5)}</p>
-                    <span className={`mt-2 inline-block rounded-full border px-2 py-0.5 text-xs ${customerStage(reservation.status, reservation.payment_status).tone}`}>
-                      {customerStage(reservation.status, reservation.payment_status).label}
+                    <span className={`mt-2 inline-block rounded-full border px-2 py-0.5 text-xs ${customerStage(reservation.status, reservation.payment_status, { channel: reservation.payment_channel, orderNo: reservation.payment_order_no }).tone}`}>
+                      {customerStage(reservation.status, reservation.payment_status, { channel: reservation.payment_channel, orderNo: reservation.payment_order_no }).label}
                     </span>
                   </button>
                 ))}

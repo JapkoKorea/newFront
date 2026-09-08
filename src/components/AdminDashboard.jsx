@@ -276,12 +276,12 @@ export default function AdminDashboard() {
                             disabled={busy === `pay-${item.reservation_number}`}
                             onClick={() =>
                               act(`pay-${item.reservation_number}`, () =>
-                                setReservationPaymentStatus(item.reservation_number, 'paid', true),
+                                setReservationPaymentStatus(item.reservation_number, 'paid', false),
                               )
                             }
                           >
                             <Wallet className="mr-1 h-4 w-4" />
-                            결제 확인 및 예약 확정
+                            입금 확인
                           </Button>
                           <Button
                             size="sm"
@@ -289,11 +289,11 @@ export default function AdminDashboard() {
                             disabled={busy === `pay-${item.reservation_number}`}
                             onClick={() =>
                               act(`pay-${item.reservation_number}`, () =>
-                                setReservationPaymentStatus(item.reservation_number, 'paid', false),
+                                setReservationPaymentStatus(item.reservation_number, 'paid', true),
                               )
                             }
                           >
-                            결제만 확인
+                            입금 확인 + 예약 확정
                           </Button>
                           {item.payment_status === 'ready' ? (
                             <span className="text-xs text-amber-700">고객이 결제했다고 알렸습니다</span>

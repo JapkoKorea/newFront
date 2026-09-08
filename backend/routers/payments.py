@@ -14,6 +14,7 @@ from dependencies.auth import get_current_user
 from services.manual_payment_service import (
     ManualPaymentError,
     declare as declare_manual_payment,
+    list_for_reservations as list_payment_records,
 )
 from services.mysql_user_service import _connect
 
@@ -482,8 +483,11 @@ async def transfer_info(
     start_time = reservation.get("tour_start_time")
     reservation_status = reservation.get("status")
     block_reason = NON_PAYABLE_REASON.get(reservation_status)
+    record = list_payment_records([reservation_number]).get(reservation_number) or {}
 
     return {
+        "paymentChannel": record.get("channel"),
+        "paymentOrderNo": record.get("external_order_no"),
         "amount": amount,
         "isLastMinute": _is_last_minute(tour_date),
         "paymentStatus": reservation.get("payment_status") or "unpaid",

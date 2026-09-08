@@ -11,6 +11,8 @@ class ReservationItem {
     required this.destination,
     required this.desiredCourse,
     required this.numberOfPeople,
+    required this.paymentChannel,
+    required this.paymentOrderNo,
   });
 
   final String reservationNumber;
@@ -25,6 +27,11 @@ class ReservationItem {
   final String desiredCourse;
   final int numberOfPeople;
 
+  /// 최신 결제 알림의 수단('bank_transfer' | 'naver')과 스토어 주문번호.
+  /// 고객에게 보여줄 단계가 이 값에 따라 갈린다(CustomerStage 참고).
+  final String? paymentChannel;
+  final String? paymentOrderNo;
+
   factory ReservationItem.fromJson(Map<String, dynamic> json) {
     return ReservationItem(
       reservationNumber: json['reservation_number']?.toString() ?? '',
@@ -38,6 +45,8 @@ class ReservationItem {
       destination: json['destination']?.toString() ?? '-',
       desiredCourse: json['desired_course']?.toString() ?? '-',
       numberOfPeople: (json['number_of_people'] as num?)?.toInt() ?? 0,
+      paymentChannel: json['payment_channel']?.toString(),
+      paymentOrderNo: json['payment_order_no']?.toString(),
     );
   }
 }

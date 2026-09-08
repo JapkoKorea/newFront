@@ -11,6 +11,7 @@ from services.mysql_reservation_service import (
     save_reservation_mysql,
 )
 from services.product_catalog import resolve_product_slug
+from services.manual_payment_service import list_for_reservations as list_payment_records
 from services.change_request_service import (
     ChangeRequestError,
     create_change_request,
@@ -97,6 +98,21 @@ def _serialize_row(row: dict[str, Any]) -> dict[str, Any]:
             result[key] = value.isoformat()
 
     return result
+
+
+def _with_payment_record(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """예약에 최신 결제 기록(수단, 주문번호)을 붙인다.
+
+    화면이 보여줄 단계가 결제 수단에 따라 갈린다. 스마트스토어는 주문번호가
+    있으면 대조할 근거가 있어 바로 "예약 진행중"이고, 계좌이체는 통장을
+    봐야 하므로 "입금 확인중"에 머문다.
+    """
+    records = list_payment_records([r["reservation_number"] for r in rows])
+    for row in rows:
+        record = records.get(row["reservation_number"])
+        row["payment_channel"] = record.get("channel") if record else None
+        row["payment_order_no"] = record.get("external_order_no") if record else None
+    return rows
 
 
 def _with_change_window(row: dict[str, Any]) -> dict[str, Any]:
@@ -218,7 +234,11 @@ async def list_reservations(
                 reservation = cursor.fetchone()
                 if not reservation:
                     raise HTTPException(status_code=404, detail="Reservation not found")
-                return {"reservations": [_with_change_window(_serialize_row(reservation))]}
+                return {
+                    "reservations": _with_payment_record(
+                        [_with_change_window(_serialize_row(reservation))]
+                    )
+                }
 
             cursor.execute(
                 """
@@ -235,7 +255,11 @@ async def list_reservations(
                 (user_id,),
             )
             rows = cursor.fetchall()
-            return {"reservations": [_with_change_window(_serialize_row(row)) for row in rows]}
+            return {
+                "reservations": _with_payment_record(
+                    [_with_change_window(_serialize_row(row)) for row in rows]
+                )
+            }
     finally:
         conn.close()
 

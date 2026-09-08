@@ -497,7 +497,12 @@ class _ReservationDetail extends StatelessWidget {
   /// 지금은 계좌이체와 스마트스토어로 받고, 확인은 사람이 한다.
   /// 그래서 "결제 완료"와 "확인 완료" 사이에 시간이 있다는 것을 알려야 한다.
   String _paymentGuideText(ReservationItem value) {
-    return CustomerStage.of(value.status, value.paymentStatus).detail;
+    return CustomerStage.of(
+      value.status,
+      value.paymentStatus,
+      channel: value.paymentChannel,
+      orderNo: value.paymentOrderNo,
+    ).detail;
   }
 }
 
@@ -537,7 +542,12 @@ class _StageBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final CustomerStage stage = CustomerStage.of(item.status, item.paymentStatus);
+    final CustomerStage stage = CustomerStage.of(
+      item.status,
+      item.paymentStatus,
+      channel: item.paymentChannel,
+      orderNo: item.paymentOrderNo,
+    );
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
