@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { DirectionsRenderer } from '@react-google-maps/api';
+import { useGoogleMap } from '@react-google-maps/api';
 import { COORDS_DICT } from '@/lib/spotCoords.js';
+import { clearRoute, computeRoute, drawRoute } from '@/lib/routePath.js';
 
 const normalizeLocationKey = (location) => {
   if (typeof location !== 'string') return '';
@@ -16,15 +17,17 @@ const RouteRenderer = ({
   customSpotCoords = {},
   onRouteChange,
 }) => {
+  const map = useGoogleMap();
   const requestSequenceRef = useRef(0);
-  const [directionsResult, setDirectionsResult] = useState(null);
+  const polylinesRef = useRef([]);
   const debounceTimeoutRef = useRef(null);
+  const [, setRoute] = useState(null);
 
   // 좌표 변환 유틸리티
   const getCoordinates = useCallback((location) => {
     if (!location) return null;
     const normalizedLocation = normalizeLocationKey(location);
-    
+
     if (customSpotCoords[normalizedLocation]) {
       return customSpotCoords[normalizedLocation];
     }
@@ -33,7 +36,7 @@ const RouteRenderer = ({
     if (COORDS_DICT[normalizedLocation]) {
       return COORDS_DICT[normalizedLocation];
     }
-    
+
     // 직접 입력된 좌표인지 확인
     if (normalizedLocation.includes(',')) {
       const [lat, lng] = normalizedLocation.split(',').map(coord => parseFloat(coord.trim()));
@@ -41,7 +44,7 @@ const RouteRenderer = ({
         return { lat, lng };
       }
     }
-    
+
     return null;
   }, [customSpotCoords]);
 
@@ -49,11 +52,13 @@ const RouteRenderer = ({
   const calculateRoute = useCallback(() => {
     const bail = () => {
       requestSequenceRef.current += 1;
-      setDirectionsResult(null);
+      clearRoute(polylinesRef.current);
+      polylinesRef.current = [];
+      setRoute(null);
       onRouteChange?.(null);
     };
 
-    if (!departure) {
+    if (!map || !departure) {
       bail();
       return;
     }
@@ -84,12 +89,6 @@ const RouteRenderer = ({
       waypointCoords = spotCoords.slice(0, -1);
     }
 
-    // 경유지 처리
-    const waypoints = waypointCoords.map((coords) => ({
-      location: coords,
-      stopover: true,
-    }));
-
     // 디바운싱 처리
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
@@ -97,48 +96,31 @@ const RouteRenderer = ({
 
     const requestSeq = ++requestSequenceRef.current;
 
-    debounceTimeoutRef.current = setTimeout(() => {
-      // 요청할 때마다 새로 만든다. 마운트 시점에 만들어 두면 지도 모듈이
-      // 아직 준비되기 전이라, route() 를 불러도 요청이 나가지 않고 콜백도
-      // 오지 않는 인스턴스가 된다(경로선이 영영 안 그려짐).
-      const service = window.google?.maps?.DirectionsService
-        ? new window.google.maps.DirectionsService()
-        : null;
-      if (!service) {
-        setDirectionsResult(null);
-        onRouteChange?.(null);
-        return;
-      }
+    debounceTimeoutRef.current = setTimeout(async () => {
+      try {
+        const route = await computeRoute(departureCoords, destinationCoords, waypointCoords);
+        // 요청이 도는 사이에 경로가 또 바뀌었으면 이 결과는 버린다.
+        if (requestSeq !== requestSequenceRef.current) return;
 
-      service.route(
-        {
-          origin: departureCoords,
-          destination: destinationCoords,
-          waypoints: waypoints,
-          travelMode: window.google.maps.TravelMode.DRIVING,
-          optimizeWaypoints: false,
-        },
-        (result, status) => {
-          if (requestSeq !== requestSequenceRef.current) {
-            return;
-          }
-          if (status === 'OK') {
-            setDirectionsResult(result);
-            onRouteChange?.(result);
-          } else {
-            console.error('Directions request failed:', status);
-            setDirectionsResult(null);
-            onRouteChange?.(null);
-          }
-        }
-      );
+        clearRoute(polylinesRef.current);
+        polylinesRef.current = route ? drawRoute(route, map) : [];
+        setRoute(route);
+        onRouteChange?.(route);
+      } catch (error) {
+        if (requestSeq !== requestSequenceRef.current) return;
+        console.error('경로 계산 실패:', error);
+        clearRoute(polylinesRef.current);
+        polylinesRef.current = [];
+        setRoute(null);
+        onRouteChange?.(null);
+      }
     }, 300); // 300ms 디바운싱
-  }, [departure, destination, departureCoordinate, destinationCoordinate, spots, getCoordinates, onRouteChange]);
+  }, [map, departure, destination, departureCoordinate, destinationCoordinate, spots, getCoordinates, onRouteChange]);
 
   // 경로 재계산
   useEffect(() => {
     calculateRoute();
-    
+
     return () => {
       requestSequenceRef.current += 1;
       if (debounceTimeoutRef.current) {
@@ -147,20 +129,14 @@ const RouteRenderer = ({
     };
   }, [calculateRoute]);
 
-  return directionsResult ? (
-    <DirectionsRenderer
-      directions={directionsResult}
-      options={{
-        suppressMarkers: true, // 기본 마커 숨김 (커스텀 마커 사용)
-        preserveViewport: true,
-        polylineOptions: {
-          strokeColor: '#f59e0b',
-          strokeWeight: 4,
-          strokeOpacity: 0.8,
-        },
-      }}
-    />
-  ) : null;
+  // 화면을 떠날 때 그려 둔 선을 지운다.
+  useEffect(() => () => {
+    clearRoute(polylinesRef.current);
+    polylinesRef.current = [];
+  }, []);
+
+  // 선은 지도 객체에 직접 붙이므로 그릴 것이 없다.
+  return null;
 };
 
-export default RouteRenderer; 
+export default RouteRenderer;

@@ -21,6 +21,7 @@ import {
 } from '@/lib/placeUtils.js'
 import { fetchPlacePredictions, resolvePrediction } from '@/lib/placesSearch.js'
 import { useMapsLoader } from '@/lib/mapsLoader.js'
+import { clearRoute, computeRoute, drawRoute } from '@/lib/routePath.js'
 import MarkerWithLabel from '@/components/MarkerWithLabel.jsx'
 import { GripVertical, Clock, Camera, Search, X } from 'lucide-react'
 
@@ -89,7 +90,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
   const mapRef = useRef(null)
   const debounceRef = useRef(null)
   const requestSeqRef = useRef(0)
-  const directionsRendererRef = useRef(null)
+  const routePolylinesRef = useRef([])
 
   const [departure, setDeparture] = useState(() => makePlace(routePreset.departure))
   const [destination, setDestination] = useState(() => makePlace(routePreset.destination))
@@ -107,7 +108,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
 
   const [draggedIndex, setDraggedIndex] = useState(null)
   const [dragOverIndex, setDragOverIndex] = useState(null)
-  const [directionsResult, setDirectionsResult] = useState(null)
+  const [routeResult, setRouteResult] = useState(null)
 
   const depCoord = departure.coord || resolveCoord(departure.name)
   const destCoord = destination.coord || resolveCoord(destination.name)
@@ -128,11 +129,9 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
 
   const clearRouteOverlay = useCallback(() => {
     requestSeqRef.current += 1
-    setDirectionsResult(null)
-    if (directionsRendererRef.current) {
-      directionsRendererRef.current.setMap(null)
-      directionsRendererRef.current = null
-    }
+    setRouteResult(null)
+    clearRoute(routePolylinesRef.current)
+    routePolylinesRef.current = []
   }, [])
 
   useEffect(() => {
@@ -145,28 +144,17 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
     const requestSeq = ++requestSeqRef.current
     const routeSpotCoords = spots.map((spot) => resolveCoord(spot) || customSpotCoords[normalizePlaceName(spot)] || null)
 
-    debounceRef.current = setTimeout(() => {
-      const waypoints = routeSpotCoords
-        .filter(Boolean)
-        .map((coord) => ({ location: coord, stopover: true }))
-
-      new window.google.maps.DirectionsService().route(
-        {
-          origin: depCoord,
-          destination: destCoord,
-          waypoints,
-          travelMode: window.google.maps.TravelMode.DRIVING,
-          optimizeWaypoints: false,
-        },
-        (result, status) => {
-          if (requestSeq !== requestSeqRef.current) return
-          if (status === 'OK') {
-            setDirectionsResult(result)
-            return
-          }
-          clearRouteOverlay()
-        }
-      )
+    debounceRef.current = setTimeout(async () => {
+      const waypoints = routeSpotCoords.filter(Boolean)
+      try {
+        const route = await computeRoute(depCoord, destCoord, waypoints)
+        if (requestSeq !== requestSeqRef.current) return
+        setRouteResult(route)
+      } catch (error) {
+        if (requestSeq !== requestSeqRef.current) return
+        console.error('경로 계산 실패:', error)
+        clearRouteOverlay()
+      }
     }, 350)
 
     return () => {
@@ -185,34 +173,18 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
   }, [departure.name, destination.name, spots, customSpotCoords, onRouteStateChange])
 
   useEffect(() => {
-    if (!isLoaded || !mapRef.current || !window.google?.maps) return
+    if (!isLoaded || !mapRef.current) return
 
-    if (!directionsResult) {
-      if (directionsRendererRef.current) {
-        directionsRendererRef.current.setMap(null)
-        directionsRendererRef.current = null
-      }
-      return
-    }
-
-    if (!directionsRendererRef.current) {
-      directionsRendererRef.current = new window.google.maps.DirectionsRenderer({
-        suppressMarkers: true,
-        preserveViewport: true,
-        polylineOptions: { strokeColor: '#EAB308', strokeWeight: 4, strokeOpacity: 0.9 },
-      })
-    }
-
-    directionsRendererRef.current.setMap(mapRef.current)
-    directionsRendererRef.current.setDirections(directionsResult)
-  }, [isLoaded, directionsResult])
+    clearRoute(routePolylinesRef.current)
+    routePolylinesRef.current = routeResult
+      ? drawRoute(routeResult, mapRef.current, { strokeColor: '#EAB308', strokeOpacity: 0.9 })
+      : []
+  }, [isLoaded, routeResult])
 
   useEffect(() => {
     return () => {
-      if (directionsRendererRef.current) {
-        directionsRendererRef.current.setMap(null)
-        directionsRendererRef.current = null
-      }
+      clearRoute(routePolylinesRef.current)
+      routePolylinesRef.current = []
     }
   }, [])
 
