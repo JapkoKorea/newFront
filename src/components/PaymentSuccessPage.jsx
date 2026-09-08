@@ -10,7 +10,7 @@ import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
 
 function PaymentSuccessPage() {
   const router = useRouter()
-  const [searchParams] = useSearchParams()
+  const searchParams = useSearchParams()
   const paymentKey = searchParams.get('paymentKey') || ''
   const orderId = searchParams.get('orderId') || ''
   const amount = Number(searchParams.get('amount') || 0)

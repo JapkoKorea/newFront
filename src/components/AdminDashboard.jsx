@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, Loader2, RefreshCw, Send, Star } from 'lucide-react'
+import { Eye, EyeOff, Loader2, RefreshCw, Send, Star, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
 import {
   fetchAdminMe,
@@ -13,10 +13,11 @@ import {
   fetchConversations,
   replyToConversation,
   resolveChangeRequest,
+  setReservationPaymentStatus,
   setReviewVisibility,
   updateReservationStatus,
 } from '@/lib/admin.js'
-import { statusLabel, statusTone } from '@/lib/reservationStatus.js'
+import { paymentLabel, paymentTone, statusLabel, statusTone } from '@/lib/reservationStatus.js'
 
 const TABS = [
   { key: 'reservations', label: '예약' },
@@ -240,9 +241,51 @@ export default function AdminDashboard() {
                         <p className="text-gray-600">{item.departure} → {item.destination}</p>
                         <p className="text-gray-600 sm:col-span-2">{item.desired_course}</p>
                         <p className="text-xs text-gray-500 sm:col-span-2">
-                          연락처 {item.contact_number} · 결제 {item.payment_status}
+                          연락처 {item.contact_number}
+                          <span className={`ml-2 rounded-full border px-2 py-0.5 ${paymentTone(item.payment_status)}`}>
+                            {paymentLabel(item.payment_status)}
+                          </span>
                         </p>
                       </div>
+
+                      {/* 입금 확인. 계좌이체를 받는 동안 통장을 보고 사람이 판단한다.
+                          예약 상태와는 분리돼 있어 어느 상태에서든 누를 수 있다. */}
+                      {item.payment_status !== 'paid' ? (
+                        <div className="mt-3">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-emerald-300 text-emerald-800 hover:bg-emerald-50"
+                            disabled={busy === `pay-${item.reservation_number}`}
+                            onClick={() =>
+                              act(`pay-${item.reservation_number}`, () =>
+                                setReservationPaymentStatus(item.reservation_number, 'paid'),
+                              )
+                            }
+                          >
+                            <Wallet className="mr-1 h-4 w-4" />
+                            입금 확인
+                          </Button>
+                          {item.payment_status === 'ready' ? (
+                            <span className="ml-2 text-xs text-amber-700">고객이 입금했다고 알렸습니다</span>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <div className="mt-3">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={busy === `pay-${item.reservation_number}`}
+                            onClick={() =>
+                              act(`pay-${item.reservation_number}`, () =>
+                                setReservationPaymentStatus(item.reservation_number, 'unpaid'),
+                              )
+                            }
+                          >
+                            입금 확인 취소
+                          </Button>
+                        </div>
+                      )}
 
                       {item.status === 'pending' ? (
                         <div className="mt-4 flex gap-2">
@@ -322,6 +365,45 @@ export default function AdminDashboard() {
                       <p className="mt-1 text-sm text-gray-600">
                         사유: {item.reason || '(없음)'}
                       </p>
+
+                      {/* 입금 확인. 계좌이체를 받는 동안 통장을 보고 사람이 판단한다.
+                          예약 상태와는 분리돼 있어 어느 상태에서든 누를 수 있다. */}
+                      {item.payment_status !== 'paid' ? (
+                        <div className="mt-3">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-emerald-300 text-emerald-800 hover:bg-emerald-50"
+                            disabled={busy === `pay-${item.reservation_number}`}
+                            onClick={() =>
+                              act(`pay-${item.reservation_number}`, () =>
+                                setReservationPaymentStatus(item.reservation_number, 'paid'),
+                              )
+                            }
+                          >
+                            <Wallet className="mr-1 h-4 w-4" />
+                            입금 확인
+                          </Button>
+                          {item.payment_status === 'ready' ? (
+                            <span className="ml-2 text-xs text-amber-700">고객이 입금했다고 알렸습니다</span>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <div className="mt-3">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={busy === `pay-${item.reservation_number}`}
+                            onClick={() =>
+                              act(`pay-${item.reservation_number}`, () =>
+                                setReservationPaymentStatus(item.reservation_number, 'unpaid'),
+                              )
+                            }
+                          >
+                            입금 확인 취소
+                          </Button>
+                        </div>
+                      )}
 
                       {item.status === 'pending' ? (
                         <div className="mt-4 flex gap-2">

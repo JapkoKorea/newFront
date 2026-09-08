@@ -25,6 +25,10 @@ from services.reservation_admin_service import (
     get_reservation_for_admin,
     list_reservations_for_admin,
 )
+from services.payment_admin_service import (
+    PaymentAdminError,
+    set_payment_status,
+)
 from services.review_service import (
     ReviewError,
     list_reviews_for_admin,
@@ -215,5 +219,26 @@ async def update_review_status(
     try:
         return set_review_status(review_id, payload.status, payload.reason)
     except ReviewError as error:
+        status_code = 404 if error.code == "not_found" else 400
+        raise HTTPException(status_code=status_code, detail=error.message) from error
+
+
+class PaymentStatusPayload(BaseModel):
+    payment_status: Literal["paid", "unpaid"]
+
+
+@router.patch("/reservations/{reservation_number}/payment")
+async def update_payment_status(
+    reservation_number: str,
+    payload: PaymentStatusPayload,
+    current_admin: dict[str, Any] = Depends(get_current_admin),
+):
+    """입금 확인. 통장을 보고 결제 완료로 바꾸거나 되돌린다.
+
+    예약 상태는 건드리지 않는다. 입금이 확인돼도 예약 확정은 따로 판단한다.
+    """
+    try:
+        return set_payment_status(reservation_number, payload.payment_status)
+    except PaymentAdminError as error:
         status_code = 404 if error.code == "not_found" else 400
         raise HTTPException(status_code=status_code, detail=error.message) from error

@@ -1,210 +1,139 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
-import { CreditCard, Loader2, MapPin, ShieldCheck, Wallet } from 'lucide-react'
+import {
+  ArrowLeft,
+  Check,
+  Copy,
+  ExternalLink,
+  Landmark,
+  Loader2,
+  MapPin,
+  MessageCircle,
+  ShoppingBag,
+} from 'lucide-react'
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
+import { paymentLabel, paymentTone } from '@/lib/reservationStatus.js'
+import {
+  BANK_ACCOUNT,
+  KAKAO_CHANNEL_URL,
+  NAVER_STORE_URL,
+  hasBankAccount,
+} from '@/lib/paymentChannels.js'
+import ChatSupport from '@/components/ChatSupport.jsx'
 
+/**
+ * 결제 안내 화면.
+ *
+ * 카드 결제(토스)는 심사 전까지 내려 두고 두 가지로 받는다.
+ *  - 계좌이체: 계좌와 금액을 보여주고, 입금했다는 알림을 받는다.
+ *  - 네이버쇼핑: 스마트스토어 상품 페이지로 보낸다.
+ *
+ * 입금 확인은 사람이 한다. "입금 완료"를 눌러도 결제 대기까지만 가고,
+ * 운영자가 통장을 확인해야 결제 완료가 된다. 예약 상태는 여기서 바뀌지 않는다.
+ */
 function PaymentPage() {
   const router = useRouter()
-  const [searchParams] = useSearchParams()
+  const searchParams = useSearchParams()
   const reservationNumber = searchParams.get('reservation_number') || ''
 
-  const [userId, setUserId] = useState('')
-  const [reservation, setReservation] = useState(null)
-  const [prepareData, setPrepareData] = useState(null)
-  const [widgets, setWidgets] = useState(null)
-  const [isRenderingWidget, setIsRenderingWidget] = useState(false)
-  const [isReady, setIsReady] = useState(false)
+  const [info, setInfo] = useState(null)
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
+  const [declaring, setDeclaring] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [isChatOpen, setIsChatOpen] = useState(false)
 
-  const amountText = useMemo(() => {
-    if (!prepareData?.amount) return '-'
-    return `${Number(prepareData.amount).toLocaleString()}원`
-  }, [prepareData])
+  const load = useCallback(async () => {
+    if (!reservationNumber) {
+      setLoading(false)
+      setErrorMessage('예약번호가 없습니다. 예약 확인 화면에서 다시 들어와 주세요.')
+      return
+    }
+    setLoading(true)
+    setErrorMessage('')
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/payments/transfer-info?reservation_number=${encodeURIComponent(reservationNumber)}`,
+        { headers: getAuthHeaders() },
+      )
+      const data = await response.json()
+      if (!response.ok) throw new Error(data?.detail || `HTTP ${response.status}`)
+      setInfo(data)
+    } catch (error) {
+      setErrorMessage(error.message || '예약 정보를 불러오지 못했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }, [reservationNumber])
 
   useEffect(() => {
-    const userRaw = localStorage.getItem('user')
-    if (!userRaw) {
+    if (!localStorage.getItem('jwt')) {
       setLoading(false)
       setErrorMessage('로그인이 필요합니다.')
       return
     }
+    load()
+  }, [load])
 
+  const copyAccount = async () => {
     try {
-      const parsed = JSON.parse(userRaw)
-      const id = (parsed?.user_id || '').trim()
-      if (!id) {
-        setLoading(false)
-        setErrorMessage('사용자 정보가 올바르지 않습니다. 다시 로그인해 주세요.')
-        return
-      }
-      setUserId(id)
+      await navigator.clipboard.writeText(BANK_ACCOUNT.number)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     } catch {
-      setLoading(false)
-      setErrorMessage('로그인 정보를 읽을 수 없습니다.')
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!userId || !reservationNumber) return
-
-    const fetchData = async () => {
-      setLoading(true)
-      setErrorMessage('')
-      try {
-        const reservationResponse = await fetch(
-          `${API_BASE_URL}/api/reservations?reservation_number=${encodeURIComponent(reservationNumber)}`,
-          {
-            headers: getAuthHeaders(),
-          }
-        )
-        const reservationJson = await reservationResponse.json()
-        if (!reservationResponse.ok) {
-          throw new Error(reservationJson?.detail || `HTTP ${reservationResponse.status}`)
-        }
-
-        const targetReservation = reservationJson?.reservations?.[0]
-        if (!targetReservation) {
-          throw new Error('예약 정보를 찾을 수 없습니다.')
-        }
-        setReservation(targetReservation)
-
-        const prepareResponse = await fetch(
-          `${API_BASE_URL}/api/payments/prepare?reservation_number=${encodeURIComponent(reservationNumber)}`,
-          {
-            method: 'POST',
-            headers: getAuthHeaders(),
-          }
-        )
-        const prepareJson = await prepareResponse.json()
-        if (!prepareResponse.ok) {
-          throw new Error(prepareJson?.detail || `HTTP ${prepareResponse.status}`)
-        }
-
-        setPrepareData(prepareJson)
-      } catch (error) {
-        setErrorMessage(error?.message || '결제 준비 중 오류가 발생했습니다.')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchData()
-  }, [userId, reservationNumber])
-
-  useEffect(() => {
-    if (!prepareData?.client_key || !prepareData?.customer_key) return
-
-    let isActive = true
-
-    const initialize = async () => {
-      try {
-        const tossPayments = await loadTossPayments(prepareData.client_key)
-        const nextWidgets = tossPayments.widgets({ customerKey: prepareData.customer_key })
-        if (isActive) {
-          setWidgets(nextWidgets)
-        }
-      } catch {
-        if (isActive) {
-          setErrorMessage('결제 위젯 초기화에 실패했습니다. 잠시 후 다시 시도해 주세요.')
-        }
-      }
-    }
-
-    initialize()
-
-    return () => {
-      isActive = false
-    }
-  }, [prepareData])
-
-  useEffect(() => {
-    if (!widgets || !prepareData) return
-
-    let paymentMethodWidget = null
-    let agreementWidget = null
-    let isDisposed = false
-
-    const renderWidgets = async () => {
-      setIsRenderingWidget(true)
-      setIsReady(false)
-      try {
-        await widgets.setAmount({
-          currency: prepareData.currency,
-          value: prepareData.amount,
-        })
-
-        paymentMethodWidget = await widgets.renderPaymentMethods({
-          selector: '#payment-method',
-          variantKey: 'DEFAULT',
-        })
-
-        agreementWidget = await widgets.renderAgreement({
-          selector: '#agreement',
-          variantKey: 'AGREEMENT',
-        })
-
-        if (!isDisposed) {
-          setIsReady(true)
-        }
-      } catch {
-        if (!isDisposed) {
-          setErrorMessage('결제 UI 렌더링에 실패했습니다. 페이지를 새로고침해 주세요.')
-        }
-      } finally {
-        if (!isDisposed) {
-          setIsRenderingWidget(false)
-        }
-      }
-    }
-
-    renderWidgets()
-
-    return () => {
-      isDisposed = true
-      if (paymentMethodWidget?.destroy) {
-        paymentMethodWidget.destroy()
-      }
-      if (agreementWidget?.destroy) {
-        agreementWidget.destroy()
-      }
-    }
-  }, [widgets, prepareData])
-
-  const handleRequestPayment = async () => {
-    if (!widgets || !prepareData || !isReady) return
-
-    try {
-      await widgets.requestPayment({
-        orderId: prepareData.order_id,
-        orderName: prepareData.order_name,
-        successUrl: prepareData.success_url,
-        failUrl: prepareData.fail_url,
-        customerName: prepareData.customer_name,
-        customerMobilePhone: prepareData.customer_mobile_phone,
-      })
-    } catch {
-      setErrorMessage('결제창을 열지 못했습니다. 팝업 차단 여부를 확인해 주세요.')
+      setErrorMessage('복사에 실패했습니다. 계좌번호를 직접 입력해 주세요.')
     }
   }
 
-  if (!localStorage.getItem('jwt')) {
+  const declareTransfer = async () => {
+    setDeclaring(true)
+    setErrorMessage('')
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/payments/transfer/declare?reservation_number=${encodeURIComponent(reservationNumber)}`,
+        { method: 'POST', headers: getAuthHeaders() },
+      )
+      const data = await response.json()
+      if (!response.ok) throw new Error(data?.detail || `HTTP ${response.status}`)
+      setInfo((prev) => (prev ? { ...prev, paymentStatus: data.paymentStatus } : prev))
+    } catch (error) {
+      setErrorMessage(error.message || '입금 확인 요청에 실패했습니다.')
+    } finally {
+      setDeclaring(false)
+    }
+  }
+
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-20 px-4">
-        <div className="max-w-3xl mx-auto">
-          <Card className="border-yellow-200 bg-yellow-50">
-            <CardHeader>
-              <CardTitle className="text-xl text-gray-900">결제를 위해 로그인이 필요해요</CardTitle>
-            </CardHeader>
-            <CardContent className="flex gap-3">
-              <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => router.push('/login')}>카카오 로그인</Button>
-              <Button variant="outline" onClick={() => router.push('/reservations')}>예약 확인으로</Button>
+      <div className="flex min-h-screen items-center justify-center pt-20">
+        <div className="text-center text-gray-500">
+          <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin text-yellow-500" />
+          결제 안내를 불러오는 중입니다
+        </div>
+      </div>
+    )
+  }
+
+  if (errorMessage && !info) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4 py-24">
+        <div className="mx-auto max-w-2xl">
+          <Card className="border-rose-200 bg-rose-50">
+            <CardContent className="space-y-4 py-10">
+              <p className="text-rose-700">{errorMessage}</p>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => router.push('/reservations')}>
+                  예약 확인으로
+                </Button>
+                <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => router.push('/login')}>
+                  카카오 로그인
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -212,94 +141,226 @@ function PaymentPage() {
     )
   }
 
+  const reservation = info?.reservation || {}
+  const amount = Number(info?.amount || 0)
+  const paymentStatus = info?.paymentStatus || 'unpaid'
+  const declared = paymentStatus === 'ready'
+  const settled = paymentStatus === 'paid'
+  const accountReady = hasBankAccount()
+
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#fff6d5_0%,_#ffffff_55%)] py-24 px-4">
-      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-1 border-yellow-200 bg-white/90 backdrop-blur">
-          <CardHeader>
+    <div className="min-h-screen bg-gray-50 px-4 py-24">
+      <div className="mx-auto max-w-3xl space-y-5">
+        <div className="flex items-center justify-between">
+          <div>
             <p className="text-xs tracking-[0.2em] text-yellow-700">PAYMENT</p>
-            <CardTitle className="text-2xl">결제 페이지</CardTitle>
+            <h1 className="mt-1 text-2xl font-bold text-gray-900">예약금 결제</h1>
+          </div>
+          <Badge className={`border ${paymentTone(paymentStatus)}`}>{paymentLabel(paymentStatus)}</Badge>
+        </div>
+
+        {/* 예약 정보 — 입금할 때 참고할 내용이 여기 다 있어야 한다 */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">예약 정보</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 text-sm">
-            {reservationNumber ? (
-              <p><span className="text-gray-500">예약번호:</span> <span className="font-medium break-all">{reservationNumber}</span></p>
-            ) : (
-              <p className="text-rose-600">예약번호가 없습니다. 예약 확인 페이지에서 다시 진입해 주세요.</p>
-            )}
-
-            {reservation && (
-              <>
-                <div className="rounded-lg border border-yellow-100 bg-yellow-50/60 p-3">
-                  <p className="text-gray-500">일정</p>
-                  <p className="font-medium">{reservation.tour_date} {String(reservation.tour_start_time || '').slice(0, 5)}</p>
-                </div>
-                <div className="rounded-lg border border-yellow-100 bg-yellow-50/60 p-3">
-                  <p className="text-gray-500">경로</p>
-                  <p className="font-medium flex items-center gap-2"><MapPin className="h-4 w-4 text-yellow-600" />{reservation.departure} → {reservation.destination}</p>
-                </div>
-              </>
-            )}
-
-            <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
-              <p className="text-xs text-yellow-700">최종 결제 금액</p>
-              <p className="text-3xl font-bold text-yellow-800 mt-1">{amountText}</p>
-              <p className="text-xs text-gray-600 mt-2">카드/계좌이체를 동일한 결제창에서 선택할 수 있습니다.</p>
+          <CardContent className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+            <div>
+              <p className="text-gray-500">예약번호</p>
+              <p className="font-medium break-all text-gray-900">{reservation.reservationNumber}</p>
             </div>
-
-            <div className="flex items-center gap-2 text-xs text-gray-600">
-              <ShieldCheck className="h-4 w-4 text-emerald-600" />
-              결제 승인 검증은 서버에서 시크릿 키로 처리됩니다.
+            <div>
+              <p className="text-gray-500">예약자</p>
+              <p className="font-medium text-gray-900">{reservation.englishName || '-'}</p>
             </div>
-
-            <Button variant="outline" className="w-full" onClick={() => router.push('/reservations')}>예약 확인으로 돌아가기</Button>
+            <div>
+              <p className="text-gray-500">일정</p>
+              <p className="font-medium text-gray-900">
+                {reservation.tourDate} {reservation.tourStartTime || ''}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-500">인원 / 이용 시간</p>
+              <p className="font-medium text-gray-900">
+                {reservation.numberOfPeople}명 / {reservation.durationHours}시간
+              </p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="text-gray-500">경로</p>
+              <p className="flex items-center gap-1.5 font-medium text-gray-900">
+                <MapPin className="h-4 w-4 text-yellow-600" />
+                {reservation.departure} → {reservation.destination}
+              </p>
+            </div>
+            {reservation.desiredCourse ? (
+              <div className="sm:col-span-2">
+                <p className="text-gray-500">코스</p>
+                <p className="text-gray-700">{reservation.desiredCourse}</p>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 
-        <div className="lg:col-span-2 space-y-4">
-          {loading ? (
-            <Card>
-              <CardContent className="py-16 text-center text-gray-600">
-                <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
-                결제 정보를 준비하는 중입니다...
-              </CardContent>
-            </Card>
-          ) : errorMessage ? (
-            <Card className="border-rose-200 bg-rose-50">
-              <CardContent className="py-10 space-y-4">
-                <p className="text-rose-700">{errorMessage}</p>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => router.push('/reservations')}>예약 확인으로</Button>
-                  <Button className="bg-yellow-500 hover:bg-yellow-600" onClick={() => window.location.reload()}>다시 시도</Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              <Card className="border-yellow-200 bg-white/95">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2"><Wallet className="h-5 w-5 text-yellow-600" />결제 수단 선택</CardTitle>
-                  <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 border">Toss Payments</Badge>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div id="payment-method" className="min-h-[220px]" />
-                  <div id="agreement" />
-                </CardContent>
-              </Card>
+        {/* 금액 */}
+        <Card className="border-yellow-200 bg-yellow-50">
+          <CardContent className="py-5">
+            <p className="text-xs text-yellow-800">입금하실 금액</p>
+            <p className="mt-1 text-3xl font-bold text-yellow-900">{amount.toLocaleString()}원</p>
+            <p className="mt-2 text-xs text-gray-600">
+              {info?.isLastMinute
+                ? '전일 또는 당일 예약이라 예약금이 20,000원으로 적용됩니다.'
+                : '예약금입니다. 현지 택시 요금은 투어 당일 기사님께 정산합니다.'}
+            </p>
+          </CardContent>
+        </Card>
 
-              <div className="flex justify-end">
-                <Button
-                  className="bg-yellow-500 hover:bg-yellow-600 min-w-44"
-                  onClick={handleRequestPayment}
-                  disabled={!isReady || isRenderingWidget || !reservationNumber}
-                >
-                  {isRenderingWidget ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CreditCard className="h-4 w-4 mr-2" />}
-                  결제 진행
-                </Button>
+        {settled ? (
+          <Card className="border-emerald-200 bg-emerald-50">
+            <CardContent className="py-5 text-sm text-emerald-800">
+              <p className="flex items-center gap-1.5 font-medium">
+                <Check className="h-4 w-4" />
+                입금이 확인되었습니다.
+              </p>
+              <p className="mt-1 text-emerald-700">예약 확정 여부는 예약 확인 화면에서 알려드립니다.</p>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {declared && !settled ? (
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="py-5 text-sm text-amber-900">
+              <p className="font-medium">입금 확인을 요청하셨습니다.</p>
+              <p className="mt-1 text-amber-800">
+                통장 확인 후 결제 완료로 변경해 드립니다. 확인까지 시간이 걸릴 수 있습니다.
+              </p>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {/* 계좌이체 */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Landmark className="h-5 w-5 text-yellow-600" />
+              계좌이체
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {accountReady ? (
+              <>
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-gray-500">입금 계좌</p>
+                      <p className="mt-1 text-lg font-bold text-gray-900">
+                        {BANK_ACCOUNT.bank} {BANK_ACCOUNT.number}
+                      </p>
+                      <p className="mt-1 text-sm text-gray-600">예금주 {BANK_ACCOUNT.holder}</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={copyAccount}>
+                      {copied ? <Check className="mr-1 h-4 w-4" /> : <Copy className="mr-1 h-4 w-4" />}
+                      {copied ? '복사됨' : '복사'}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-blue-50 p-3 text-sm text-blue-900">
+                  <p className="font-medium">입금자명을 예약자 성함으로 넣어 주세요.</p>
+                  <p className="mt-1 text-blue-800">
+                    다르게 입금하시는 경우 문의로 알려 주시면 확인이 빠릅니다.
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button
+                    className="flex-1 bg-yellow-500 hover:bg-yellow-600"
+                    onClick={declareTransfer}
+                    disabled={declaring || declared || settled}
+                  >
+                    {declaring ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+                    {settled ? '입금 확인됨' : declared ? '확인 요청됨' : '입금 완료'}
+                  </Button>
+                  <Button variant="outline" className="flex-1" onClick={() => router.back()}>
+                    <ArrowLeft className="mr-1 h-4 w-4" />
+                    취소
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-sm">
+                <p className="font-medium text-gray-700">계좌 정보를 준비 중입니다.</p>
+                <p className="mt-1 text-gray-500">문의로 연락 주시면 계좌를 안내드립니다.</p>
               </div>
-            </>
-          )}
-        </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 네이버쇼핑 */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShoppingBag className="h-5 w-5 text-green-600" />
+              네이버쇼핑에서 결제
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-gray-600">
+              네이버페이로 결제하시려면 스마트스토어 상품 페이지에서 진행해 주세요. 결제 후 예약번호를
+              문의로 남겨 주시면 이 예약과 연결해 드립니다.
+            </p>
+            {NAVER_STORE_URL ? (
+              <Button
+                variant="outline"
+                className="w-full border-green-300 text-green-800 hover:bg-green-50"
+                onClick={() => window.open(NAVER_STORE_URL, '_blank', 'noopener,noreferrer')}
+              >
+                <ExternalLink className="mr-1 h-4 w-4" />
+                네이버쇼핑으로 이동
+              </Button>
+            ) : (
+              <Button variant="outline" className="w-full" disabled>
+                네이버쇼핑 연결 준비 중
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 문의 */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <MessageCircle className="h-5 w-5 text-yellow-600" />
+              문의하기
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => window.open(KAKAO_CHANNEL_URL, '_blank', 'noopener,noreferrer')}
+            >
+              <ExternalLink className="mr-1 h-4 w-4" />
+              카카오톡 채널로 문의
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={() => setIsChatOpen(true)}>
+              사이트에서 문의
+            </Button>
+          </CardContent>
+        </Card>
+
+        {errorMessage ? <p className="text-sm text-rose-600">{errorMessage}</p> : null}
+
+        <Button variant="ghost" className="w-full" onClick={() => router.push('/reservations')}>
+          예약 확인으로 돌아가기
+        </Button>
       </div>
+
+      {/* 어느 예약 문의인지 대화에 남는다 */}
+      <ChatSupport
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        reservationNumber={reservationNumber || null}
+      />
     </div>
   )
 }

@@ -9,7 +9,7 @@ import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
 
 function PaymentFailPage() {
   const router = useRouter()
-  const [searchParams] = useSearchParams()
+  const searchParams = useSearchParams()
   const code = searchParams.get('code') || 'PAYMENT_FAILED'
   const message = searchParams.get('message') || '결제 요청이 취소되었거나 실패했습니다.'
   const orderId = searchParams.get('orderId') || ''

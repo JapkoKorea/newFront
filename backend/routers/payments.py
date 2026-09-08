@@ -2,7 +2,7 @@ import base64
 import json
 import os
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 from typing import Any
 
@@ -59,6 +59,16 @@ def _serialize_row(row: dict[str, Any]) -> dict[str, Any]:
         if isinstance(value, datetime):
             result[key] = value.isoformat()
     return result
+
+
+def _format_time(value: Any) -> str | None:
+    """MySQL TIME 은 timedelta 로 온다. HH:MM 문자열로 바꾼다."""
+    if value is None:
+        return None
+    if isinstance(value, timedelta):
+        total = int(value.total_seconds())
+        return f"{total // 3600:02d}:{(total % 3600) // 60:02d}"
+    return str(value)[:5]
 
 
 def _find_reservation_for_payment(user_id: str, reservation_number: str):
@@ -425,3 +435,95 @@ async def payment_status(
     if not payment:
         return {"payment": None}
     return {"payment": _serialize_row(payment)}
+
+
+# ── 계좌이체 (토스 결제 비활성 기간) ─────────────────────────────
+
+# 입금은 사람이 확인한다. 고객이 "입금했다"고 알리면 결제 대기(ready)로 두고,
+# 운영자가 통장을 보고 결제 완료(paid)로 바꾼다. 예약 상태(pending/confirmed)는
+# 여기서 건드리지 않는다 — 결제와 예약은 별도로 관리한다.
+TRANSFER_DECLARED_STATUS = "ready"
+
+
+def _set_payment_status(user_id: str, reservation_number: str, status: str) -> None:
+    conn = _connect()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE reservations
+                SET payment_status = %s, payment_updated_at = %s
+                WHERE user_id = %s AND reservation_number = %s
+                """,
+                (status, datetime.now(), user_id, reservation_number),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+@router.get("/transfer-info")
+async def transfer_info(
+    reservation_number: str,
+    current_user: dict[str, Any] = Depends(get_current_user),
+):
+    """계좌이체 안내에 필요한 금액과 예약 요약.
+
+    금액 계산은 카드 결제와 같은 함수를 쓴다. 전일·당일 예약이 20,000원이 되는
+    규칙이 두 경로에서 어긋나면 안 된다.
+    """
+    user_id = str(current_user.get("user_id") or "").strip()
+    reservation = _find_reservation_for_payment(user_id, reservation_number)
+    if not reservation:
+        raise HTTPException(status_code=404, detail="예약을 찾을 수 없습니다")
+
+    amount = _calculate_amount_krw(reservation)
+    tour_date = reservation.get("tour_date")
+    start_time = reservation.get("tour_start_time")
+
+    return {
+        "amount": amount,
+        "isLastMinute": _is_last_minute(tour_date),
+        "paymentStatus": reservation.get("payment_status") or "unpaid",
+        "reservation": {
+            "reservationNumber": reservation.get("reservation_number"),
+            "status": reservation.get("status"),
+            "englishName": reservation.get("english_name"),
+            "contactNumber": reservation.get("contact_number"),
+            "tourDate": tour_date.isoformat() if hasattr(tour_date, "isoformat") else tour_date,
+            "tourStartTime": _format_time(start_time),
+            "durationHours": reservation.get("tour_duration_hours"),
+            "numberOfPeople": reservation.get("number_of_people"),
+            "departure": reservation.get("departure"),
+            "destination": reservation.get("destination"),
+            "desiredCourse": reservation.get("desired_course"),
+        },
+    }
+
+
+@router.post("/transfer/declare")
+async def declare_transfer(
+    reservation_number: str,
+    current_user: dict[str, Any] = Depends(get_current_user),
+):
+    """고객이 "입금했다"고 알린다. 확인은 운영자가 한다.
+
+    이 선언만으로 결제 완료가 되지는 않는다. 통장에 실제로 들어왔는지
+    확인하기 전까지는 결제 대기다.
+    """
+    user_id = str(current_user.get("user_id") or "").strip()
+    reservation = _find_reservation_for_payment(user_id, reservation_number)
+    if not reservation:
+        raise HTTPException(status_code=404, detail="예약을 찾을 수 없습니다")
+
+    if reservation.get("payment_status") == "paid":
+        return {"paymentStatus": "paid", "message": "이미 입금이 확인된 예약입니다."}
+
+    if reservation.get("status") in {"cancelled", "rejected"}:
+        raise HTTPException(status_code=400, detail="취소된 예약은 입금 확인을 요청할 수 없습니다")
+
+    _set_payment_status(user_id, reservation_number, TRANSFER_DECLARED_STATUS)
+    return {
+        "paymentStatus": TRANSFER_DECLARED_STATUS,
+        "message": "입금 확인 요청이 접수되었습니다. 확인 후 안내드리겠습니다.",
+    }
