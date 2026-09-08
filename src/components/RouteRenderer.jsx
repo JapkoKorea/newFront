@@ -16,17 +16,9 @@ const RouteRenderer = ({
   customSpotCoords = {},
   onRouteChange,
 }) => {
-  const directionsService = useRef(null);
   const requestSequenceRef = useRef(0);
   const [directionsResult, setDirectionsResult] = useState(null);
   const debounceTimeoutRef = useRef(null);
-
-  // DirectionsService 초기화
-  useEffect(() => {
-    if (window.google && window.google.maps && !directionsService.current) {
-      directionsService.current = new window.google.maps.DirectionsService();
-    }
-  }, []);
 
   // 좌표 변환 유틸리티
   const getCoordinates = useCallback((location) => {
@@ -61,7 +53,7 @@ const RouteRenderer = ({
       onRouteChange?.(null);
     };
 
-    if (!directionsService.current || !departure) {
+    if (!departure) {
       bail();
       return;
     }
@@ -106,7 +98,19 @@ const RouteRenderer = ({
     const requestSeq = ++requestSequenceRef.current;
 
     debounceTimeoutRef.current = setTimeout(() => {
-      directionsService.current.route(
+      // 요청할 때마다 새로 만든다. 마운트 시점에 만들어 두면 지도 모듈이
+      // 아직 준비되기 전이라, route() 를 불러도 요청이 나가지 않고 콜백도
+      // 오지 않는 인스턴스가 된다(경로선이 영영 안 그려짐).
+      const service = window.google?.maps?.DirectionsService
+        ? new window.google.maps.DirectionsService()
+        : null;
+      if (!service) {
+        setDirectionsResult(null);
+        onRouteChange?.(null);
+        return;
+      }
+
+      service.route(
         {
           origin: departureCoords,
           destination: destinationCoords,

@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { useLoadScript, GoogleMap, Marker } from '@react-google-maps/api'
+import { GoogleMap, Marker } from '@react-google-maps/api'
 import {
-  MAPS_LIBRARIES,
   CENTER_BIEI,
   ALLOWED_PLACE_NAMES,
   STATION_CHIPS,
@@ -21,6 +20,7 @@ import {
   isSameCoord,
 } from '@/lib/placeUtils.js'
 import { fetchPlacePredictions, resolvePrediction } from '@/lib/placesSearch.js'
+import { useMapsLoader } from '@/lib/mapsLoader.js'
 import MarkerWithLabel from '@/components/MarkerWithLabel.jsx'
 import { GripVertical, Clock, Camera, Search, X } from 'lucide-react'
 
@@ -84,10 +84,7 @@ function markerAppearance(items) {
 export default function TourRouteEditor({ initialDeparture, initialDestination, initialSpots, fixedRouteProfile, spotGuideData, onRouteStateChange }) {
   const routePreset = getInitialRoutePreset(fixedRouteProfile, initialDeparture, initialDestination, initialSpots || [])
 
-  const { isLoaded } = useLoadScript({
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY,
-    libraries: MAPS_LIBRARIES,
-  })
+  const { isLoaded, loadError } = useMapsLoader()
 
   const mapRef = useRef(null)
   const debounceRef = useRef(null)
@@ -600,7 +597,14 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
         </div>
 
         <div className="h-[520px] lg:h-[680px] rounded-xl overflow-hidden border bg-gray-100">
-          {isLoaded ? (
+          {loadError ? (
+            <div className="flex h-full w-full items-center justify-center p-6">
+              <div className="text-center text-sm text-gray-600">
+                <p className="font-medium text-gray-800">지도를 불러오지 못했습니다.</p>
+                <p className="mt-1 text-gray-500">아래 장소 목록으로 경로를 확인하실 수 있습니다.</p>
+              </div>
+            </div>
+          ) : isLoaded ? (
             <GoogleMap
               mapContainerStyle={{ width: '100%', height: '100%' }}
               center={center}

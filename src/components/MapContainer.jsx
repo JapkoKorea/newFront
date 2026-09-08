@@ -1,23 +1,19 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  GoogleMap,
-  Marker,
-  useLoadScript,
-} from "@react-google-maps/api";
+import { GoogleMap, Marker } from "@react-google-maps/api";
 import toast from 'react-hot-toast';
 import MarkerWithLabel from './MarkerWithLabel';
 import RouteRenderer from './RouteRenderer';
 import { COORDS_DICT } from '@/lib/spotCoords.js';
 import {
-  MAPS_LIBRARIES,
   isInAllowedRegion,
   normalizePlaceName,
   STATION_CHIPS,
   OUT_OF_REGION_MESSAGE,
 } from '@/lib/placeUtils.js';
 import { fetchPlacePredictions, resolvePrediction } from '@/lib/placesSearch.js';
+import { useMapsLoader } from '@/lib/mapsLoader.js';
 
 // 기존 import 경로 호환을 위해 재수출한다.
 export { COORDS_DICT };
@@ -43,10 +39,7 @@ const MapContainer = ({
   controlsEnabled = true,
   customSpotCoords = {},
 }) => {
-  const { isLoaded } = useLoadScript({
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY,
-    libraries: MAPS_LIBRARIES,
-  });
+  const { isLoaded, loadError } = useMapsLoader();
 
   const mapRef = useRef();
   const [selectionMode, setSelectionMode] = useState(null); // 'departure', 'destination', 'spot'
@@ -321,6 +314,21 @@ const MapContainer = ({
     },
     [spots, onSpotAdd]
   );
+
+  // 로드에 실패하면 스피너를 계속 돌리지 않는다. 지도가 없어도 예약은
+  // 이어갈 수 있으므로, 무엇이 안 되는지 알리고 경로는 목록으로 다룬다.
+  if (loadError) {
+    return (
+      <div className="h-full w-full flex items-center justify-center rounded-lg bg-gray-100 p-6">
+        <div className="text-center text-sm text-gray-600">
+          <p className="font-medium text-gray-800">지도를 불러오지 못했습니다.</p>
+          <p className="mt-1 text-gray-500">
+            아래 장소 목록으로 경로를 확인하고 예약을 이어가실 수 있습니다.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isLoaded) {
     return (
