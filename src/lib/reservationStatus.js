@@ -47,3 +47,60 @@ export function paymentLabel(status) {
 export function paymentTone(status) {
   return PAYMENT_STATUS[status]?.tone || FALLBACK_TONE
 }
+
+// 고객에게 보여줄 한 줄 상태.
+//
+// 예약 상태와 결제 상태를 배지 두 개로 나란히 보여주면 어느 쪽을 봐야 할지
+// 모호했다. 고객이 알고 싶은 건 "내 예약이 지금 어디까지 왔나" 하나다.
+// 그래서 두 값을 조합해 한 라벨로 만든다.
+//
+// 데이터는 그대로 두 컬럼이다. 여기서 합치는 것은 표시뿐이며, 결제가 예약
+// 상태를 자동으로 바꾸지는 않는다 — 예약 확정은 운영자가 판단한다.
+export const CUSTOMER_STAGE = {
+  waiting: {
+    label: '예약 대기중',
+    detail: '예약금 결제를 진행해 주세요.',
+    tone: 'bg-gray-100 text-gray-700 border-gray-200',
+  },
+  in_progress: {
+    label: '예약 진행중',
+    detail: '결제 확인 중입니다. 확인되면 예약이 확정됩니다.',
+    tone: 'bg-amber-100 text-amber-800 border-amber-200',
+  },
+  confirmed: {
+    label: '예약 확정',
+    detail: '배차가 확정되었습니다.',
+    tone: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  },
+  completed: {
+    label: '이용 완료',
+    detail: '투어가 끝났습니다. 후기를 남겨 주세요.',
+    tone: 'bg-blue-100 text-blue-800 border-blue-200',
+  },
+  cancelled: {
+    label: '예약 취소',
+    detail: '취소된 예약입니다.',
+    tone: 'bg-gray-200 text-gray-700 border-gray-300',
+  },
+  rejected: {
+    label: '예약 불가',
+    detail: '배차가 어려워 진행하지 못했습니다.',
+    tone: 'bg-rose-100 text-rose-800 border-rose-200',
+  },
+}
+
+/**
+ * 예약 상태 + 결제 상태 -> 고객이 보는 한 줄 상태.
+ *
+ * 종결 상태(취소·반려·이용 완료)가 우선한다. 그 외에는 확정 여부를 먼저 보고,
+ * 아직이면 결제를 어디까지 했는지로 나눈다.
+ */
+export function customerStage(status, paymentStatus) {
+  if (status === 'cancelled') return CUSTOMER_STAGE.cancelled
+  if (status === 'rejected') return CUSTOMER_STAGE.rejected
+  if (status === 'completed') return CUSTOMER_STAGE.completed
+  if (status === 'confirmed') return CUSTOMER_STAGE.confirmed
+  // 결제했다고 알렸거나 확인까지 끝났으면 진행중. 확정은 운영자가 따로 한다.
+  if (paymentStatus === 'ready' || paymentStatus === 'paid') return CUSTOMER_STAGE.in_progress
+  return CUSTOMER_STAGE.waiting
+}

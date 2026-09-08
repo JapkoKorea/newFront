@@ -4,13 +4,17 @@ import os
 import uuid
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from dependencies.auth import get_current_user
+from services.manual_payment_service import (
+    ManualPaymentError,
+    declare as declare_manual_payment,
+)
 from services.mysql_user_service import _connect
 
 
@@ -458,36 +462,6 @@ NON_PAYABLE_REASON = {
 }
 
 
-def _declare_transfer_pending(user_id: str, reservation_number: str, amount: int) -> bool:
-    """입금 확인 대기로 바꾸고, 고객이 본 금액을 함께 남긴다.
-
-    금액을 남기지 않으면 운영자가 통장 입금액과 대조할 기준이 없다. 날짜가
-    바뀌어 예약금이 달라져도 "고객이 그때 본 금액"은 이 값이다.
-
-    이미 paid 인 건은 건드리지 않는다(WHERE 조건). 고객의 선언과 운영자의
-    입금 확인이 겹칠 때 확인된 결제가 대기로 되돌아가지 않도록 한다.
-    """
-    conn = _connect()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                UPDATE reservations
-                SET payment_status = %s,
-                    payment_amount_krw = %s,
-                    payment_updated_at = %s
-                WHERE user_id = %s AND reservation_number = %s
-                  AND payment_status <> 'paid'
-                """,
-                (TRANSFER_DECLARED_STATUS, amount, datetime.now(), user_id, reservation_number),
-            )
-            changed = cursor.rowcount
-        conn.commit()
-    finally:
-        conn.close()
-    return changed > 0
-
-
 @router.get("/transfer-info")
 async def transfer_info(
     reservation_number: str,
@@ -531,35 +505,49 @@ async def transfer_info(
     }
 
 
-@router.post("/transfer/declare")
-async def declare_transfer(
+class DeclarePaymentPayload(BaseModel):
+    channel: Literal["bank_transfer", "naver"]
+    # 스마트스토어 주문번호. 있으면 운영자가 스토어에서 바로 찾을 수 있다.
+    external_order_no: str | None = Field(default=None, max_length=64)
+
+
+@router.post("/declare")
+async def declare_payment(
     reservation_number: str,
+    payload: DeclarePaymentPayload,
     current_user: dict[str, Any] = Depends(get_current_user),
 ):
-    """고객이 "입금했다"고 알린다. 확인은 운영자가 한다.
+    """고객이 "결제했다"고 알린다. 확인은 운영자가 한다.
 
-    이 선언만으로 결제 완료가 되지는 않는다. 통장에 실제로 들어왔는지
-    확인하기 전까지는 결제 대기다.
+    이 선언만으로 결제 완료가 되지는 않는다. 통장이나 스토어 주문을 확인하기
+    전까지는 결제 대기다. 예약 상태는 여기서 바뀌지 않는다.
     """
     user_id = str(current_user.get("user_id") or "").strip()
     reservation = _find_reservation_for_payment(user_id, reservation_number)
     if not reservation:
         raise HTTPException(status_code=404, detail="예약을 찾을 수 없습니다")
 
-    if reservation.get("payment_status") == "paid":
-        return {"paymentStatus": "paid", "message": "이미 입금이 확인된 예약입니다."}
-
     block_reason = NON_PAYABLE_REASON.get(reservation.get("status"))
     if block_reason:
         raise HTTPException(status_code=400, detail=block_reason)
 
     amount = _calculate_amount_krw(reservation)
-    if not _declare_transfer_pending(user_id, reservation_number, amount):
-        # 그 사이에 결제 완료로 바뀐 경우다.
-        return {"paymentStatus": "paid", "message": "이미 입금이 확인된 예약입니다."}
+    try:
+        result = declare_manual_payment(
+            user_id=user_id,
+            reservation_number=reservation_number,
+            amount=amount,
+            channel=payload.channel,
+            external_order_no=(payload.external_order_no or "").strip() or None,
+        )
+    except ManualPaymentError as error:
+        status_code = 404 if error.code == "not_found" else 400
+        raise HTTPException(status_code=status_code, detail=error.message) from error
+
+    if result.get("alreadyPaid"):
+        return {"paymentStatus": "paid", "message": "이미 결제가 확인된 예약입니다."}
 
     return {
-        "paymentStatus": TRANSFER_DECLARED_STATUS,
-        "amount": amount,
-        "message": "입금 확인 요청이 접수되었습니다. 확인 후 안내드리겠습니다.",
+        **result,
+        "message": "결제 확인 요청이 접수되었습니다. 확인 후 예약을 확정해 드리겠습니다.",
     }

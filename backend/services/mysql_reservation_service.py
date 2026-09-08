@@ -52,6 +52,12 @@ def ensure_reservation_tables() -> None:
                 # (코스는 자유 구성이면 비어 있어서 상품을 알 수 없다).
                 "ALTER TABLE reservations ADD COLUMN product_slug VARCHAR(64) NULL",
                 "ALTER TABLE reservations ADD KEY idx_res_product (product_slug, status)",
+                # 계좌이체·스마트스토어처럼 사람이 확인하는 결제. 어디서 결제했는지와
+                # 스토어 주문번호를 남겨야 운영자가 어디를 봐야 할지 알 수 있다.
+                "ALTER TABLE reservation_payments ADD COLUMN channel VARCHAR(32) NULL",
+                "ALTER TABLE reservation_payments ADD COLUMN external_order_no VARCHAR(64) NULL",
+                "ALTER TABLE reservation_payments ADD COLUMN declared_at DATETIME(6) NULL",
+                "ALTER TABLE reservation_payments ADD COLUMN confirmed_by CHAR(36) NULL",
                 "ALTER TABLE reservations ADD COLUMN is_custom TINYINT(1) NOT NULL DEFAULT 0",
                 # 유입 채널 (LINE 백엔드가 이미 추가했을 수 있으나 idempotent)
                 "ALTER TABLE reservations ADD COLUMN source_channel VARCHAR(32) NULL",

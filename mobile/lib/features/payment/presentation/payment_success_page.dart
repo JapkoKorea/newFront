@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../data/payment_api.dart';
+// 토스 결제 비활성 동안 결제 API 호출이 없다. 되살릴 때 import 도 함께 푼다.
+// import '../data/payment_api.dart';
 
 class PaymentSuccessPage extends ConsumerStatefulWidget {
   const PaymentSuccessPage({
@@ -43,12 +44,21 @@ class _PaymentSuccessPageState extends ConsumerState<PaymentSuccessPage> {
       return;
     }
 
+    // 토스 결제가 비활성인 동안 이 화면에 도달할 경로가 없다. 승인 호출도
+    // payment_api.dart 에서 주석 처리돼 있어, 되살릴 때 함께 푼다.
+    setState(() {
+      _isProcessing = false;
+      _error = '카드 결제는 현재 사용하지 않습니다. 예약 확인 화면에서 계좌이체 또는 스마트스토어로 진행해 주세요.';
+    });
+    return;
+
+    // ignore: dead_code
     try {
-      await ref.read(paymentApiProvider).confirmPayment(
-            paymentKey: widget.paymentKey,
-            orderId: widget.orderId,
-            amount: widget.amount,
-          );
+      // await ref.read(paymentApiProvider).confirmPayment(
+      //       paymentKey: widget.paymentKey,
+      //       orderId: widget.orderId,
+      //       amount: widget.amount,
+      //     );
       if (!mounted) {
         return;
       }

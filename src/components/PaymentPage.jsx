@@ -44,7 +44,8 @@ function PaymentPage() {
   const [info, setInfo] = useState(null)
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
-  const [declaring, setDeclaring] = useState(false)
+  const [declaring, setDeclaring] = useState('')
+  const [naverOrderNo, setNaverOrderNo] = useState('')
   const [copied, setCopied] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
 
@@ -90,21 +91,30 @@ function PaymentPage() {
     }
   }
 
-  const declareTransfer = async () => {
-    setDeclaring(true)
+  /** 결제했다고 알린다. 어디서 결제했는지(channel)를 함께 보낸다 —
+      운영자가 통장을 볼지 스토어를 볼지 알아야 한다. */
+  const declarePayment = async (channel) => {
+    setDeclaring(channel)
     setErrorMessage('')
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/payments/transfer/declare?reservation_number=${encodeURIComponent(reservationNumber)}`,
-        { method: 'POST', headers: getAuthHeaders() },
+        `${API_BASE_URL}/api/payments/declare?reservation_number=${encodeURIComponent(reservationNumber)}`,
+        {
+          method: 'POST',
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({
+            channel,
+            external_order_no: channel === 'naver' ? naverOrderNo.trim() || null : null,
+          }),
+        },
       )
       const data = await response.json()
       if (!response.ok) throw new Error(data?.detail || `HTTP ${response.status}`)
       setInfo((prev) => (prev ? { ...prev, paymentStatus: data.paymentStatus } : prev))
     } catch (error) {
-      setErrorMessage(error.message || '입금 확인 요청에 실패했습니다.')
+      setErrorMessage(error.message || '결제 확인 요청에 실패했습니다.')
     } finally {
-      setDeclaring(false)
+      setDeclaring('')
     }
   }
 
@@ -287,10 +297,10 @@ function PaymentPage() {
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Button
                     className="flex-1 bg-yellow-500 hover:bg-yellow-600"
-                    onClick={declareTransfer}
-                    disabled={declaring || declared || settled}
+                    onClick={() => declarePayment('bank_transfer')}
+                    disabled={Boolean(declaring) || declared || settled}
                   >
-                    {declaring ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+                    {declaring === 'bank_transfer' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
                     {settled ? '입금 확인됨' : declared ? '확인 요청됨' : '입금 완료'}
                   </Button>
                   <Button variant="outline" className="flex-1" onClick={() => router.back()}>
@@ -320,18 +330,44 @@ function PaymentPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-gray-600">
-              네이버페이로 결제하시려면 스마트스토어 상품 페이지에서 진행해 주세요. 결제 후 예약번호를
-              문의로 남겨 주시면 이 예약과 연결해 드립니다.
+              네이버페이로 결제하시려면 스마트스토어 상품 페이지에서 진행해 주세요.
             </p>
             {NAVER_STORE_URL ? (
-              <Button
-                variant="outline"
-                className="w-full border-green-300 text-green-800 hover:bg-green-50"
-                onClick={() => window.open(NAVER_STORE_URL, '_blank', 'noopener,noreferrer')}
-              >
-                <ExternalLink className="mr-1 h-4 w-4" />
-                네이버쇼핑으로 이동
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  className="w-full border-green-300 text-green-800 hover:bg-green-50"
+                  onClick={() => window.open(NAVER_STORE_URL, '_blank', 'noopener,noreferrer')}
+                >
+                  <ExternalLink className="mr-1 h-4 w-4" />
+                  네이버쇼핑으로 이동
+                </Button>
+
+                <div className="rounded-xl bg-gray-50 p-3">
+                  <label htmlFor="naver-order" className="text-sm font-medium text-gray-800">
+                    결제하셨다면 주문번호를 남겨 주세요
+                  </label>
+                  <p className="mt-1 text-xs text-gray-500">
+                    스마트스토어 주문 내역에서 확인하실 수 있습니다. 없으면 비워 두셔도 됩니다.
+                  </p>
+                  <input
+                    id="naver-order"
+                    type="text"
+                    value={naverOrderNo}
+                    onChange={(event) => setNaverOrderNo(event.target.value)}
+                    placeholder="예: 2026090812345678"
+                    className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-green-400"
+                  />
+                  <Button
+                    className="mt-2 w-full bg-green-600 hover:bg-green-700"
+                    onClick={() => declarePayment('naver')}
+                    disabled={Boolean(declaring) || declared || settled}
+                  >
+                    {declaring === 'naver' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+                    {settled ? '결제 확인됨' : declared ? '확인 요청됨' : '스마트스토어에서 결제했습니다'}
+                  </Button>
+                </div>
+              </>
             ) : (
               <Button variant="outline" className="w-full" disabled>
                 네이버쇼핑 연결 준비 중

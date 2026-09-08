@@ -7,7 +7,7 @@ import ChangeRequestModal from '@/components/ChangeRequestModal.jsx'
 import ReviewModal from '@/components/ReviewModal.jsx'
 import { fetchReviewEligibility } from '@/lib/reviews.js'
 import ChatSupport from '@/components/ChatSupport.jsx'
-import { statusLabel, statusTone, paymentLabel, paymentTone } from '@/lib/reservationStatus.js'
+import { customerStage, paymentLabel } from '@/lib/reservationStatus.js'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
 import { Calendar, Clock, CreditCard, MapPin, RefreshCcw, Star, UserRound } from 'lucide-react'
@@ -44,6 +44,8 @@ function ReservationCheckPage() {
       alive = false
     }
   }, [selectedReservation?.reservation_number, selectedReservation?.status])
+
+  const stage = customerStage(selectedReservation?.status, selectedReservation?.payment_status)
 
   const canCancel = selectedReservation && !['cancelled', 'rejected', 'completed'].includes(selectedReservation.status)
 
@@ -193,6 +195,9 @@ function ReservationCheckPage() {
                     <p className="text-xs text-gray-500">예약번호</p>
                     <p className="text-sm font-semibold break-all">{reservation.reservation_number}</p>
                     <p className="text-sm text-gray-600 mt-1">{reservation.tour_date} {String(reservation.tour_start_time).slice(0, 5)}</p>
+                    <span className={`mt-2 inline-block rounded-full border px-2 py-0.5 text-xs ${customerStage(reservation.status, reservation.payment_status).tone}`}>
+                      {customerStage(reservation.status, reservation.payment_status).label}
+                    </span>
                   </button>
                 ))}
               </CardContent>
@@ -203,16 +208,10 @@ function ReservationCheckPage() {
                 <Card className="border-yellow-200 bg-yellow-50/60">
                   <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle className="text-lg">예약 상태</CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Badge className={`border ${statusTone(selectedReservation.status)}`}>
-                        {statusLabel(selectedReservation.status)}
-                      </Badge>
-                      <Badge className={`border ${paymentTone(selectedReservation.payment_status)}`}>
-                        {paymentLabel(selectedReservation.payment_status)}
-                      </Badge>
-                    </div>
+                    <Badge className={`border ${stage.tone}`}>{stage.label}</Badge>
                   </CardHeader>
                   <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    <p className="md:col-span-2 text-gray-700">{stage.detail}</p>
                     <p><span className="text-gray-500">예약번호:</span> <span className="font-medium break-all">{selectedReservation.reservation_number}</span></p>
                     <p><span className="text-gray-500">접수일시:</span> <span className="font-medium">{selectedReservation.created_at?.replace('T', ' ').slice(0, 16) || '-'}</span></p>
                     <p><span className="text-gray-500">결제 상태:</span> <span className="font-medium">{paymentLabel(selectedReservation.payment_status)}</span></p>

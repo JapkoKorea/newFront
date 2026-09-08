@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../data/payment_api.dart';
+// 토스 결제 비활성 동안 결제 API 호출이 없다. 되살릴 때 import 도 함께 푼다.
+// import '../data/payment_api.dart';
 
 class PaymentFailPage extends ConsumerStatefulWidget {
   const PaymentFailPage({
@@ -37,12 +38,20 @@ class _PaymentFailPageState extends ConsumerState<PaymentFailPage> {
       return;
     }
 
+    // 토스 결제가 비활성인 동안 이 화면에 도달할 경로가 없다.
+    setState(() {
+      _isMarking = false;
+      _error = '카드 결제는 현재 사용하지 않습니다.';
+    });
+    return;
+
+    // ignore: dead_code
     try {
-      await ref.read(paymentApiProvider).failPayment(
-            orderId: widget.orderId,
-            code: 'PAYMENT_FAILED',
-            message: '모바일 결제 과정에서 사용자가 취소했거나 결제에 실패했습니다',
-          );
+      // await ref.read(paymentApiProvider).failPayment(
+      //       orderId: widget.orderId,
+      //       code: 'PAYMENT_FAILED',
+      //       message: '모바일 결제 과정에서 사용자가 취소했거나 결제에 실패했습니다',
+      //     );
       if (!mounted) {
         return;
       }

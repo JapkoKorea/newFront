@@ -64,9 +64,12 @@ export const setReviewVisibility = (reviewId, status, reason) =>
     body: JSON.stringify({ status, reason: reason || null }),
   })
 
-/** 입금 확인. 통장을 보고 결제 완료로 바꾸거나 되돌린다(예약 상태와 무관). */
-export const setReservationPaymentStatus = (reservationNumber, paymentStatus) =>
+/**
+ * 결제 확인. 통장이나 스토어 주문을 보고 결제 완료로 바꾸거나 되돌린다.
+ * confirmReservation 을 주면 예약 확정까지 한 번에 처리한다.
+ */
+export const setReservationPaymentStatus = (reservationNumber, paymentStatus, confirmReservation = false) =>
   request(`/reservations/${encodeURIComponent(reservationNumber)}/payment`, {
     method: 'PATCH',
-    body: JSON.stringify({ payment_status: paymentStatus }),
+    body: JSON.stringify({ payment_status: paymentStatus, confirm_reservation: confirmReservation }),
   })

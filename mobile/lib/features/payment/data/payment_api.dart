@@ -37,48 +37,107 @@ class PaymentPrepareData {
   }
 }
 
+/// 계좌이체·스마트스토어 결제 안내에 필요한 값.
+class ManualPaymentInfo {
+  const ManualPaymentInfo({
+    required this.amount,
+    required this.isLastMinute,
+    required this.paymentStatus,
+    required this.canPay,
+    required this.blockReason,
+    required this.reservation,
+  });
+
+  final int amount;
+  final bool isLastMinute;
+  final String paymentStatus;
+  final bool canPay;
+  final String? blockReason;
+  final Map<String, dynamic> reservation;
+
+  factory ManualPaymentInfo.fromJson(Map<String, dynamic> json) {
+    return ManualPaymentInfo(
+      amount: (json['amount'] as num?)?.toInt() ?? 0,
+      isLastMinute: json['isLastMinute'] == true,
+      paymentStatus: json['paymentStatus']?.toString() ?? 'unpaid',
+      canPay: json['canPay'] != false,
+      blockReason: json['blockReason']?.toString(),
+      reservation: (json['reservation'] as Map<String, dynamic>?) ?? <String, dynamic>{},
+    );
+  }
+}
+
 class PaymentApi {
   PaymentApi(this._apiClient);
 
   final ApiClient _apiClient;
 
-  Future<PaymentPrepareData> preparePayment(String reservationNumber) async {
-    final Map<String, dynamic> response = await _apiClient.postJson(
-      '/api/payments/prepare',
+  Future<ManualPaymentInfo> transferInfo(String reservationNumber) async {
+    final Map<String, dynamic> response = await _apiClient.getJson(
+      '/api/payments/transfer-info',
       query: <String, String>{'reservation_number': reservationNumber},
     );
-    return PaymentPrepareData.fromJson(response);
+    return ManualPaymentInfo.fromJson(response);
   }
 
-  Future<void> failPayment({
-    required String orderId,
-    required String code,
-    required String message,
-  }) async {
-    await _apiClient.postJson(
-      '/api/payments/fail',
+  /// 고객이 "결제했다"고 알린다. 확인은 운영자가 한다.
+  Future<Map<String, dynamic>> declarePayment({
+    required String reservationNumber,
+    required String channel,
+    String? externalOrderNo,
+  }) {
+    return _apiClient.postJson(
+      '/api/payments/declare',
+      query: <String, String>{'reservation_number': reservationNumber},
       body: <String, dynamic>{
-        'orderId': orderId,
-        'code': code,
-        'message': message,
+        'channel': channel,
+        'external_order_no': externalOrderNo,
       },
     );
   }
 
-  Future<void> confirmPayment({
-    required String paymentKey,
-    required String orderId,
-    required int amount,
-  }) async {
-    await _apiClient.postJson(
-      '/api/payments/confirm',
-      body: <String, dynamic>{
-        'paymentKey': paymentKey,
-        'orderId': orderId,
-        'amount': amount,
-      },
-    );
-  }
+  // ── 토스 결제 (심사 전까지 비활성) ────────────────────────────
+  // 결제 화면이 계좌이체·스마트스토어로 바뀌면서 아래 세 호출은 쓰이지 않는다.
+  // 백엔드 엔드포인트는 그대로 살아 있으므로, 카드 결제를 되살릴 때 주석만
+  // 풀면 된다.
+  //
+  // Future<PaymentPrepareData> preparePayment(String reservationNumber) async {
+  //   final Map<String, dynamic> response = await _apiClient.postJson(
+  //     '/api/payments/prepare',
+  //     query: <String, String>{'reservation_number': reservationNumber},
+  //   );
+  //   return PaymentPrepareData.fromJson(response);
+  // }
+  //
+  // Future<void> failPayment({
+  //   required String orderId,
+  //   required String code,
+  //   required String message,
+  // }) async {
+  //   await _apiClient.postJson(
+  //     '/api/payments/fail',
+  //     body: <String, dynamic>{
+  //       'orderId': orderId,
+  //       'code': code,
+  //       'message': message,
+  //     },
+  //   );
+  // }
+  //
+  // Future<void> confirmPayment({
+  //   required String paymentKey,
+  //   required String orderId,
+  //   required int amount,
+  // }) async {
+  //   await _apiClient.postJson(
+  //     '/api/payments/confirm',
+  //     body: <String, dynamic>{
+  //       'paymentKey': paymentKey,
+  //       'orderId': orderId,
+  //       'amount': amount,
+  //     },
+  //   );
+  // }
 }
 
 final Provider<PaymentApi> paymentApiProvider = Provider<PaymentApi>((Ref ref) {

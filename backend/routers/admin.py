@@ -25,9 +25,11 @@ from services.reservation_admin_service import (
     get_reservation_for_admin,
     list_reservations_for_admin,
 )
-from services.payment_admin_service import (
-    PaymentAdminError,
-    set_payment_status,
+from services.manual_payment_service import (
+    ManualPaymentError,
+    confirm as confirm_manual_payment,
+    list_for_reservations as list_payment_records,
+    revert as revert_manual_payment,
 )
 from services.review_service import (
     ReviewError,
@@ -70,8 +72,16 @@ async def get_reservations(
     limit: int = Query(100, ge=1, le=500),
     current_admin: dict[str, Any] = Depends(get_current_admin),
 ):
-    """예약 목록. 처리해야 할 접수 건이 먼저 나온다."""
-    return {"reservations": list_reservations_for_admin(status=status, limit=limit)}
+    """예약 목록. 처리해야 할 접수 건이 먼저 나온다.
+
+    결제 기록(어디서 결제했다고 알렸는지, 스토어 주문번호, 금액)을 붙여 준다.
+    운영자가 통장을 볼지 스토어를 볼지 목록에서 바로 알 수 있어야 한다.
+    """
+    reservations = list_reservations_for_admin(status=status, limit=limit)
+    records = list_payment_records([r["reservation_number"] for r in reservations])
+    for item in reservations:
+        item["payment_record"] = records.get(item["reservation_number"])
+    return {"reservations": reservations}
 
 
 @router.patch("/reservations/{reservation_number}/status")
@@ -225,6 +235,9 @@ async def update_review_status(
 
 class PaymentStatusPayload(BaseModel):
     payment_status: Literal["paid", "unpaid"]
+    # 결제를 확인하면서 예약까지 확정할지. 입금은 됐는데 배차가 안 되는 경우가
+    # 있어 기본값은 False 다 — 두 판단은 별개다.
+    confirm_reservation: bool = False
 
 
 @router.patch("/reservations/{reservation_number}/payment")
@@ -233,12 +246,29 @@ async def update_payment_status(
     payload: PaymentStatusPayload,
     current_admin: dict[str, Any] = Depends(get_current_admin),
 ):
-    """입금 확인. 통장을 보고 결제 완료로 바꾸거나 되돌린다.
+    """결제 확인. 통장이나 스토어 주문을 보고 결제 완료로 바꾸거나 되돌린다.
 
-    예약 상태는 건드리지 않는다. 입금이 확인돼도 예약 확정은 따로 판단한다.
+    결제 원장(reservation_payments)도 함께 갱신한다. 예약 상태는 기본적으로
+    건드리지 않되, confirm_reservation 을 주면 확정까지 한 번에 처리한다.
+    운영자가 화면에서 한 번에 누르더라도 서버에서는 두 동작이 구분된다.
     """
+    admin_id = str(current_admin.get("user_id") or "").strip()
     try:
-        return set_payment_status(reservation_number, payload.payment_status)
-    except PaymentAdminError as error:
+        if payload.payment_status == "paid":
+            result = confirm_manual_payment(reservation_number, admin_id)
+        else:
+            result = revert_manual_payment(reservation_number)
+    except ManualPaymentError as error:
         status_code = 404 if error.code == "not_found" else 400
         raise HTTPException(status_code=status_code, detail=error.message) from error
+
+    if payload.confirm_reservation and payload.payment_status == "paid":
+        try:
+            change_reservation_status(reservation_number, "confirmed", "결제 확인")
+            result["reservationStatus"] = "confirmed"
+        except ReservationAdminError as error:
+            # 결제 확인은 이미 끝났다. 예약 확정만 못 한 이유를 알려 준다.
+            result["reservationStatus"] = None
+            result["reservationError"] = error.message
+
+    return {"reservationNumber": reservation_number, **result}

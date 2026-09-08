@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../data/reservation_api.dart';
+import '../domain/customer_stage.dart';
 import '../domain/reservation_item.dart';
 
 class ReservationsPage extends ConsumerStatefulWidget {
@@ -301,9 +302,8 @@ class _ReservationCard extends StatelessWidget {
             children: <Widget>[
               Row(
                 children: <Widget>[
-                  _StatusBadge(label: item.status),
+                  _StageBadge(item: item),
                   const SizedBox(width: 6),
-                  _PaymentBadge(label: item.paymentStatus),
                   const Spacer(),
                   const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
                 ],
@@ -383,7 +383,7 @@ class _ReservationList extends StatelessWidget {
           selected: selectedItem,
           title: Text(item.reservationNumber),
           subtitle: Text('${item.tourDate} ${item.tourStartTime}'),
-          trailing: _StatusBadge(label: item.status),
+          trailing: _StageBadge(item: item),
           onTap: () => onSelect(item.reservationNumber),
         );
       },
@@ -423,9 +423,8 @@ class _ReservationDetail extends StatelessWidget {
                       fontSize: 20, fontWeight: FontWeight.w700),
                 ),
               ),
-              _StatusBadge(label: item.status),
+              _StageBadge(item: item),
               const SizedBox(width: 8),
-              _PaymentBadge(label: item.paymentStatus),
             ],
           ),
           const SizedBox(height: 16),
@@ -454,7 +453,7 @@ class _ReservationDetail extends StatelessWidget {
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 6),
-                const Text('• 예약금 15,000원 선결제'),
+                const Text('• 예약금 15,000원 선결제 (전일·당일 예약은 20,000원)'),
                 const Text('• 최소 이용시간 2시간'),
                 const Text('• 5인 이상 점보택시 필수'),
                 const SizedBox(height: 6),
@@ -482,7 +481,7 @@ class _ReservationDetail extends StatelessWidget {
             width: double.infinity,
             child: OutlinedButton(
               onPressed: _canPay(item) ? onPay : null,
-              child: const Text('결제하러 가기'),
+              child: const Text('예약금 결제하기'),
             ),
           ),
         ],
@@ -495,14 +494,10 @@ class _ReservationDetail extends StatelessWidget {
         !<String>{'cancelled', 'rejected'}.contains(value.status);
   }
 
+  /// 지금은 계좌이체와 스마트스토어로 받고, 확인은 사람이 한다.
+  /// 그래서 "결제 완료"와 "확인 완료" 사이에 시간이 있다는 것을 알려야 한다.
   String _paymentGuideText(ReservationItem value) {
-    if (value.paymentStatus == 'paid') {
-      return '이미 결제가 완료된 예약입니다.';
-    }
-    if (<String>{'cancelled', 'rejected'}.contains(value.status)) {
-      return '취소/거절된 예약은 결제를 진행할 수 없습니다.';
-    }
-    return '결제가 완료되면 예약 상태 반영까지 잠시 시간이 걸릴 수 있습니다.';
+    return CustomerStage.of(value.status, value.paymentStatus).detail;
   }
 }
 
@@ -534,79 +529,26 @@ class _DetailRow extends StatelessWidget {
   }
 }
 
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.label});
+/// 예약 상태 + 결제 상태를 합친 한 줄 배지.
+class _StageBadge extends StatelessWidget {
+  const _StageBadge({required this.item});
 
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color color = switch (label) {
-      'pending' => const Color(0xFF0EA5E9),
-      'cancelled' => const Color(0xFF64748B),
-      'completed' => const Color(0xFF16A34A),
-      'rejected' => const Color(0xFFDC2626),
-      _ => const Color(0xFF334155),
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.14),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        _statusLabelKo(label),
-        style: TextStyle(color: color, fontWeight: FontWeight.w700),
-      ),
-    );
-  }
-
-  String _statusLabelKo(String raw) {
-    return switch (raw) {
-      'pending' => '대기',
-      'cancelled' => '취소',
-      'completed' => '완료',
-      'rejected' => '거절',
-      _ => raw,
-    };
-  }
-}
-
-class _PaymentBadge extends StatelessWidget {
-  const _PaymentBadge({required this.label});
-
-  final String label;
+  final ReservationItem item;
 
   @override
   Widget build(BuildContext context) {
-    final Color color = switch (label) {
-      'paid' => const Color(0xFF16A34A),
-      'ready' => const Color(0xFF0EA5E9),
-      'failed' => const Color(0xFFDC2626),
-      _ => const Color(0xFF64748B),
-    };
-
+    final CustomerStage stage = CustomerStage.of(item.status, item.paymentStatus);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.14),
+        color: stage.color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        _paymentLabelKo(label),
-        style: TextStyle(color: color, fontWeight: FontWeight.w700),
+        stage.label,
+        style: TextStyle(color: stage.color, fontSize: 12, fontWeight: FontWeight.w600),
       ),
     );
-  }
-
-  String _paymentLabelKo(String raw) {
-    return switch (raw) {
-      'paid' => '결제완료',
-      'ready' => '결제대기',
-      'failed' => '결제실패',
-      _ => raw,
-    };
   }
 }
 

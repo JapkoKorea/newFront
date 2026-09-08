@@ -248,26 +248,55 @@ export default function AdminDashboard() {
                         </p>
                       </div>
 
-                      {/* 입금 확인. 계좌이체를 받는 동안 통장을 보고 사람이 판단한다.
-                          예약 상태와는 분리돼 있어 어느 상태에서든 누를 수 있다. */}
+                      {/* 고객이 어디서 결제했다고 알렸는지. 통장을 볼지 스토어를
+                          볼지 여기서 바로 알 수 있어야 한다. */}
+                      {item.payment_record ? (
+                        <div className="mt-3 rounded-lg bg-gray-50 p-3 text-xs text-gray-700">
+                          <span className="font-medium text-gray-900">
+                            {item.payment_record.channelLabel}
+                          </span>
+                          {' · '}
+                          {Number(item.payment_record.amount_krw || 0).toLocaleString()}원
+                          {item.payment_record.external_order_no ? (
+                            <> · 주문번호 {item.payment_record.external_order_no}</>
+                          ) : null}
+                          {item.payment_record.declared_at ? (
+                            <> · 알림 {String(item.payment_record.declared_at).replace('T', ' ').slice(0, 16)}</>
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      {/* 결제 확인. 확정까지 한 번에 하는 버튼과, 결제만 확인하는
+                          버튼을 나눠 둔다 — 입금은 됐는데 배차가 안 되는 경우가 있다. */}
                       {item.payment_status !== 'paid' ? (
-                        <div className="mt-3">
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
                           <Button
                             size="sm"
-                            variant="outline"
-                            className="border-emerald-300 text-emerald-800 hover:bg-emerald-50"
+                            className="bg-emerald-600 hover:bg-emerald-700"
                             disabled={busy === `pay-${item.reservation_number}`}
                             onClick={() =>
                               act(`pay-${item.reservation_number}`, () =>
-                                setReservationPaymentStatus(item.reservation_number, 'paid'),
+                                setReservationPaymentStatus(item.reservation_number, 'paid', true),
                               )
                             }
                           >
                             <Wallet className="mr-1 h-4 w-4" />
-                            입금 확인
+                            결제 확인 및 예약 확정
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={busy === `pay-${item.reservation_number}`}
+                            onClick={() =>
+                              act(`pay-${item.reservation_number}`, () =>
+                                setReservationPaymentStatus(item.reservation_number, 'paid', false),
+                              )
+                            }
+                          >
+                            결제만 확인
                           </Button>
                           {item.payment_status === 'ready' ? (
-                            <span className="ml-2 text-xs text-amber-700">고객이 입금했다고 알렸습니다</span>
+                            <span className="text-xs text-amber-700">고객이 결제했다고 알렸습니다</span>
                           ) : null}
                         </div>
                       ) : (
@@ -282,7 +311,7 @@ export default function AdminDashboard() {
                               )
                             }
                           >
-                            입금 확인 취소
+                            결제 확인 취소
                           </Button>
                         </div>
                       )}

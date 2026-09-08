@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../booking/application/booking_coordinator.dart';
+import '../../../core/config/app_config.dart';
 import '../data/payment_api.dart';
 
+/// 예약금 결제 안내.
+///
+/// 카드 결제(토스)는 심사 전까지 내려 두고 두 가지로 받는다.
+///  - 계좌이체: 계좌와 금액을 보여주고 "입금했다"는 알림을 받는다.
+///  - 스마트스토어: 상품 페이지로 보내고 주문번호를 받는다.
+///
+/// 어느 쪽이든 확인은 운영자가 한다. 고객이 알렸다고 해서 결제 완료가 되지는
+/// 않는다. 예약 상태도 여기서 바뀌지 않는다.
 class PaymentReviewPage extends ConsumerStatefulWidget {
   const PaymentReviewPage({
     super.key,
@@ -21,12 +30,20 @@ class PaymentReviewPage extends ConsumerStatefulWidget {
 class _PaymentReviewPageState extends ConsumerState<PaymentReviewPage> {
   bool _isLoading = true;
   String? _error;
-  PaymentPrepareData? _prepareData;
+  ManualPaymentInfo? _info;
+  String _declaring = '';
+  final TextEditingController _orderNoController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _orderNoController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -44,20 +61,15 @@ class _PaymentReviewPageState extends ConsumerState<PaymentReviewPage> {
     });
 
     try {
-      final PaymentApi paymentApi = ref.read(paymentApiProvider);
-      final PaymentPrepareData data =
-          await paymentApi.preparePayment(widget.reservationNumber);
-      if (!mounted) {
-        return;
-      }
+      final ManualPaymentInfo info =
+          await ref.read(paymentApiProvider).transferInfo(widget.reservationNumber);
+      if (!mounted) return;
       setState(() {
-        _prepareData = data;
+        _info = info;
         _isLoading = false;
       });
     } catch (e) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _isLoading = false;
@@ -65,287 +77,175 @@ class _PaymentReviewPageState extends ConsumerState<PaymentReviewPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final BookingState bookingState = ref.watch(bookingCoordinatorProvider);
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text('결제 확인'),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        elevation: 0,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _ErrorCard(error: _error!, onRetry: _load)
-              : _buildContent(bookingState),
-    );
-  }
-
-  Widget _buildContent(BookingState bookingState) {
-    final PaymentPrepareData? data = _prepareData;
-    final int amount = data?.amount ?? 0;
-    final String currency = data?.currency ?? 'KRW';
-
-    return Column(
-      children: <Widget>[
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: <Widget>[
-              _SectionCard(
-                title: '예약 요약',
-                child: Column(
-                  children: <Widget>[
-                    _SummaryRow(
-                      label: '예약번호',
-                      value: _shortNumber(widget.reservationNumber),
-                    ),
-                    _SummaryRow(label: '출발지', value: bookingState.draft.departure),
-                    _SummaryRow(
-                        label: '도착지', value: bookingState.draft.destination),
-                    _SummaryRow(label: '날짜', value: bookingState.draft.date),
-                    _SummaryRow(label: '시간', value: bookingState.draft.time),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              _SectionCard(
-                title: '결제 금액',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      data?.orderName ?? '택시투어 예약금',
-                      style: const TextStyle(
-                          fontSize: 13, color: Color(0xFF64748B)),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: <Widget>[
-                        const Text(
-                          '예약금',
-                          style: TextStyle(
-                              fontSize: 14, color: Color(0xFF334155)),
-                        ),
-                        const Spacer(),
-                        Text(
-                          currency == 'KRW' || currency.isEmpty
-                              ? '${_formatNumber(amount)}원'
-                              : '${_formatNumber(amount)} $currency',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              const _PolicyNote(),
-            ],
-          ),
-        ),
-        _BottomBar(
-          onPay: () => _openUrl(data?.successUrl),
-          onTestSuccess: data == null
-              ? null
-              : () => context.go(
-                    '/payment/success'
-                    '?reservation_number=${widget.reservationNumber}'
-                    '&orderId=${data.orderId}'
-                    '&amount=${data.amount}',
-                  ),
-          onTestFail: data == null
-              ? null
-              : () => context.go(
-                    '/payment/fail'
-                    '?reservation_number=${widget.reservationNumber}'
-                    '&orderId=${data.orderId}',
-                  ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _openUrl(String? url) async {
-    if (url == null || url.isEmpty) {
-      return;
+  Future<void> _declare(String channel) async {
+    setState(() => _declaring = channel);
+    try {
+      final Map<String, dynamic> result = await ref.read(paymentApiProvider).declarePayment(
+            reservationNumber: widget.reservationNumber,
+            channel: channel,
+            externalOrderNo: channel == 'naver'
+                ? (_orderNoController.text.trim().isEmpty ? null : _orderNoController.text.trim())
+                : null,
+          );
+      if (!mounted) return;
+      final ManualPaymentInfo? current = _info;
+      setState(() {
+        _declaring = '';
+        if (current != null) {
+          _info = ManualPaymentInfo(
+            amount: current.amount,
+            isLastMinute: current.isLastMinute,
+            paymentStatus: result['paymentStatus']?.toString() ?? 'ready',
+            canPay: current.canPay,
+            blockReason: current.blockReason,
+            reservation: current.reservation,
+          );
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message']?.toString() ?? '결제 확인 요청이 접수되었습니다.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _declaring = '');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     }
-    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
-    final bool launched = await launchUrl(Uri.parse(url));
-    if (!launched) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('결제 페이지를 열 수 없습니다.')),
+  }
+
+  Future<void> _openUrl(String url) async {
+    final Uri uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('링크를 열지 못했습니다.')),
       );
     }
   }
 
-  String _shortNumber(String value) {
-    if (value.length <= 8) {
-      return value;
-    }
-    return value.substring(value.length - 8).toUpperCase();
-  }
-}
-
-String _formatNumber(int value) {
-  final String s = value.toString();
-  final StringBuffer buf = StringBuffer();
-  for (int i = 0; i < s.length; i++) {
-    if (i > 0 && (s.length - i) % 3 == 0) {
-      buf.write(',');
-    }
-    buf.write(s[i]);
-  }
-  return buf.toString();
-}
-
-class _BottomBar extends StatelessWidget {
-  const _BottomBar({
-    required this.onPay,
-    required this.onTestSuccess,
-    required this.onTestFail,
-  });
-
-  final VoidCallback onPay;
-  final VoidCallback? onTestSuccess;
-  final VoidCallback? onTestFail;
-
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: onPay,
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: const Text('결제하기',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: TextButton(
-                    onPressed: onTestSuccess,
-                    child: const Text('성공 콜백(테스트)',
-                        style: TextStyle(
-                            fontSize: 12, color: Color(0xFF94A3B8))),
-                  ),
-                ),
-                Expanded(
-                  child: TextButton(
-                    onPressed: onTestFail,
-                    child: const Text('실패 콜백(테스트)',
-                        style: TextStyle(
-                            fontSize: 12, color: Color(0xFF94A3B8))),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+    return Scaffold(
+      appBar: AppBar(title: const Text('예약금 결제')),
+      body: _buildBody(context),
     );
   }
-}
 
-class _PolicyNote extends StatelessWidget {
-  const _PolicyNote();
+  Widget _buildBody(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFCD34D)),
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text('예약금 안내', style: TextStyle(fontWeight: FontWeight.w700)),
-          SizedBox(height: 6),
-          Text('- 예약금은 현장 이용요금에서 차감됩니다.',
-              style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
-          Text('- 취소 정책에 따라 환불 조건이 달라질 수 있습니다.',
-              style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
-        ],
-      ),
-    );
-  }
-}
+    final String? error = _error;
+    if (error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(error, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              FilledButton(onPressed: _load, child: const Text('다시 시도')),
+            ],
+          ),
+        ),
+      );
+    }
 
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.title, required this.child});
+    final ManualPaymentInfo info = _info!;
+    final Map<String, dynamic> reservation = info.reservation;
+    final bool declared = info.paymentStatus == 'ready';
+    final bool settled = info.paymentStatus == 'paid';
 
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    return ListView(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(title,
-              style:
-                  const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+      children: <Widget>[
+        _ReservationCard(reservation: reservation),
+        const SizedBox(height: 12),
+        _AmountCard(amount: info.amount, isLastMinute: info.isLastMinute),
+        const SizedBox(height: 12),
+        if (settled)
+          const _NoticeCard(
+            color: Color(0xFFECFDF5),
+            title: '결제가 확인되었습니다.',
+            body: '예약 확정 여부는 예약 확인 화면에서 알려드립니다.',
+          )
+        else if (declared)
+          const _NoticeCard(
+            color: Color(0xFFFFFBEB),
+            title: '결제 확인을 요청하셨습니다.',
+            body: '확인 후 예약을 확정해 드립니다. 시간이 걸릴 수 있습니다.',
+          ),
+        if (!info.canPay)
+          _NoticeCard(
+            color: const Color(0xFFFFF1F2),
+            title: info.blockReason ?? '결제를 진행할 수 없는 예약입니다.',
+            body: '아래 문의로 연락 주시면 확인해 드리겠습니다.',
+          ),
+
+        if (info.canPay) ...<Widget>[
           const SizedBox(height: 12),
-          child,
+          _BankTransferCard(
+            declaring: _declaring == 'bank_transfer',
+            disabled: _declaring.isNotEmpty || declared || settled,
+            settled: settled,
+            declared: declared,
+            onDeclare: () => _declare('bank_transfer'),
+          ),
+          const SizedBox(height: 12),
+          _NaverCard(
+            controller: _orderNoController,
+            declaring: _declaring == 'naver',
+            disabled: _declaring.isNotEmpty || declared || settled,
+            settled: settled,
+            declared: declared,
+            onOpen: () => _openUrl(AppConfig.naverStoreUrl),
+            onDeclare: () => _declare('naver'),
+          ),
         ],
-      ),
+        const SizedBox(height: 12),
+        _InquiryCard(onKakao: () => _openUrl(AppConfig.kakaoChannelUrl)),
+        const SizedBox(height: 12),
+        TextButton(
+          onPressed: () => context.go('/reservations'),
+          child: const Text('예약 확인으로 돌아가기'),
+        ),
+      ],
     );
   }
 }
 
-class _ErrorCard extends StatelessWidget {
-  const _ErrorCard({required this.error, required this.onRetry});
+class _ReservationCard extends StatelessWidget {
+  const _ReservationCard({required this.reservation});
 
-  final String error;
-  final Future<void> Function() onRetry;
+  final Map<String, dynamic> reservation;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    String value(String key) => reservation[key]?.toString() ?? '-';
+    return Card(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(16),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(error, textAlign: TextAlign.center),
-            const SizedBox(height: 10),
-            ElevatedButton(onPressed: onRetry, child: const Text('다시 시도')),
+            const Text('예약 정보', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            _Row(label: '예약번호', value: value('reservationNumber')),
+            _Row(label: '예약자', value: value('englishName')),
+            _Row(
+              label: '일정',
+              value: '${value('tourDate')} ${value('tourStartTime')}',
+            ),
+            _Row(
+              label: '인원 / 시간',
+              value: '${value('numberOfPeople')}명 / ${value('durationHours')}시간',
+            ),
+            _Row(
+              label: '경로',
+              value: '${value('departure')} -> ${value('destination')}',
+            ),
+            _Row(label: '코스', value: value('desiredCourse')),
           ],
         ),
       ),
@@ -353,8 +253,8 @@ class _ErrorCard extends StatelessWidget {
   }
 }
 
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({required this.label, required this.value});
+class _Row extends StatelessWidget {
+  const _Row({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -362,22 +262,298 @@ class _SummaryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           SizedBox(
-            width: 84,
-            child:
-                Text(label, style: const TextStyle(color: Color(0xFF94A3B8))),
+            width: 88,
+            child: Text(label, style: const TextStyle(color: Colors.black54, fontSize: 13)),
           ),
-          Expanded(
-            child: Text(
-              value.isEmpty ? '-' : value,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
         ],
+      ),
+    );
+  }
+}
+
+class _AmountCard extends StatelessWidget {
+  const _AmountCard({required this.amount, required this.isLastMinute});
+
+  final int amount;
+  final bool isLastMinute;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: const Color(0xFFFFFBEB),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text('입금하실 금액', style: TextStyle(fontSize: 12, color: Colors.black54)),
+            const SizedBox(height: 4),
+            Text(
+              '${_comma(amount)}원',
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              isLastMinute
+                  ? '전일 또는 당일 예약이라 예약금이 20,000원으로 적용됩니다.'
+                  : '예약금입니다. 현지 택시 요금은 투어 당일 기사님께 정산합니다.',
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _comma(int value) {
+    final String text = value.toString();
+    final StringBuffer out = StringBuffer();
+    for (int i = 0; i < text.length; i++) {
+      if (i > 0 && (text.length - i) % 3 == 0) out.write(',');
+      out.write(text[i]);
+    }
+    return out.toString();
+  }
+}
+
+class _NoticeCard extends StatelessWidget {
+  const _NoticeCard({required this.color, required this.title, required this.body});
+
+  final Color color;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: color,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Text(body, style: const TextStyle(fontSize: 13, color: Colors.black87)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BankTransferCard extends StatelessWidget {
+  const _BankTransferCard({
+    required this.declaring,
+    required this.disabled,
+    required this.settled,
+    required this.declared,
+    required this.onDeclare,
+  });
+
+  final bool declaring;
+  final bool disabled;
+  final bool settled;
+  final bool declared;
+  final VoidCallback onDeclare;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!AppConfig.hasBankAccount) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text('계좌이체', style: TextStyle(fontWeight: FontWeight.bold)),
+              SizedBox(height: 8),
+              Text('계좌 정보를 준비 중입니다. 문의로 연락 주시면 안내드립니다.',
+                  style: TextStyle(fontSize: 13, color: Colors.black54)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text('계좌이체', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Text('입금 계좌', style: TextStyle(fontSize: 12, color: Colors.black54)),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${AppConfig.bankName} ${AppConfig.bankAccount}',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 2),
+                  Text('예금주 ${AppConfig.bankHolder}',
+                      style: const TextStyle(fontSize: 13, color: Colors.black54)),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(text: AppConfig.bankAccount));
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('계좌번호를 복사했습니다.')),
+                      );
+                    },
+                    icon: const Icon(Icons.copy, size: 16),
+                    label: const Text('계좌번호 복사'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '입금자명을 예약자 성함으로 넣어 주세요. 다르게 입금하시는 경우 문의로 알려 주시면 확인이 빠릅니다.',
+              style: TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: disabled ? null : onDeclare,
+                child: declaring
+                    ? const SizedBox(
+                        height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : Text(settled ? '입금 확인됨' : declared ? '확인 요청됨' : '입금 완료'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NaverCard extends StatelessWidget {
+  const _NaverCard({
+    required this.controller,
+    required this.declaring,
+    required this.disabled,
+    required this.settled,
+    required this.declared,
+    required this.onOpen,
+    required this.onDeclare,
+  });
+
+  final TextEditingController controller;
+  final bool declaring;
+  final bool disabled;
+  final bool settled;
+  final bool declared;
+  final VoidCallback onOpen;
+  final VoidCallback onDeclare;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool ready = AppConfig.naverStoreUrl.isNotEmpty;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text('스마트스토어에서 결제', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text(
+              '네이버페이로 결제하시려면 스마트스토어 상품 페이지에서 진행해 주세요.',
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: ready ? onOpen : null,
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: Text(ready ? '스마트스토어로 이동' : '스마트스토어 연결 준비 중'),
+              ),
+            ),
+            if (ready) ...<Widget>[
+              const SizedBox(height: 12),
+              const Text('결제하셨다면 주문번호를 남겨 주세요',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              const Text('스마트스토어 주문 내역에서 확인하실 수 있습니다. 없으면 비워 두셔도 됩니다.',
+                  style: TextStyle(fontSize: 12, color: Colors.black54)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                  hintText: '예: 2026090812345678',
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: disabled ? null : onDeclare,
+                  child: declaring
+                      ? const SizedBox(
+                          height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : Text(settled
+                          ? '결제 확인됨'
+                          : declared
+                              ? '확인 요청됨'
+                              : '스마트스토어에서 결제했습니다'),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InquiryCard extends StatelessWidget {
+  const _InquiryCard({required this.onKakao});
+
+  final VoidCallback onKakao;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text('문의하기', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onKakao,
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('카카오톡 채널로 문의'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
