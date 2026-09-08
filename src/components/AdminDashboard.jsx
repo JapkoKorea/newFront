@@ -366,45 +366,6 @@ export default function AdminDashboard() {
                         사유: {item.reason || '(없음)'}
                       </p>
 
-                      {/* 입금 확인. 계좌이체를 받는 동안 통장을 보고 사람이 판단한다.
-                          예약 상태와는 분리돼 있어 어느 상태에서든 누를 수 있다. */}
-                      {item.payment_status !== 'paid' ? (
-                        <div className="mt-3">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-emerald-300 text-emerald-800 hover:bg-emerald-50"
-                            disabled={busy === `pay-${item.reservation_number}`}
-                            onClick={() =>
-                              act(`pay-${item.reservation_number}`, () =>
-                                setReservationPaymentStatus(item.reservation_number, 'paid'),
-                              )
-                            }
-                          >
-                            <Wallet className="mr-1 h-4 w-4" />
-                            입금 확인
-                          </Button>
-                          {item.payment_status === 'ready' ? (
-                            <span className="ml-2 text-xs text-amber-700">고객이 입금했다고 알렸습니다</span>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <div className="mt-3">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={busy === `pay-${item.reservation_number}`}
-                            onClick={() =>
-                              act(`pay-${item.reservation_number}`, () =>
-                                setReservationPaymentStatus(item.reservation_number, 'unpaid'),
-                              )
-                            }
-                          >
-                            입금 확인 취소
-                          </Button>
-                        </div>
-                      )}
-
                       {item.status === 'pending' ? (
                         <div className="mt-4 flex gap-2">
                           <Button

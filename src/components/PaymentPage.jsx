@@ -147,6 +147,9 @@ function PaymentPage() {
   const declared = paymentStatus === 'ready'
   const settled = paymentStatus === 'paid'
   const accountReady = hasBankAccount()
+  // 취소·반려·이용 완료 예약은 더 받을 돈이 없다. 계좌를 보여주면 고객이
+  // 송금한 뒤에야 안 되는 예약임을 알게 된다. 서버 판정을 그대로 따른다.
+  const canPay = info?.canPay !== false
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-24">
@@ -237,7 +240,17 @@ function PaymentPage() {
           </Card>
         ) : null}
 
+        {!canPay ? (
+          <Card className="border-rose-200 bg-rose-50">
+            <CardContent className="py-5 text-sm text-rose-800">
+              <p className="font-medium">{info?.blockReason}</p>
+              <p className="mt-1 text-rose-700">아래 문의로 연락 주시면 확인해 드리겠습니다.</p>
+            </CardContent>
+          </Card>
+        ) : null}
+
         {/* 계좌이체 */}
+        {canPay ? (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -294,8 +307,10 @@ function PaymentPage() {
             )}
           </CardContent>
         </Card>
+        ) : null}
 
         {/* 네이버쇼핑 */}
+        {canPay ? (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -324,6 +339,7 @@ function PaymentPage() {
             )}
           </CardContent>
         </Card>
+        ) : null}
 
         {/* 문의 */}
         <Card>

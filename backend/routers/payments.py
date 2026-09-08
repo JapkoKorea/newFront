@@ -248,6 +248,10 @@ async def prepare_payment(
     if reservation.get("payment_status") == "paid":
         raise HTTPException(status_code=400, detail="이미 결제가 완료된 예약입니다")
 
+    # 키 검사를 주문 생성보다 먼저 한다. 뒤에 두면 키가 없을 때 예약만
+    # 결제 대기로 바뀌고 응답은 500 이 되어, 결제하지 않은 예약이 대기로 남는다.
+    client_key = _require_env("TOSS_CLIENT_KEY")
+
     amount = _calculate_amount_krw(reservation)
     latest_order = _find_latest_payment_order(user_id=user_id, reservation_number=reservation_number)
     if (
@@ -263,7 +267,6 @@ async def prepare_payment(
             amount=amount,
         )
 
-    client_key = _require_env("TOSS_CLIENT_KEY")
     frontend_base_url = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173").rstrip("/")
 
     return PaymentPrepareResponse(
@@ -444,22 +447,45 @@ async def payment_status(
 # 여기서 건드리지 않는다 — 결제와 예약은 별도로 관리한다.
 TRANSFER_DECLARED_STATUS = "ready"
 
+# 이 상태에서는 더 받을 돈이 없다. 계좌를 보여주면 고객이 송금한 뒤에야
+# 안 되는 예약임을 알게 된다.
+NON_PAYABLE_STATUSES = {"cancelled", "rejected", "completed"}
 
-def _set_payment_status(user_id: str, reservation_number: str, status: str) -> None:
+NON_PAYABLE_REASON = {
+    "cancelled": "취소된 예약입니다. 입금하지 마시고 문의로 연락 주세요.",
+    "rejected": "반려된 예약입니다. 입금하지 마시고 문의로 연락 주세요.",
+    "completed": "이미 이용이 끝난 예약입니다. 결제 관련 문의는 상담으로 연락 주세요.",
+}
+
+
+def _declare_transfer_pending(user_id: str, reservation_number: str, amount: int) -> bool:
+    """입금 확인 대기로 바꾸고, 고객이 본 금액을 함께 남긴다.
+
+    금액을 남기지 않으면 운영자가 통장 입금액과 대조할 기준이 없다. 날짜가
+    바뀌어 예약금이 달라져도 "고객이 그때 본 금액"은 이 값이다.
+
+    이미 paid 인 건은 건드리지 않는다(WHERE 조건). 고객의 선언과 운영자의
+    입금 확인이 겹칠 때 확인된 결제가 대기로 되돌아가지 않도록 한다.
+    """
     conn = _connect()
     try:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
                 UPDATE reservations
-                SET payment_status = %s, payment_updated_at = %s
+                SET payment_status = %s,
+                    payment_amount_krw = %s,
+                    payment_updated_at = %s
                 WHERE user_id = %s AND reservation_number = %s
+                  AND payment_status <> 'paid'
                 """,
-                (status, datetime.now(), user_id, reservation_number),
+                (TRANSFER_DECLARED_STATUS, amount, datetime.now(), user_id, reservation_number),
             )
+            changed = cursor.rowcount
         conn.commit()
     finally:
         conn.close()
+    return changed > 0
 
 
 @router.get("/transfer-info")
@@ -480,11 +506,15 @@ async def transfer_info(
     amount = _calculate_amount_krw(reservation)
     tour_date = reservation.get("tour_date")
     start_time = reservation.get("tour_start_time")
+    reservation_status = reservation.get("status")
+    block_reason = NON_PAYABLE_REASON.get(reservation_status)
 
     return {
         "amount": amount,
         "isLastMinute": _is_last_minute(tour_date),
         "paymentStatus": reservation.get("payment_status") or "unpaid",
+        "canPay": block_reason is None,
+        "blockReason": block_reason,
         "reservation": {
             "reservationNumber": reservation.get("reservation_number"),
             "status": reservation.get("status"),
@@ -519,11 +549,17 @@ async def declare_transfer(
     if reservation.get("payment_status") == "paid":
         return {"paymentStatus": "paid", "message": "이미 입금이 확인된 예약입니다."}
 
-    if reservation.get("status") in {"cancelled", "rejected"}:
-        raise HTTPException(status_code=400, detail="취소된 예약은 입금 확인을 요청할 수 없습니다")
+    block_reason = NON_PAYABLE_REASON.get(reservation.get("status"))
+    if block_reason:
+        raise HTTPException(status_code=400, detail=block_reason)
 
-    _set_payment_status(user_id, reservation_number, TRANSFER_DECLARED_STATUS)
+    amount = _calculate_amount_krw(reservation)
+    if not _declare_transfer_pending(user_id, reservation_number, amount):
+        # 그 사이에 결제 완료로 바뀐 경우다.
+        return {"paymentStatus": "paid", "message": "이미 입금이 확인된 예약입니다."}
+
     return {
         "paymentStatus": TRANSFER_DECLARED_STATUS,
+        "amount": amount,
         "message": "입금 확인 요청이 접수되었습니다. 확인 후 안내드리겠습니다.",
     }
