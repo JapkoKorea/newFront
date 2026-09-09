@@ -2,7 +2,17 @@ import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer.jsx'
+import { AppShellProvider } from '@/lib/appShell.jsx'
 import { SITE_URL } from '@/lib/site.js'
+
+// viewportFit: 'cover' 가 있어야 env(safe-area-inset-*) 값이 0 이 아닌 실제 값으로 들어온다.
+// 홈 인디케이터가 있는 기기에서 하단 고정 요소가 제스처 바에 깔리는 것을 막기 위해 필요하다.
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#ffffff',
+}
 
 export const metadata = {
   // metadataBase 가 있어야 OG 이미지와 canonical 이 절대 URL 로 생성된다.
@@ -34,10 +44,12 @@ export default function RootLayout({ children }) {
   return (
     <html lang="ko">
       <body>
-        <Navigation />
-        {children}
-        <Footer />
-        <Toaster position="top-center" />
+        <AppShellProvider>
+          <Navigation />
+          {children}
+          <Footer />
+          <Toaster position="top-center" />
+        </AppShellProvider>
       </body>
     </html>
   )

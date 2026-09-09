@@ -143,11 +143,11 @@ export default function ReviewList({ productSlug, onSummary }) {
                 <button
                   type="button"
                   onClick={() => report(review.id)}
-                  className="shrink-0 rounded p-1 text-gray-300 transition hover:text-gray-500"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded text-gray-300 transition hover:text-gray-500"
                   aria-label="후기 신고"
                   title="부적절한 후기 신고"
                 >
-                  <Flag className="h-3.5 w-3.5" />
+                  <Flag className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
               )}
             </div>

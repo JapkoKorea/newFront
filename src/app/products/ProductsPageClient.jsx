@@ -49,7 +49,7 @@ export default function ProductsPageClient({ products, initialSeason = null, ini
                 key={tab.label}
                 type="button"
                 onClick={() => setSeason(tab.value)}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                className={`inline-flex min-h-11 items-center rounded-full px-4 text-sm font-medium transition ${
                   active
                     ? 'bg-yellow-400 text-gray-900'
                     : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
@@ -62,13 +62,19 @@ export default function ProductsPageClient({ products, initialSeason = null, ini
         </div>
 
         <div className="relative sm:w-72">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <label htmlFor="product-search" className="sr-only">
+            코스, 지역, 관광지 검색
+          </label>
           <input
-            type="text"
+            id="product-search"
+            name="q"
+            type="search"
+            autoComplete="off"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="코스, 지역, 관광지 검색"
-            className="w-full rounded-full border border-gray-200 py-2 pl-9 pr-4 text-sm outline-none focus:border-yellow-400"
+            className="h-11 w-full rounded-full border border-gray-200 pl-9 pr-4 text-sm outline-none focus:border-yellow-400"
           />
         </div>
       </div>

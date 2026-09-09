@@ -24,6 +24,7 @@ import { formatDeposit, readWishlist, toggleWishlist } from '@/lib/product.js'
 import { tourCourses } from '@/data/tourCourses.js'
 import CourseSelectModal from '@/components/CourseSelectModal.jsx'
 import ReviewList from '@/components/ReviewList.jsx'
+import { useAppShell, useDeclareBottomBar } from '@/lib/appShell.jsx'
 
 const SEASON_COLOR = {
   winter: 'bg-blue-100 text-blue-800',
@@ -53,6 +54,10 @@ function Section({ icon: Icon, title, children }) {
 }
 
 export default function ProductDetailClient({ product }) {
+  // 하단 고정 액션 바를 쓰는 화면이라 플로팅 버튼을 접게 한다.
+  useDeclareBottomBar()
+  const { openChat } = useAppShell()
+
   const router = useRouter()
   const [wished, setWished] = useState(false)
 
@@ -124,7 +129,7 @@ export default function ProductDetailClient({ product }) {
   }
 
   return (
-    <div className="min-h-screen bg-white pt-20 pb-28 px-4">
+    <div className="pb-safe-bar min-h-screen bg-white px-4 pt-20">
       <div className="mx-auto max-w-3xl">
         <div className="mb-6 flex items-center justify-between">
           <nav className="flex items-center gap-1 text-sm text-gray-500">
@@ -138,9 +143,9 @@ export default function ProductDetailClient({ product }) {
             type="button"
             onClick={onShare}
             aria-label="공유하기"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:bg-gray-50"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:bg-gray-50"
           >
-            <Share2 className="h-4 w-4" />
+            <Share2 className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 
@@ -163,9 +168,14 @@ export default function ProductDetailClient({ product }) {
             onClick={onToggleWish}
             aria-label={wished ? '찜 해제' : '찜하기'}
             aria-pressed={wished}
-            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:bg-white"
+            className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-full"
           >
-            <Heart className={`h-5 w-5 ${wished ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:bg-white">
+              <Heart
+                aria-hidden="true"
+                className={`h-5 w-5 ${wished ? 'fill-red-500 text-red-500' : 'text-gray-600'}`}
+              />
+            </span>
           </button>
         </div>
 
@@ -188,8 +198,8 @@ export default function ProductDetailClient({ product }) {
             소요시간 {product.durationLabel}
           </span>
           {reviewSummary?.count > 0 ? (
-            <a href="#reviews" className="flex items-center gap-1 hover:text-gray-700">
-              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+            <a href="#reviews" className="flex min-h-11 items-center gap-1 hover:text-gray-700">
+              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" aria-hidden="true" />
               <span className="font-medium text-gray-900">{reviewSummary.average.toFixed(1)}</span>
               후기 {reviewSummary.count}건
             </a>
@@ -402,24 +412,36 @@ export default function ProductDetailClient({ product }) {
         </div>
       </div>
 
-      {/* 하단 고정 CTA */}
-      <div className="fixed inset-x-0 bottom-0 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center gap-3">
-          {depositLabel ? (
-            <p className="hidden shrink-0 font-bold text-gray-900 sm:block">{depositLabel}</p>
-          ) : null}
+      {/*
+        하단 고정 액션 바.
+        플로팅 채팅/FAQ 버튼은 useDeclareBottomBar 로 접히므로, 상담 진입점을 여기에 둔다.
+      */}
+      <div className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 px-4 pt-3 backdrop-blur">
+        <div className="mx-auto flex max-w-3xl items-center gap-2">
           {product.cta.kakaoUrl ? (
             <a
               href={product.cta.kakaoUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-800"
+              aria-label="카카오톡으로 문의하기"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-gray-300 text-gray-700"
             >
-              <MessageCircle className="h-4 w-4" />
-              카카오톡 문의
+              <MessageCircle className="h-5 w-5" aria-hidden="true" />
             </a>
+          ) : (
+            <button
+              type="button"
+              onClick={openChat}
+              aria-label="채팅 상담"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-gray-300 text-gray-700"
+            >
+              <MessageCircle className="h-5 w-5" aria-hidden="true" />
+            </button>
+          )}
+          {depositLabel ? (
+            <p className="hidden shrink-0 px-1 font-bold text-gray-900 sm:block">{depositLabel}</p>
           ) : null}
-          <Button onClick={startBookingFlow} className="flex-1 py-6 text-base font-semibold">
+          <Button onClick={startBookingFlow} className="h-12 flex-1 text-base font-semibold">
             예약 신청하기
           </Button>
         </div>

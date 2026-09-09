@@ -119,11 +119,11 @@ export default function HomePage() {
               value={homeQuery}
               onChange={(e) => setHomeQuery(e.target.value)}
               placeholder="코스, 지역, 관광지 검색"
-              className="w-full rounded-full border border-gray-300 py-3 pl-12 pr-28 text-base outline-none focus:border-yellow-400"
+              className="h-14 w-full rounded-full border border-gray-300 pl-12 pr-28 text-base outline-none focus:border-yellow-400 lg:h-12"
             />
             <Button
               type="submit"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full bg-yellow-500 px-6 text-white hover:bg-yellow-600"
+              className="absolute right-1.5 top-1/2 h-11 -translate-y-1/2 rounded-full bg-yellow-500 px-6 text-white hover:bg-yellow-600 lg:h-9"
             >
               검색
             </Button>
@@ -135,7 +135,7 @@ export default function HomePage() {
               <Link
                 key={chip.label}
                 href={chip.season ? `/products?season=${chip.season}` : '/products'}
-                className="rounded-full border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-600 transition hover:bg-yellow-50 hover:text-yellow-700"
+                className="inline-flex min-h-11 items-center rounded-full border border-gray-200 px-4 text-sm font-medium text-gray-600 transition hover:bg-yellow-50 hover:text-yellow-700"
               >
                 {chip.label}
               </Link>
@@ -146,7 +146,7 @@ export default function HomePage() {
             <h3 className="text-xl font-bold text-gray-900">추천 상품</h3>
             <Link
               href="/products"
-              className="flex items-center text-sm font-medium text-yellow-600 hover:text-yellow-700"
+              className="flex min-h-11 items-center text-sm font-medium text-yellow-600 hover:text-yellow-700"
             >
               전체보기
               <ChevronRight className="h-4 w-4" aria-hidden="true" />

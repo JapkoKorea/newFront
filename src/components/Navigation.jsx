@@ -8,12 +8,13 @@ import { MessageCircle, HelpCircle, Menu, X } from 'lucide-react'
 import FAQ from './FAQ.jsx'
 import ChatSupport from './ChatSupport.jsx'
 import ServiceSelector from './ServiceSelector.jsx'
+import { useAppShell } from '@/lib/appShell.jsx'
 
 export default function Navigation() {
   const [isServiceSelectorOpen, setIsServiceSelectorOpen] = useState(false)
-  const [isFAQOpen, setIsFAQOpen] = useState(false)
-  const [isChatOpen, setIsChatOpen] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  // 상담/FAQ 모달 상태는 전역 셸이 들고 있다. 하단 액션 바 같은 다른 화면 요소도 같은 모달을 연다.
+  const { hasBottomBar, isChatOpen, isFAQOpen, openChat, openFAQ, closeChat, closeFAQ } = useAppShell()
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [nickname, setNickname] = useState('')
   const router = useRouter()
@@ -46,7 +47,7 @@ export default function Navigation() {
   }
 
   const openServiceSelector = () => {
-    setIsFAQOpen(false); setIsChatOpen(false)
+    closeFAQ(); closeChat()
     setIsServiceSelectorOpen(true); setIsMobileMenuOpen(false)
   }
   const openBooking = () => {
@@ -66,14 +67,9 @@ export default function Navigation() {
     setIsMobileMenuOpen(false)
     router.push('/transfer-booking')
   }
-  const openFAQ = () => {
-    setIsChatOpen(false)
-    setIsFAQOpen(true); setIsMobileMenuOpen(false)
-  }
-  const openChat = () => {
-    setIsFAQOpen(false)
-    setIsChatOpen(true); setIsMobileMenuOpen(false)
-  }
+  // 메뉴에서 열 때는 모바일 메뉴를 같이 닫는다.
+  const openFAQFromMenu = () => { setIsMobileMenuOpen(false); openFAQ() }
+  const openChatFromMenu = () => { setIsMobileMenuOpen(false); openChat() }
 
   const navLinkClass = "text-gray-500 hover:text-yellow-500 px-3 py-2 rounded-md text-sm font-medium"
 
@@ -82,7 +78,7 @@ export default function Navigation() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link href="/">
+            <Link href="/" className="inline-flex min-h-11 items-center">
               <h1 className="text-2xl font-bold text-yellow-500">잽코 택시투어</h1>
             </Link>
 
@@ -92,8 +88,8 @@ export default function Navigation() {
               <button onClick={openServiceSelector} className={navLinkClass}>예약하기</button>
               <Link href="/pricing" className={navLinkClass}>요금 안내</Link>
               <Link href="/reservations" className={navLinkClass}>예약 확인</Link>
-              <button onClick={openFAQ} className={navLinkClass}>FAQ</button>
-              <button onClick={openChat} className={navLinkClass}>상담</button>
+              <button onClick={openFAQFromMenu} className={navLinkClass}>FAQ</button>
+              <button onClick={openChatFromMenu} className={navLinkClass}>상담</button>
               {isLoggedIn && nickname && (
                 <span className="text-sm text-gray-700 ml-2">{nickname}님</span>
               )}
@@ -107,7 +103,14 @@ export default function Navigation() {
 
             {/* 모바일 햄버거 */}
             <div className="md:hidden">
-              <Button variant="ghost" size="sm" onClick={() => setIsMobileMenuOpen(p => !p)}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-11 w-11"
+                aria-label={isMobileMenuOpen ? '메뉴 닫기' : '메뉴 열기'}
+                aria-expanded={isMobileMenuOpen}
+                onClick={() => setIsMobileMenuOpen(p => !p)}
+              >
                 {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </Button>
             </div>
@@ -125,17 +128,17 @@ export default function Navigation() {
                   key={href}
                   href={href}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="block px-3 py-2 text-sm font-medium text-gray-700 hover:bg-yellow-50 rounded"
+                  className="flex min-h-11 items-center rounded px-3 text-sm font-medium text-gray-700 hover:bg-yellow-50"
                 >
                   {label}
                 </Link>
               ))}
-              <button onClick={openServiceSelector} className="block w-full text-left px-3 py-2 text-sm font-medium text-gray-700 hover:bg-yellow-50 rounded">예약하기</button>
-              <button onClick={openFAQ} className="block w-full text-left px-3 py-2 text-sm font-medium text-gray-700 hover:bg-yellow-50 rounded">FAQ</button>
-              <button onClick={openChat} className="block w-full text-left px-3 py-2 text-sm font-medium text-gray-700 hover:bg-yellow-50 rounded">상담</button>
+              <button onClick={openServiceSelector} className="flex min-h-11 w-full items-center rounded px-3 text-left text-sm font-medium text-gray-700 hover:bg-yellow-50">예약하기</button>
+              <button onClick={openFAQFromMenu} className="flex min-h-11 w-full items-center rounded px-3 text-left text-sm font-medium text-gray-700 hover:bg-yellow-50">FAQ</button>
+              <button onClick={openChatFromMenu} className="flex min-h-11 w-full items-center rounded px-3 text-left text-sm font-medium text-gray-700 hover:bg-yellow-50">상담</button>
               {isLoggedIn && nickname && <p className="px-3 py-1 text-sm text-gray-700">{nickname}님 환영합니다.</p>}
               <Button
-                className="w-full bg-yellow-400 hover:bg-yellow-500 text-white mt-2"
+                className="mt-2 h-11 w-full bg-yellow-400 text-white hover:bg-yellow-500"
                 onClick={() => { setIsMobileMenuOpen(false); isLoggedIn ? handleLogout() : router.push('/login') }}
               >
                 {isLoggedIn ? '로그아웃' : '카카오 로그인'}
@@ -145,20 +148,36 @@ export default function Navigation() {
         </div>
       </nav>
 
-      {/* 플로팅 액션 버튼 */}
-      <div className="fixed bottom-6 right-6 z-50 space-y-3">
-        <Button size="lg" className="bg-green-500 hover:bg-green-600 text-white rounded-full p-4 shadow-lg" onClick={openChat}>
-          <MessageCircle className="h-6 w-6" />
-        </Button>
-        <Button size="lg" className="bg-blue-500 hover:bg-blue-600 text-white rounded-full p-4 shadow-lg" onClick={openFAQ}>
-          <HelpCircle className="h-6 w-6" />
-        </Button>
-      </div>
+      {/*
+        플로팅 액션 버튼.
+        하단 고정 액션 바가 있는 화면에서는 그 위에 겹쳐 1차 액션을 가리므로 접는다.
+        그런 화면은 상담 진입점을 자기 액션 바 안에 둔다.
+      */}
+      {!hasBottomBar && (
+        <div className="bottom-safe fixed right-4 z-50 space-y-3 sm:right-6">
+          <Button
+            size="icon"
+            aria-label="채팅 상담"
+            className="h-12 w-12 rounded-full bg-green-500 text-white shadow-lg hover:bg-green-600"
+            onClick={openChat}
+          >
+            <MessageCircle className="h-6 w-6" aria-hidden="true" />
+          </Button>
+          <Button
+            size="icon"
+            aria-label="자주 묻는 질문"
+            className="h-12 w-12 rounded-full bg-blue-500 text-white shadow-lg hover:bg-blue-600"
+            onClick={openFAQ}
+          >
+            <HelpCircle className="h-6 w-6" aria-hidden="true" />
+          </Button>
+        </div>
+      )}
 
       {/* 모달들 */}
       <ServiceSelector isOpen={isServiceSelectorOpen} onClose={() => setIsServiceSelectorOpen(false)} onSelectTour={openBooking} onSelectCustom={openCustomBooking} onSelectTransfer={openTransfer} />
-      <FAQ isOpen={isFAQOpen} onClose={() => setIsFAQOpen(false)} onStartChat={openChat} />
-      <ChatSupport isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+      <FAQ isOpen={isFAQOpen} onClose={closeFAQ} onStartChat={openChat} />
+      <ChatSupport isOpen={isChatOpen} onClose={closeChat} />
     </>
   )
 }

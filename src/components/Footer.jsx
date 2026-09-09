@@ -36,10 +36,13 @@ export default function Footer() {
 
           <div>
             <p className="text-sm font-semibold text-gray-900">서비스</p>
-            <ul className="mt-3 space-y-2">
+            <ul className="mt-1">
               {SERVICE_LINKS.map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href} className="text-sm text-gray-600 hover:text-gray-900">
+                  <Link
+                    href={link.href}
+                    className="flex min-h-11 items-center text-sm text-gray-600 hover:text-gray-900"
+                  >
                     {link.label}
                   </Link>
                 </li>
@@ -49,10 +52,13 @@ export default function Footer() {
 
           <div>
             <p className="text-sm font-semibold text-gray-900">약관 및 정책</p>
-            <ul className="mt-3 space-y-2">
+            <ul className="mt-1">
               {POLICY_LINKS.map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href} className="text-sm text-gray-600 hover:text-gray-900">
+                  <Link
+                    href={link.href}
+                    className="flex min-h-11 items-center text-sm text-gray-600 hover:text-gray-900"
+                  >
                     {link.label}
                   </Link>
                 </li>

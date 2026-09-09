@@ -118,3 +118,25 @@
     @apply bg-background text-foreground;
   }
 }
+
+/*
+ * 세이프 에어리어.
+ *
+ * layout.jsx 의 viewport 에 viewportFit: 'cover' 가 있어야 env() 가 실제 값을 준다.
+ * 홈 인디케이터가 없는 기기에서는 env() 가 0 이므로 max() 로 최소 여백을 보장한다.
+ */
+
+/* 하단 고정 액션 바의 안쪽 여백 */
+@utility pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+/* 하단 고정 요소를 화면 아래에서 띄우는 거리 */
+@utility bottom-safe {
+  bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+
+/* 하단 고정 바에 가리지 않도록 본문 끝에 확보하는 여백 */
+@utility pb-safe-bar {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+}

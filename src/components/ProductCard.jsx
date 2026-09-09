@@ -50,11 +50,14 @@ export default function ProductCard({ product, rating }) {
           onClick={onToggleWish}
           aria-label={wished ? '찜 해제' : '찜하기'}
           aria-pressed={wished}
-          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:bg-white"
+          className="absolute right-1 top-1 flex h-11 w-11 items-center justify-center rounded-full"
         >
-          <Heart
-            className={`h-5 w-5 ${wished ? 'fill-red-500 text-red-500' : 'text-gray-500'}`}
-          />
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 shadow-sm transition group-hover:bg-white">
+            <Heart
+              aria-hidden="true"
+              className={`h-5 w-5 ${wished ? 'fill-red-500 text-red-500' : 'text-gray-500'}`}
+            />
+          </span>
         </button>
         {product.badge ? (
           <span className="absolute left-3 top-3 rounded-full bg-yellow-400 px-2.5 py-0.5 text-xs font-semibold text-gray-900 shadow-sm">

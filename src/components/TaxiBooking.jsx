@@ -577,8 +577,8 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
             <h2 className="text-2xl font-bold text-gray-900">택시 투어 예약</h2>
             <p className="text-sm text-gray-500 mt-1">{skipCourseStep ? '코스 선택은 완료되었습니다. 남은 2단계를 입력해 주세요.' : '3단계로 간단하게 예약을 완료할 수 있어요.'}</p>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-5 w-5" />
+          <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="예약 닫기" onClick={onClose}>
+            <X className="h-5 w-5" aria-hidden="true" />
           </Button>
         </div>
 
@@ -599,21 +599,25 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                 <button
                   type="button"
                   onClick={() => handleStepClick(step)}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all cursor-pointer ${currentStep >= step ? 'bg-yellow-500 text-white shadow-sm ring-2 ring-yellow-200' : 'bg-gray-200 text-gray-600 hover:bg-gray-300 hover:ring-2 hover:ring-gray-300'}`}
+                  className="flex min-h-11 items-center gap-2 rounded-full px-1"
                   aria-current={currentStep === step ? 'step' : undefined}
                   title={`${stepLabels[index]} 단계로 이동`}
                 >
-                  {index + 1}
+                  <span
+                    aria-hidden="true"
+                    className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-all ${currentStep >= step ? 'bg-yellow-500 text-white shadow-sm ring-2 ring-yellow-200' : 'bg-gray-200 text-gray-600'}`}
+                  >
+                    {index + 1}
+                  </span>
+                  <span
+                    className={`text-sm transition-colors ${currentStep >= step ? 'font-medium text-yellow-700' : 'text-gray-400'}`}
+                  >
+                    {stepLabels[index]}
+                  </span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => handleStepClick(step)}
-                  className={`ml-2 text-sm transition-colors cursor-pointer ${currentStep >= step ? 'text-yellow-700 font-medium hover:text-yellow-800' : 'text-gray-400 hover:text-gray-500'}`}
-                  title={`${stepLabels[index]} 단계로 이동`}
-                >
-                  {stepLabels[index]}
-                </button>
-                {index < flowSteps.length - 1 && <div className="w-12 h-px bg-gray-300 mx-4" />}
+                {index < flowSteps.length - 1 && (
+                  <div className="mx-2 h-px w-4 bg-gray-300 sm:mx-4 sm:w-12" />
+                )}
               </div>
             ))}
           </div>
@@ -1164,17 +1168,17 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
         </div>
 
         {/* 하단 버튼 */}
-        <div className="flex justify-between items-center p-6 border-t bg-gray-50">
-          <Button variant="outline" onClick={handlePrev} disabled={skipCourseStep ? currentStep <= 2 : currentStep === 1}>
+        <div className="flex items-center justify-between gap-3 border-t bg-gray-50 p-4 sm:p-6">
+          <Button variant="outline" className="h-11 px-5" onClick={handlePrev} disabled={skipCourseStep ? currentStep <= 2 : currentStep === 1}>
             이전
           </Button>
           <div className="flex gap-2">
             {currentStep < 3 ? (
-              <Button onClick={handleNext} className="bg-yellow-500 hover:bg-yellow-600" disabled={!canProceedToNext()}>
+              <Button onClick={handleNext} className="h-11 bg-yellow-500 px-8 hover:bg-yellow-600" disabled={!canProceedToNext()}>
                 다음
               </Button>
             ) : (
-              <Button onClick={handleSubmit} className="bg-yellow-500 hover:bg-yellow-600" disabled={!canSubmit() || isSubmitting}>
+              <Button onClick={handleSubmit} className="h-11 bg-yellow-500 hover:bg-yellow-600" disabled={!canSubmit() || isSubmitting}>
                 {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />로딩 중...</> : <><CreditCard className="mr-2 h-4 w-4" />요금 확인 및 결제</>}
               </Button>
             )}
