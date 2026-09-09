@@ -134,7 +134,7 @@ export const tourCourses = [
     destination: '후라노역',
     spots: ['팜 토미타', '닝구르 테라스', '패치워크의 길'],
     description: '7~8월 라벤더 절정기에 맞춘 후라노~비에이 꽃길 루트. 보라빛 풍경 속 드라이브.',
-    badge: '🌸 여름 추천',
+    badge: '여름 추천',
   },
   {
     id: 'flower-hill',
@@ -145,7 +145,7 @@ export const tourCourses = [
     destination: '비에이역',
     spots: ['사계채언덕 (四季彩の丘)', '패치워크의 길', '세븐스타 나무'],
     description: '형형색색 꽃밭 언덕이 펼쳐지는 여름 비에이. 사계채언덕의 꽃 층을 파노라마로.',
-    badge: '🌸 여름 한정',
+    badge: '여름 한정',
   },
   // ── 사계절 코스 ───────────────────────────────────
   {

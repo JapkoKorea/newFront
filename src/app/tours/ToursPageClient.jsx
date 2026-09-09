@@ -9,9 +9,9 @@ import { Button } from '@/components/ui/button.jsx'
 
 const SEASON_FILTER_OPTIONS = [
   { value: 'all', label: '전체' },
-  { value: 'winter', label: '❄️ 겨울' },
-  { value: 'summer', label: '🌸 여름' },
-  { value: 'all_season', label: '🍂 사계절' },
+  { value: 'winter', label: '겨울' },
+  { value: 'summer', label: '여름' },
+  { value: 'all_season', label: '사계절' },
 ]
 
 const SEASON_COLOR = {

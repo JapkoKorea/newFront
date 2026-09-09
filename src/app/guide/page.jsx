@@ -1,6 +1,9 @@
 import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Mountain, Flower2, CalendarDays, Car } from 'lucide-react'
 import { guideIndex } from '@/data/guideContent.js'
+
+// 가이드 카드 아이콘. 데이터에는 이름만 두고 컴포넌트 매핑은 여기서 한다.
+const GUIDE_ICONS = { Mountain, Flower2, CalendarDays, Car }
 
 export const metadata = {
   title: '홋카이도 관광 가이드',
@@ -41,7 +44,10 @@ export default function GuidePage() {
               href={`/guide/${guide.slug}`}
               className="group block border rounded-xl p-6 hover:shadow-md hover:border-yellow-300 transition-all bg-white"
             >
-              <div className="text-3xl mb-3">{guide.icon}</div>
+              {(() => {
+                const Icon = GUIDE_ICONS[guide.iconName]
+                return Icon ? <Icon className="h-8 w-8 text-yellow-500 mb-3" aria-hidden="true" /> : null
+              })()}
               <h2 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-yellow-600 transition-colors">
                 {guide.title}
               </h2>

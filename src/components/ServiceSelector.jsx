@@ -87,7 +87,7 @@ export default function ServiceSelector({ isOpen, onClose, onSelectTour, onSelec
               </p>
               <p className="mt-2 text-xs font-medium text-blue-700">송영서비스 예약 페이지로 이동</p>
               <div className="mt-3 flex flex-wrap justify-center gap-1">
-                <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-700">✈️ 공항 픽업/드롭</span>
+                <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-700">공항 픽업/드롭</span>
                 <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-700">🚉 역 이동</span>
               </div>
             </div>

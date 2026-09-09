@@ -253,24 +253,24 @@ export const guideIndex = [
     slug: 'biei',
     title: '비에이 관광 완전 가이드',
     description: '패치워크의 길, 청의 호수, 흰수염폭포. 비에이 명소와 이동 방법 총정리.',
-    icon: '🌄',
+    iconName: 'Mountain',
   },
   {
     slug: 'furano',
     title: '후라노 관광 완전 가이드',
     description: '팜 토미타 라벤더, 닝구르 테라스, 라벤더 시즌 타이밍 가이드.',
-    icon: '💜',
+    iconName: 'Flower2',
   },
   {
     slug: 'best-season',
     title: '계절별 베스트 시즌 가이드',
     description: '겨울 설경 vs 여름 꽃밭. 언제 가야 가장 아름다운지 비교.',
-    icon: '📅',
+    iconName: 'CalendarDays',
   },
   {
     slug: 'taxi-vs-rental-car',
     title: '택시투어 vs 렌터카 비교',
     description: '비용, 편의성, 겨울 안전성. 당신의 상황에 맞는 선택은?',
-    icon: '🚕',
+    iconName: 'Car',
   },
 ]
