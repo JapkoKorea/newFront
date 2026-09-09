@@ -68,6 +68,23 @@ NAVER_COMMERCE_CLIENT_SECRET=
 가상계좌가 열리면 `manual_payment_service.confirm()` 을 webhook 핸들러에서
 부르면 된다. 지금 운영자 버튼이 누르는 것과 같은 함수다.
 
+## 카카오톡 채널
+
+문의 버튼이 여는 주소는 환경변수 하나로 정해진다.
+
+```
+NEXT_PUBLIC_KAKAO_CHANNEL_ID=_abcdEF
+```
+
+관리자센터의 채널 URL(`https://pf.kakao.com/_abcdEF`)에서 `_` 를 포함한 뒷부분이다.
+버튼은 채널 홈이 아니라 대화창(`/chat`)을 바로 연다.
+
+**비어 있으면 카카오 문의 버튼이 나오지 않는다.** 사이트 내 문의만 남는다.
+전에는 존재하지 않는 채널(`_japko`)이 하드코딩돼 있어 버튼을 누르면
+"페이지를 찾을 수 없습니다"가 떴다. 죽은 링크로 보내는 것보다 안 보이는 편이 낫다.
+
+모바일은 `--dart-define=KAKAO_CHANNEL_ID=...` 로 같은 값을 넘긴다.
+
 ## 관련 파일
 
 | 파일 | 역할 |
@@ -78,3 +95,4 @@ NAVER_COMMERCE_CLIENT_SECRET=
 | `backend/routers/admin.py` | 운영자 확인, 자동 확인, 연동 상태 |
 | `src/lib/reservationStatus.js` | 고객이 보는 단계 판정 (`customerStage`) |
 | `mobile/lib/features/booking/domain/customer_stage.dart` | 모바일의 같은 규칙 |
+| `src/lib/kakaoChannel.js` | 카카오 채널 주소 (없으면 버튼을 만들지 않는다) |

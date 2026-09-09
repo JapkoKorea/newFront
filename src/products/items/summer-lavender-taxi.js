@@ -3,6 +3,7 @@
 // 새 상품을 만들 때 이 파일을 복사해서 값만 바꾸면 된다.
 
 import { defineProduct, PRODUCT_SEASON, PRODUCT_STATUS } from '../schema.js'
+import { KAKAO_URL } from '../common.js'
 import { HOURLY_RATE } from '@/lib/pricing.js'
 
 // 요금이 바뀌면 src/lib/pricing.js 한 곳만 고치면 이 상품에도 반영된다.
@@ -124,7 +125,7 @@ export default defineProduct({
   },
 
   cta: {
-    kakaoUrl: 'https://pf.kakao.com/_japko',
+    kakaoUrl: KAKAO_URL,
     bookingHref: '/booking?from=product',
     courseId: 'lavender-road',
   },

@@ -21,9 +21,8 @@ export const BANK_ACCOUNT = {
 
 export const NAVER_STORE_URL = clean(process.env.NEXT_PUBLIC_NAVER_STORE_URL)
 
-// 카카오 채널은 상품 안내에서도 쓰는 값과 같다.
-export const KAKAO_CHANNEL_URL =
-  clean(process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL) || 'https://pf.kakao.com/_japko'
+// 카카오 채널은 lib/kakaoChannel.js 에서 관리한다.
+export { KAKAO_CHANNEL_CHAT, hasKakaoChannel } from '@/lib/kakaoChannel.js'
 
 export function hasBankAccount() {
   return Boolean(BANK_ACCOUNT.bank && BANK_ACCOUNT.number && BANK_ACCOUNT.holder)

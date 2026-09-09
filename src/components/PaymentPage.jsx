@@ -18,12 +18,8 @@ import {
 } from 'lucide-react'
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
 import { paymentLabel, paymentTone } from '@/lib/reservationStatus.js'
-import {
-  BANK_ACCOUNT,
-  KAKAO_CHANNEL_URL,
-  NAVER_STORE_URL,
-  hasBankAccount,
-} from '@/lib/paymentChannels.js'
+import { BANK_ACCOUNT, NAVER_STORE_URL, hasBankAccount } from '@/lib/paymentChannels.js'
+import { KAKAO_CHANNEL_CHAT, hasKakaoChannel } from '@/lib/kakaoChannel.js'
 import ChatSupport from '@/components/ChatSupport.jsx'
 
 /**
@@ -399,14 +395,18 @@ function PaymentPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2 sm:flex-row">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => window.open(KAKAO_CHANNEL_URL, '_blank', 'noopener,noreferrer')}
-            >
-              <ExternalLink className="mr-1 h-4 w-4" />
-              카카오톡 채널로 문의
-            </Button>
+            {/* 채널이 없으면 버튼을 만들지 않는다. 죽은 링크로 보내는 것보다
+                사이트 내 문의로 안내하는 편이 낫다. */}
+            {hasKakaoChannel() ? (
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => window.open(KAKAO_CHANNEL_CHAT, '_blank', 'noopener,noreferrer')}
+              >
+                <ExternalLink className="mr-1 h-4 w-4" />
+                카카오톡 채널로 문의
+              </Button>
+            ) : null}
             <Button variant="outline" className="flex-1" onClick={() => setIsChatOpen(true)}>
               사이트에서 문의
             </Button>

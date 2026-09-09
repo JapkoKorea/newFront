@@ -4,6 +4,7 @@
 // 협력사 상호/연락처는 고객 노출하지 않고 잽코 카카오 채널로 일원화한다.
 
 import { defineProduct, PRODUCT_SEASON, PRODUCT_STATUS } from '../schema.js'
+import { KAKAO_URL } from '../common.js'
 
 export default defineProduct({
   slug: 'biei-hokkaido-charter',
@@ -117,7 +118,7 @@ export default defineProduct({
   },
 
   cta: {
-    kakaoUrl: 'https://pf.kakao.com/_japko',
+    kakaoUrl: KAKAO_URL,
     bookingHref: '/booking?from=product',
     courseId: null,
   },

@@ -41,10 +41,27 @@ abstract final class AppConfig {
     defaultValue: '',
   );
 
-  static const String kakaoChannelUrl = String.fromEnvironment(
-    'KAKAO_CHANNEL_URL',
-    defaultValue: 'https://pf.kakao.com/_japko',
+  /// 카카오톡 채널 공개 ID. 관리자센터의 채널 URL 에서 _ 뒤 부분.
+  /// 값이 없으면 문의 버튼을 만들지 않는다 — 존재하지 않는 채널로 보내면
+  /// "페이지를 찾을 수 없습니다"가 뜬다.
+  static const String kakaoChannelId = String.fromEnvironment(
+    'KAKAO_CHANNEL_ID',
+    defaultValue: '',
   );
+
+  static const String kakaoChannelUrlOverride = String.fromEnvironment(
+    'KAKAO_CHANNEL_URL',
+    defaultValue: '',
+  );
+
+  /// 채널 홈이 아니라 대화창을 바로 연다.
+  static String get kakaoChannelUrl {
+    if (kakaoChannelUrlOverride.isNotEmpty) return kakaoChannelUrlOverride;
+    if (kakaoChannelId.isNotEmpty) return 'https://pf.kakao.com/$kakaoChannelId/chat';
+    return '';
+  }
+
+  static bool get hasKakaoChannel => kakaoChannelUrl.isNotEmpty;
 
   static bool get hasBankAccount =>
       bankName.isNotEmpty && bankAccount.isNotEmpty && bankHolder.isNotEmpty;

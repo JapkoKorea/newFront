@@ -204,7 +204,8 @@ class _PaymentReviewPageState extends ConsumerState<PaymentReviewPage> {
           ),
         ],
         const SizedBox(height: 12),
-        _InquiryCard(onKakao: () => _openUrl(AppConfig.kakaoChannelUrl)),
+        if (AppConfig.hasKakaoChannel)
+          _InquiryCard(onKakao: () => _openUrl(AppConfig.kakaoChannelUrl)),
         const SizedBox(height: 12),
         TextButton(
           onPressed: () => context.go('/reservations'),

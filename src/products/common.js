@@ -78,4 +78,9 @@ export const REVIEW_EVENT = {
   body: '택시 투어 후 정성스러운 포토 리뷰를 작성하시면 잽코 예약권과 커피 기프티콘을 드립니다.',
 }
 
-export const KAKAO_URL = 'https://pf.kakao.com/_japko'
+// 존재하지 않는 채널을 하드코딩해 두면 문의 버튼이 전부 죽은 페이지로 간다.
+// 실제 주소는 환경변수에서 온다(src/lib/kakaoChannel.js).
+export const KAKAO_URL = (process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL || '').trim()
+  || (process.env.NEXT_PUBLIC_KAKAO_CHANNEL_ID
+    ? `https://pf.kakao.com/${process.env.NEXT_PUBLIC_KAKAO_CHANNEL_ID}/chat`
+    : '')
