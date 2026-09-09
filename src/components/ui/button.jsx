@@ -26,6 +26,10 @@ const buttonVariants = cva(
         sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
         lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
         icon: "size-9",
+        // 손가락으로 누르는 자리. 권장 최소 탭 타깃 44x44 를 채운다.
+        // 기본 사이즈들은 전부 44 미만이라 모바일 흐름에서는 이 둘을 쓴다.
+        touch: "h-11 rounded-md gap-1.5 px-4 has-[>svg]:px-3",
+        touchIcon: "size-11",
       },
     },
     defaultVariants: {

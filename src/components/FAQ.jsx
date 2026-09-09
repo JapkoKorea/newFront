@@ -119,7 +119,7 @@ const FAQ = ({ isOpen, onClose }) => {
             <HelpCircle className="h-6 w-6 text-yellow-500" />
             <h2 className="text-2xl font-bold text-gray-900">자주 묻는 질문</h2>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <Button variant="ghost" size="touch" onClick={onClose}>
             <X className="h-5 w-5" />
           </Button>
         </div>

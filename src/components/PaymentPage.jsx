@@ -352,7 +352,7 @@ function PaymentPage() {
                       </p>
                       <p className="mt-1 text-sm text-gray-600">예금주 {BANK_ACCOUNT.holder}</p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={copyAccount}>
+                    <Button variant="outline" size="touch" onClick={copyAccount}>
                       {copied ? <Check className="mr-1 h-4 w-4" /> : <Copy className="mr-1 h-4 w-4" />}
                       {copied ? '복사됨' : '복사'}
                     </Button>

@@ -252,7 +252,7 @@ export default function TransferBooking({ isOpen = false, onClose, displayMode =
             <h2 className="text-2xl font-bold text-gray-900">송영서비스 요청</h2>
             <p className="text-sm text-gray-500 mt-1">출발지·도착지를 지도에서 지정하면, 기사님이 요금을 안내해 드립니다.</p>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <Button variant="ghost" size="touch" onClick={onClose}>
             <X className="h-5 w-5" />
           </Button>
         </div>
@@ -346,7 +346,7 @@ export default function TransferBooking({ isOpen = false, onClose, displayMode =
                 <div>
                   <div className="flex items-center justify-between">
                     <Label>출발지</Label>
-                    <Button type="button" variant="outline" size="sm" className="h-8 px-3 text-xs"
+                    <Button type="button" variant="outline" size="touch" className="h-8 px-3 text-xs"
                       onClick={() => requestMapSelectionMode('departure')}
                     >
                       지도에서 선택
@@ -360,7 +360,7 @@ export default function TransferBooking({ isOpen = false, onClose, displayMode =
                   </button>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {popularChips.map((chip) => (
-                      <Button key={chip} type="button" size="sm"
+                      <Button key={chip} type="button" size="touch"
                         variant={data.departure === chip ? 'default' : 'outline'}
                         className={data.departure === chip ? 'bg-blue-500 hover:bg-blue-600' : ''}
                         onClick={() => handleInputChange('departure', chip)}
@@ -375,7 +375,7 @@ export default function TransferBooking({ isOpen = false, onClose, displayMode =
                 <div>
                   <div className="flex items-center justify-between">
                     <Label>도착지</Label>
-                    <Button type="button" variant="outline" size="sm" className="h-8 px-3 text-xs"
+                    <Button type="button" variant="outline" size="touch" className="h-8 px-3 text-xs"
                       onClick={() => requestMapSelectionMode('destination')}
                     >
                       지도에서 선택
@@ -389,7 +389,7 @@ export default function TransferBooking({ isOpen = false, onClose, displayMode =
                   </button>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {popularChips.map((chip) => (
-                      <Button key={`dest-${chip}`} type="button" size="sm"
+                      <Button key={`dest-${chip}`} type="button" size="touch"
                         variant={data.destination === chip ? 'default' : 'outline'}
                         className={data.destination === chip ? 'bg-blue-500 hover:bg-blue-600' : ''}
                         onClick={() => handleInputChange('destination', chip, COORDS_DICT[chip] || null)}
@@ -410,7 +410,7 @@ export default function TransferBooking({ isOpen = false, onClose, displayMode =
                           className="flex items-center justify-between bg-gray-50 p-2 rounded hover:bg-gray-100"
                         >
                           <span className="text-sm">{spot}</span>
-                          <Button variant="ghost" size="sm" onClick={() => handleSpotRemove(spot)}>
+                          <Button variant="ghost" size="touch" onClick={() => handleSpotRemove(spot)}>
                             <X className="h-3 w-3" />
                           </Button>
                         </div>
@@ -419,7 +419,7 @@ export default function TransferBooking({ isOpen = false, onClose, displayMode =
                   </div>
                 )}
 
-                <Button type="button" variant="outline" size="sm"
+                <Button type="button" variant="outline" size="touch"
                   onClick={() => requestMapSelectionMode('spot')}
                 >
                   <MapPin className="h-4 w-4 mr-1" /> 경유지 추가 (선택)
@@ -515,7 +515,7 @@ export default function TransferBooking({ isOpen = false, onClose, displayMode =
                 <Label>짐 개수 (선택)</Label>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {luggageOptions.map((opt) => (
-                    <Button key={opt.value} type="button" size="sm"
+                    <Button key={opt.value} type="button" size="touch"
                       variant={data.luggage === opt.value ? 'default' : 'outline'}
                       className={data.luggage === opt.value ? 'bg-blue-500 hover:bg-blue-600' : ''}
                       onClick={() => setData(prev => ({ ...prev, luggage: opt.value }))}

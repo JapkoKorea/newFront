@@ -246,7 +246,7 @@ function PricingDepositPage() {
           <div className="mt-12">
             <Button
               size="lg"
-              className="w-full bg-yellow-500 hover:bg-yellow-600 sm:w-auto sm:px-10"
+              className="h-11 w-full bg-yellow-500 hover:bg-yellow-600 sm:w-auto sm:px-10"
               onClick={() => router.push('/products')}
             >
               예약하기
@@ -313,7 +313,7 @@ function PricingDepositPage() {
             <section className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">예약 정보 최종 확인</h2>
-                <Button variant="outline" size="sm" onClick={() => router.push('/booking')}>예약 정보 수정</Button>
+                <Button variant="outline" size="touch" onClick={() => router.push('/booking')}>예약 정보 수정</Button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card className="border-gray-200 bg-white">

@@ -353,9 +353,9 @@ const MapContainer = ({
       <button
         type="button"
         onClick={() => setIsExpanded((prev) => !prev)}
-        className="absolute bottom-3 right-3 z-20 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-md hover:bg-gray-50"
+        className="absolute bottom-3 right-3 z-20 flex min-h-11 items-center rounded-lg bg-white px-4 text-sm font-semibold text-gray-700 shadow-md hover:bg-gray-50"
       >
-        {isExpanded ? '작게 보기 (ESC)' : '크게 보기'}
+        {isExpanded ? '작게 보기 (ESC)' : '지도 크게 보기'}
       </button>
 
       {/* 상단 컨트롤 패널 */}

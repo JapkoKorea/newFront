@@ -160,10 +160,10 @@ export default function TourDetailClient({ course, spotGuideData, fixedRouteProf
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
-          <Button className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white" size="lg" onClick={startBookingFlow}>
+          <Button className="h-11 flex-1 bg-yellow-500 text-white hover:bg-yellow-600" size="lg" onClick={startBookingFlow}>
             예약 입력 페이지로 이동
           </Button>
-          <Button asChild variant="outline" size="lg" className="flex-1">
+          <Button asChild variant="outline" size="lg" className="h-11 flex-1">
             <Link href="/tours"><ArrowLeft className="h-4 w-4 mr-2" />다른 코스 보기</Link>
           </Button>
         </div>

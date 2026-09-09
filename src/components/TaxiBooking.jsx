@@ -93,6 +93,9 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
   const [originCourseId, setOriginCourseId] = useState(null)
 
   const [currentStep, setCurrentStep] = useState(skipCourseStep ? 2 : 1)
+  // 상품에서 코스를 골라 들어오면 경로는 이미 확정이라 접어 둔다.
+  // 직접 짜는 경우에는 경로가 곧 할 일이므로 펼쳐서 시작한다.
+  const [isRouteOpen, setIsRouteOpen] = useState(!skipCourseStep)
   const [hoveredSpot, setHoveredSpot] = useState(null)
   const [showValidation, setShowValidation] = useState(false)
   const [draggedSpotIndex, setDraggedSpotIndex] = useState(null)
@@ -577,7 +580,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
             <h2 className="text-2xl font-bold text-gray-900">택시 투어 예약</h2>
             <p className="text-sm text-gray-500 mt-1">{skipCourseStep ? '코스 선택은 완료되었습니다. 남은 2단계를 입력해 주세요.' : '3단계로 간단하게 예약을 완료할 수 있어요.'}</p>
           </div>
-          <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="예약 닫기" onClick={onClose}>
+          <Button variant="ghost" size="touchIcon" className="h-11 w-11" aria-label="예약 닫기" onClick={onClose}>
             <X className="h-5 w-5" aria-hidden="true" />
           </Button>
         </div>
@@ -705,33 +708,62 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
           {/* 2단계: 일정 설정 + 지도 */}
           {currentStep === 2 && (
             <div className="space-y-8">
-              {isPageMode && (
-                <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-                  경로는 투어 상세에서 확정된 상태입니다. 필요하면 아래에서 바꾸실 수 있어요.
-                </div>
-              )}
-
               {/* 1. 경로 — 어디서 출발해 어디서 마칠지를 먼저 정한다.
-                  일정보다 먼저 나와야 지도를 보며 정할 수 있다. */}
+                  일정보다 먼저 나와야 지도를 보며 정할 수 있다.
+                  이미 정해진 경로라면 요약만 보여 준다. 지도와 방문지 목록이
+                  펼쳐진 채로 있으면 모바일에서 일정까지 가는 데만 화면 다섯 개를 지나야 한다. */}
               <section className="space-y-4">
-                <div className="flex items-baseline gap-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-500 text-xs font-bold text-white">1</span>
-                  <h3 className="text-lg font-semibold">어디서 출발해 어디서 마칠까요?</h3>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-500 text-xs font-bold text-white">1</span>
+                    <h3 className="text-lg font-semibold">어디서 출발해 어디서 마칠까요?</h3>
+                  </div>
+                  {isRouteOpen && skipCourseStep ? (
+                    <Button type="button" variant="ghost" size="touch" onClick={() => setIsRouteOpen(false)}>
+                      접기
+                    </Button>
+                  ) : null}
                 </div>
 
+                {!isRouteOpen && (
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                    <p className="text-sm font-medium text-gray-900">
+                      {bookingData.departure || '출발지 미정'} → {bookingData.destination || '도착지 미정'}
+                    </p>
+                    {bookingData.selectedSpots?.length > 0 ? (
+                      <p className="mt-1 truncate text-sm text-gray-600">
+                        {bookingData.selectedSpots.slice(0, 3).join(' · ')}
+                        {bookingData.selectedSpots.length > 3
+                          ? ` 외 ${bookingData.selectedSpots.length - 3}곳`
+                          : ''}
+                      </p>
+                    ) : null}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="touch"
+                      className="mt-3"
+                      onClick={() => setIsRouteOpen(true)}
+                    >
+                      경로 수정
+                    </Button>
+                  </div>
+                )}
+
+                <div className={isRouteOpen ? 'space-y-4' : 'hidden'}>
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                   <div className="space-y-4">
                     <div className="rounded-xl border border-gray-200 p-4">
                       <div className="flex items-center justify-between">
                         <Label htmlFor="departure" className="text-sm font-semibold text-gray-900">출발지</Label>
-                        <Button type="button" variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => requestMapSelectionMode('departure')}>
+                        <Button type="button" variant="outline" size="touch" className="px-4 text-sm" onClick={() => requestMapSelectionMode('departure')}>
                           지도에서 선택
                         </Button>
                       </div>
                       <button
                         type="button"
                         onClick={() => requestMapSelectionMode('departure')}
-                        className={`mt-2 w-full rounded-md border px-3 py-2 text-left text-sm hover:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                        className={`mt-2 flex min-h-11 w-full items-center rounded-md border px-3 text-left text-sm hover:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
                           bookingData.departure ? 'border-gray-300 bg-white text-gray-900' : 'border-dashed border-gray-300 bg-gray-50 text-gray-500'
                         }`}
                       >
@@ -743,7 +775,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                             key={chip}
                             type="button"
                             variant={bookingData.departure === chip ? 'default' : 'outline'}
-                            size="sm"
+                            size="touch"
                             className={bookingData.departure === chip ? 'bg-yellow-500 hover:bg-yellow-600' : ''}
                             onClick={() => handleInputChange('departure', chip)}
                           >
@@ -756,14 +788,14 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                     <div className="rounded-xl border border-gray-200 p-4">
                       <div className="flex items-center justify-between">
                         <Label htmlFor="destination" className="text-sm font-semibold text-gray-900">도착지</Label>
-                        <Button type="button" variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => requestMapSelectionMode('destination')}>
+                        <Button type="button" variant="outline" size="touch" className="px-4 text-sm" onClick={() => requestMapSelectionMode('destination')}>
                           지도에서 선택
                         </Button>
                       </div>
                       <button
                         type="button"
                         onClick={() => requestMapSelectionMode('destination')}
-                        className={`mt-2 w-full rounded-md border px-3 py-2 text-left text-sm hover:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                        className={`mt-2 flex min-h-11 w-full items-center rounded-md border px-3 text-left text-sm hover:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
                           bookingData.destination ? 'border-gray-300 bg-white text-gray-900' : 'border-dashed border-gray-300 bg-gray-50 text-gray-500'
                         }`}
                       >
@@ -775,7 +807,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                             key={`destination-${chip}`}
                             type="button"
                             variant={bookingData.destination === chip ? 'default' : 'outline'}
-                            size="sm"
+                            size="touch"
                             className={bookingData.destination === chip ? 'bg-yellow-500 hover:bg-yellow-600' : ''}
                             onClick={() => handleInputChange('destination', chip, COORDS_DICT[chip] || null)}
                           >
@@ -794,7 +826,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                             <Button
                               key={dest}
                               variant={bookingData.selectedSpots?.includes(dest) ? 'default' : 'outline'}
-                              size="sm"
+                              size="touch"
                               className={`text-xs ${bookingData.selectedSpots?.includes(dest) ? 'bg-yellow-500 hover:bg-yellow-600' : ''}`}
                               onClick={() => handleSpotToggle(dest)}
                             >
@@ -807,7 +839,8 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                   </div>
 
                   <div className="space-y-3">
-                    <div className="h-[420px] overflow-hidden rounded-xl border lg:h-[560px]">
+                    {/* 인라인 지도는 위치 확인용. 실제 선택은 지도의 "크게 보기"로 전체화면에서 한다. */}
+                    <div className="h-[240px] overflow-hidden rounded-xl border sm:h-[360px] md:h-[420px] lg:h-[560px]">
                       <MapContainer
                         departure={bookingData.departure}
                         destination={bookingData.destination}
@@ -853,8 +886,13 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                                 </span>
                                 {spot}
                               </span>
-                              <Button variant="ghost" size="sm" onClick={() => handleSpotRemove(spot)}>
-                                <X className="h-3 w-3" />
+                              <Button
+                                variant="ghost"
+                                size="touchIcon"
+                                aria-label={`${spot} 빼기`}
+                                onClick={() => handleSpotRemove(spot)}
+                              >
+                                <X className="h-3.5 w-3.5" aria-hidden="true" />
                               </Button>
                             </div>
                           ))}
@@ -862,6 +900,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                       </div>
                     )}
                   </div>
+                </div>
                 </div>
               </section>
 
@@ -889,7 +928,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                       <Button
                         key={chip.label}
                         type="button"
-                        size="sm"
+                        size="touch"
                         variant={bookingData.date === chip.value ? 'default' : 'outline'}
                         className={bookingData.date === chip.value ? 'bg-yellow-500 hover:bg-yellow-600' : ''}
                         onClick={() => handleInputChange('date', chip.value)}
@@ -905,7 +944,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                     min={today}
                     value={bookingData.date}
                     onChange={(e) => handleInputChange('date', e.target.value)}
-                    className="mt-2 border-2 border-gray-200 bg-white focus-visible:ring-yellow-500"
+                    className="mt-2 h-11 border-2 border-gray-200 bg-white focus-visible:ring-yellow-500"
                   />
 
                   {/* 예약금이 달라지는 경계를 고르는 그 자리에서 알린다.
@@ -933,7 +972,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                           key={option.value}
                           type="button"
                           onClick={() => handleInputChange('time', option.value)}
-                          className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                          className={`flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm font-medium transition ${
                             isSelected
                               ? 'border-yellow-500 bg-yellow-100 text-gray-900 shadow-sm'
                               : 'border-gray-200 bg-white text-gray-700 hover:border-yellow-300'
@@ -955,7 +994,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                       <Button
                         type="button"
                         variant="outline"
-                        size="icon"
+                        size="touchIcon"
                         aria-label="인원 줄이기"
                         disabled={passengerCount <= 1}
                         onClick={() => handleInputChange('passengers', String(Math.max(1, passengerCount - 1)))}
@@ -971,7 +1010,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                       <Button
                         type="button"
                         variant="outline"
-                        size="icon"
+                        size="touchIcon"
                         aria-label="인원 늘리기"
                         disabled={passengerCount >= 8}
                         onClick={() => handleInputChange('passengers', String(Math.min(8, passengerCount + 1)))}
@@ -992,7 +1031,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                             key={option.value}
                             type="button"
                             onClick={() => handleInputChange('duration', option.value)}
-                            className={`rounded-lg border px-2 py-2 text-center transition ${
+                            className={`flex min-h-11 flex-col items-center justify-center rounded-lg border px-2 py-1.5 text-center transition ${
                               isSelected
                                 ? 'border-yellow-500 bg-yellow-100 shadow-sm'
                                 : 'border-gray-200 bg-white hover:border-yellow-300'
@@ -1021,10 +1060,10 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                     <div>
                       <Label className="text-sm font-semibold text-gray-900">캐리어 유무</Label>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        <Button type="button" size="sm" variant={bookingData.luggage === 'none' ? 'default' : 'outline'} className={bookingData.luggage === 'none' ? 'bg-yellow-500 hover:bg-yellow-600' : ''} onClick={() => handleInputChange('luggage', 'none')}>
+                        <Button type="button" size="touch" variant={bookingData.luggage === 'none' ? 'default' : 'outline'} className={bookingData.luggage === 'none' ? 'bg-yellow-500 hover:bg-yellow-600' : ''} onClick={() => handleInputChange('luggage', 'none')}>
                           없음
                         </Button>
-                        <Button type="button" size="sm" variant={bookingData.luggage === 'has' ? 'default' : 'outline'} className={bookingData.luggage === 'has' ? 'bg-yellow-500 hover:bg-yellow-600' : ''} onClick={() => handleInputChange('luggage', 'has')}>
+                        <Button type="button" size="touch" variant={bookingData.luggage === 'has' ? 'default' : 'outline'} className={bookingData.luggage === 'has' ? 'bg-yellow-500 hover:bg-yellow-600' : ''} onClick={() => handleInputChange('luggage', 'has')}>
                           있음
                         </Button>
                       </div>

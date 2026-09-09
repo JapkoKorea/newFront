@@ -240,6 +240,8 @@ async def list_reservations(
                     )
                 }
 
+            # 다가오는 투어를 날짜 오름차순으로 먼저, 지난 투어는 최신순으로 뒤에.
+            # 등록순으로 주면 재방문 고객이 "다음 투어가 언제인지"를 목록에서 못 찾는다.
             cursor.execute(
                 """
                 SELECT reservation_number, status, english_name, contact_number,
@@ -250,7 +252,10 @@ async def list_reservations(
                        created_at, updated_at
                 FROM reservations
                 WHERE user_id = %s
-                ORDER BY created_at DESC
+                ORDER BY (tour_date >= CURDATE()) DESC,
+                         CASE WHEN tour_date >= CURDATE() THEN tour_date END ASC,
+                         tour_date DESC,
+                         created_at DESC
                 """,
                 (user_id,),
             )

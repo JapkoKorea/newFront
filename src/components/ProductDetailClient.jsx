@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import {
   ArrowLeft,
+  ChevronDown,
   ChevronRight,
   Clock,
   MapPin,
@@ -41,11 +42,35 @@ const SEASON_LABEL = {
 const yen = (value) => `${value.toLocaleString('ko-KR')}엔`
 const won = (value) => `${value.toLocaleString('ko-KR')}원`
 
-function Section({ icon: Icon, title, children }) {
+/**
+ * 상세 페이지의 한 블록.
+ *
+ * collapsible 을 주면 접힌 상태로 시작한다. 안내·규정·FAQ 처럼 필요할 때만 펼쳐
+ * 보는 블록이 펼쳐진 채 쌓여 있으면 페이지가 모바일에서 8화면을 넘어간다.
+ */
+function Section({ icon: Icon, title, children, collapsible = false }) {
+  if (collapsible) {
+    return (
+      <details className="group border-t border-gray-100">
+        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 text-lg font-bold text-gray-900 [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center gap-2">
+            {Icon ? <Icon className="h-5 w-5 text-yellow-500" aria-hidden="true" /> : null}
+            {title}
+          </span>
+          <ChevronDown
+            aria-hidden="true"
+            className="h-5 w-5 shrink-0 text-gray-400 transition-transform group-open:rotate-180 motion-reduce:transition-none"
+          />
+        </summary>
+        <div className="pb-8 pt-1">{children}</div>
+      </details>
+    )
+  }
+
   return (
     <section className="border-t border-gray-100 py-8">
       <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-gray-900">
-        {Icon ? <Icon className="h-5 w-5 text-yellow-500" /> : null}
+        {Icon ? <Icon className="h-5 w-5 text-yellow-500" aria-hidden="true" /> : null}
         {title}
       </h2>
       {children}
@@ -218,6 +243,40 @@ export default function ProductDetailClient({ product }) {
           </ul>
         ) : null}
 
+        {/* 코스 선택 */}
+        {productCourses.length > 0 ? (
+          <Section icon={MapPin} title="코스 선택">
+            <p className="mb-4 text-sm text-gray-600">
+              코스를 고르면 출발지·도착지와 방문지가 채워진 상태로 예약이 시작됩니다.
+            </p>
+            <ul className="space-y-2">
+              {productCourses.map((course) => (
+                <li key={course.id}>
+                  <button
+                    type="button"
+                    onClick={() => startCourseBooking(course)}
+                    className="flex w-full items-center gap-3 rounded-xl border border-gray-200 p-4 text-left transition hover:border-yellow-300 hover:bg-yellow-50/40"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-baseline gap-x-2">
+                        <span className="font-semibold text-gray-900">{course.name}</span>
+                        <span className="text-xs text-gray-500">{course.duration}</span>
+                      </span>
+                      <span className="mt-1 block truncate text-sm text-gray-600">
+                        {course.spots.length > 0
+                          ? course.spots.slice(0, 3).join(' · ')
+                          : `${course.departure} 출발 · ${course.destination} 도착`}
+                        {course.spots.length > 3 ? ` 외 ${course.spots.length - 3}곳` : ''}
+                      </span>
+                    </span>
+                    <ChevronRight className="h-5 w-5 shrink-0 text-gray-400" aria-hidden="true" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        ) : null}
+
         {/* 요금 안내 — 전세 정액(charterPricing) 우선, 없으면 시간당(vehicleTiers) */}
         {product.charterPricing.length > 0 ? (
           <Section icon={Car} title="요금 안내 (전세)">
@@ -292,51 +351,9 @@ export default function ProductDetailClient({ product }) {
           </Section>
         ) : null}
 
-        {/* 코스 선택 */}
-        {productCourses.length > 0 ? (
-          <Section icon={MapPin} title="코스 선택">
-            <p className="mb-4 text-sm text-gray-600">
-              아래 코스 중에서 선택할 수 있습니다. 예약 신청 시 코스를 고르면
-              출발지·도착지와 방문지가 채워진 상태로 시작합니다.
-            </p>
-            <div className="space-y-3">
-              {productCourses.map((course) => (
-                <div key={course.id} className="rounded-xl border border-gray-200 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="font-semibold text-gray-900">{course.name}</p>
-                      <p className="mt-1 text-sm text-gray-600">{course.description}</p>
-                    </div>
-                    <span className="whitespace-nowrap rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
-                      {course.duration}
-                    </span>
-                  </div>
-
-                  <p className="mt-3 text-xs text-gray-500">
-                    {course.departure} 출발 · {course.destination} 도착
-                  </p>
-
-                  {course.spots.length > 0 ? (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {course.spots.map((spot) => (
-                        <span
-                          key={spot}
-                          className="rounded-full border border-gray-200 px-2.5 py-1 text-xs text-gray-700"
-                        >
-                          {spot}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          </Section>
-        ) : null}
-
         {/* 예약 진행 단계 */}
         {product.reservationSteps.length > 0 ? (
-          <Section title="예약 진행 방법">
+          <Section title="예약 진행 방법" collapsible>
             <ol className="space-y-5">
               {product.reservationSteps.map((step) => (
                 <li key={step.title}>
@@ -357,7 +374,7 @@ export default function ProductDetailClient({ product }) {
 
         {/* 출발/도착 규정 */}
         {product.routeRules.length > 0 ? (
-          <Section title="출발지 및 도착지 안내">
+          <Section title="출발지 및 도착지 안내" collapsible>
             <ul className="space-y-2">
               {product.routeRules.map((rule) => (
                 <li key={rule} className="flex items-start gap-2 text-sm text-gray-700">
@@ -371,7 +388,7 @@ export default function ProductDetailClient({ product }) {
 
         {/* 변경/취소/환불/노쇼 규정 */}
         {product.policies.length > 0 ? (
-          <Section title="변경 / 취소 / 환불 / 노쇼 규정">
+          <Section title="변경 / 취소 / 환불 / 노쇼 규정" collapsible>
             <ul className="space-y-2">
               {product.policies.map((policy) => (
                 <li key={policy} className="flex items-start gap-2 text-sm text-gray-700">
@@ -385,7 +402,7 @@ export default function ProductDetailClient({ product }) {
 
         {/* FAQ */}
         {product.faq.length > 0 ? (
-          <Section title="자주 묻는 질문">
+          <Section title="자주 묻는 질문" collapsible>
             <dl className="space-y-4">
               {product.faq.map((item) => (
                 <div key={item.q} className="rounded-xl bg-gray-50 p-4">

@@ -261,7 +261,7 @@ function ReservationCheckPage() {
                       <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2">
                         <span className="text-sm text-yellow-900">{reviewEligibility.notice}</span>
                         <Button
-                          size="sm"
+                          size="touch"
                           className="bg-gray-900 hover:bg-gray-800"
                           onClick={() => setIsReviewModalOpen(true)}
                         >

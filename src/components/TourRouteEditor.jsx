@@ -568,7 +568,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
           </div>
         </div>
 
-        <div className="h-[520px] lg:h-[680px] rounded-xl overflow-hidden border bg-gray-100">
+        <div className="h-[260px] overflow-hidden rounded-xl border bg-gray-100 sm:h-[400px] md:h-[520px] lg:h-[680px]">
           {loadError ? (
             <div className="flex h-full w-full items-center justify-center p-6">
               <div className="text-center text-sm text-gray-600">
