@@ -241,14 +241,19 @@ function PricingDepositPage() {
             </dl>
           </section>
 
+          {/* 요금만 보고 예약하러 가는 사람은 시즌 상품부터 고르는 것이 맞다.
+              /booking 은 내비의 "직접 만들기" 경로라 상품 층을 건너뛴다. */}
           <div className="mt-12">
             <Button
               size="lg"
               className="w-full bg-yellow-500 hover:bg-yellow-600 sm:w-auto sm:px-10"
-              onClick={() => router.push('/booking')}
+              onClick={() => router.push('/products')}
             >
               예약하기
             </Button>
+            <p className="mt-2 text-xs text-gray-500">
+              시즌 상품을 고르면 코스를 선택하실 수 있습니다.
+            </p>
           </div>
         </div>
       </div>
