@@ -21,9 +21,7 @@ const SEASON_CHIPS = [
   { season: 'all_season', label: '사계절' },
 ]
 
-import biei1 from '@/assets/xpGwZKvsyDaZ.webp'
-import biei2 from '@/assets/YJZRJCUmiC0K.jpg'
-import biei3 from '@/assets/Ug7lCEJXjCwZ.jpg'
+import biei1 from '@/assets/aDohz2bMGHYN.jpg'
 import biei5 from '@/assets/HGsZN8MV1MIb.jpg'
 import biei6 from '@/assets/Mg1bQjbINPBk.jpg'
 
@@ -83,24 +81,17 @@ export default function HomePage() {
           </div>
 
           <div className="relative z-10 text-center text-white max-w-4xl mx-auto px-4">
-            <div className="mb-8">
-              <p className="text-lg mb-4 opacity-90">서비스</p>
-              <h1 className="text-6xl md:text-8xl font-bold mb-6 tracking-tight">
-                <span className="text-yellow-400">service</span>
-              </h1>
-              <div className="w-24 h-24 mx-auto bg-blue-600 rounded-lg flex items-center justify-center mb-8">
-                <span className="text-3xl font-bold text-white">T</span>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h2 className="text-2xl md:text-3xl font-semibold">
-                믿고 부르는 가장 편리한 비에이 택시투어
-              </h2>
-              <p className="text-lg md:text-xl opacity-90 max-w-2xl mx-auto">
-                복잡함은 빼고 효율만 남겼습니다. 일본 여행객을 위한 전문 택시투어 서비스를 지금 소개합니다.
-              </p>
-            </div>
+            <p className="text-sm md:text-base font-medium tracking-[0.25em] mb-5 text-yellow-300">
+              비에이 · 후라노 전문 택시투어
+            </p>
+            <h1 className="text-4xl md:text-6xl font-bold mb-6 tracking-tight text-balance">
+              믿고 부르는 가장 편리한
+              <br />
+              <span className="text-yellow-400">잽코 택시투어</span>
+            </h1>
+            <p className="text-lg md:text-xl opacity-90 max-w-2xl mx-auto text-pretty">
+              복잡함은 빼고 효율만 남겼습니다. 일본 여행객을 위한 전문 택시투어 서비스를 지금 소개합니다.
+            </p>
           </div>
 
           {/* 스크롤 인디케이터 */}
@@ -191,28 +182,40 @@ export default function HomePage() {
 
               {/* 오른쪽 - 이미지 갤러리 */}
               <div className="relative">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-4">
                     <img
-                      src={biei2.src}
-                      alt="비에이 크리스마스 트리"
+                      src="/assets/winter-biei-field.jpeg"
+                      alt="눈 덮인 언덕 위에 홀로 선 비에이 크리스마스 트리"
+                      width={800}
+                      height={450}
+                      loading="lazy"
                       className="w-full h-48 object-cover rounded-lg shadow-lg"
                     />
                     <img
                       src={biei5.src}
-                      alt="비에이 겨울 풍경"
+                      alt="맑은 겨울 하늘 아래 서리 맺힌 비에이 포플러 나무"
+                      width={640}
+                      height={480}
+                      loading="lazy"
                       className="w-full h-32 object-cover rounded-lg shadow-lg"
                     />
                   </div>
-                  <div className="space-y-4 mt-8">
+                  <div className="space-y-4 sm:mt-8">
                     <img
-                      src={biei3.src}
-                      alt="비에이 설원"
+                      src="/assets/summer-lavender-field.jpeg"
+                      alt="여름 후라노의 보랏빛 라벤더 밭과 색색의 꽃 언덕"
+                      width={547}
+                      height={365}
+                      loading="lazy"
                       className="w-full h-32 object-cover rounded-lg shadow-lg"
                     />
                     <img
                       src={biei6.src}
-                      alt="비에이 관광지"
+                      alt="해질 무렵 눈 언덕 위에 늘어선 비에이 마일드세븐 언덕 나무들"
+                      width={1919}
+                      height={3410}
+                      loading="lazy"
                       className="w-full h-48 object-cover rounded-lg shadow-lg"
                     />
                   </div>
