@@ -10,10 +10,9 @@ const SEASON_TABS = [
   { value: null, label: '전체' },
   { value: 'winter', label: '겨울' },
   { value: 'summer', label: '여름' },
-  { value: 'all_season', label: '사계절' },
 ]
 
-const VALID_SEASONS = ['winter', 'summer', 'all_season']
+const VALID_SEASONS = ['winter', 'summer']
 
 export default function ProductsPageClient({ products, initialSeason = null, initialQuery = '' }) {
   const [season, setSeason] = useState(
