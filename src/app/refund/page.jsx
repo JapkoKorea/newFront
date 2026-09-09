@@ -1,5 +1,5 @@
 import PolicyLayout, { Article, Bullets, PolicyTable } from '@/components/PolicyLayout.jsx'
-import { companyValue, contactLine } from '@/data/company.js'
+import { contactLine } from '@/data/company.js'
 
 export const metadata = {
   title: '취소 및 환불 정책',
