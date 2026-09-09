@@ -1,5 +1,5 @@
 import PolicyLayout, { Article, Bullets, PolicyTable } from '@/components/PolicyLayout.jsx'
-import { COMPANY, companyValue } from '@/data/company.js'
+import { COMPANY, companyValue, privacyOfficerName } from '@/data/company.js'
 
 export const metadata = {
   title: '개인정보처리방침',
@@ -140,9 +140,9 @@ export default function PrivacyPage() {
       <Article title="11. 개인정보 보호책임자">
         <Bullets
           items={[
-            `개인정보 보호책임자: ${companyValue('privacyOfficer')}`,
+            `개인정보 보호책임자: ${privacyOfficerName()}`,
             `연락처: ${companyValue('phone')}`,
-            `이메일: ${companyValue('email')}`,
+            
           ]}
         />
         <p>

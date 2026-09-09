@@ -1,5 +1,5 @@
 import PolicyLayout, { Article, Bullets } from '@/components/PolicyLayout.jsx'
-import { COMPANY, companyValue } from '@/data/company.js'
+import { COMPANY, companyValue, contactLine } from '@/data/company.js'
 
 export const metadata = {
   title: '이용약관',
@@ -137,7 +137,7 @@ export default function TermsPage() {
           합니다.
         </p>
         <p>
-          서비스 이용과 관련한 문의는 고객센터({companyValue('phone')}, {companyValue('email')})로
+          서비스 이용과 관련한 문의는 고객센터({contactLine()})로
           연락하시기 바랍니다.
         </p>
       </Article>

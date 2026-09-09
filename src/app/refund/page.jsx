@@ -1,5 +1,5 @@
 import PolicyLayout, { Article, Bullets, PolicyTable } from '@/components/PolicyLayout.jsx'
-import { companyValue } from '@/data/company.js'
+import { companyValue, contactLine } from '@/data/company.js'
 
 export const metadata = {
   title: '취소 및 환불 정책',
@@ -97,7 +97,7 @@ export default function RefundPage() {
 
       <Article title="7. 문의">
         <p>
-          취소 및 환불에 관한 문의는 고객센터({companyValue('phone')}, {companyValue('email')}) 또는
+          취소 및 환불에 관한 문의는 고객센터({contactLine()}) 또는
           서비스 내 상담 채팅으로 연락하시기 바랍니다.
         </p>
       </Article>

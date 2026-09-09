@@ -64,13 +64,10 @@ export default function Footer() {
           <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs">
             <InfoItem label="상호" value={companyValue('legalName')} />
             <InfoItem label="대표자" value={companyValue('representative')} />
-            <InfoItem label="사업자등록번호" value={companyValue('businessNumber')} />
-            <InfoItem label="통신판매업 신고번호" value={companyValue('mailOrderNumber')} />
           </div>
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-xs">
             <InfoItem label="주소" value={companyValue('address')} />
             <InfoItem label="고객센터" value={companyValue('phone')} />
-            <InfoItem label="이메일" value={companyValue('email')} />
           </div>
           <p className="mt-4 text-xs leading-relaxed text-gray-500">
             {COMPANY.serviceName}는 현지 운송사업자가 제공하는 택시투어 서비스의 예약을 중개하는
