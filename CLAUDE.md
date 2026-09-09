@@ -22,9 +22,8 @@ pnpm build        # 프로덕션 빌드 → .next/
 pnpm start        # 프로덕션 서버 실행
 pnpm lint         # ESLint 검사
 
-# 백엔드
-uvicorn backend.main:app --reload --port 8000
-python backend/main.py   # 대안 실행 (port 5000)
+# 백엔드 (port 5000)
+python backend/main.py
 ```
 
 ## 절대 금지 사항
@@ -33,7 +32,7 @@ python backend/main.py   # 대안 실행 (port 5000)
 - Kakao Client ID / Google Maps API 키 소스코드 하드코딩 금지
 - 프로덕션에서 `allow_origins=["*"]` CORS 전체 허용 금지
 - JWT secret / 사용자 토큰 로그 출력 금지
-- `dist/` 빌드 산출물 버전 관리 금지
+- `.next/` 빌드 산출물 버전 관리 금지
 
 ## 필수 준수 사항
 
@@ -74,12 +73,15 @@ python backend/main.py   # 대안 실행 (port 5000)
 
 - 모든 백엔드 라우트: `/api` 접두어
 - Kakao OAuth 콜백: `POST /api/auth/kakao/callback`
-- CORS: 개발 환경 `localhost:5173`, 프로덕션은 실제 도메인
+- CORS: 개발 환경 `localhost:3000`, 프로덕션은 실제 도메인 (`CORS_ALLOW_ORIGINS`)
 
 ## 주요 기능 흐름
 
 ### 예약 흐름 (TaxiBooking.jsx)
-4단계 멀티스텝 폼: 코스 선택 → 일정 선택 → 경로 설정 → 연락처 입력
+3단계 폼: 코스 선택 → 예약 입력(경로 · 일정 · 조건) → 예약자 정보
+
+상품 상세에서 코스를 골라 들어오면(`?from=product`) 1단계를 건너뛰고,
+경로 섹션은 요약으로 접힌 채 시작한다.
 
 ### 인증 (Kakao OAuth)
 - 카카오 소셜 로그인만 지원 (로컬 인증 없음)
@@ -95,34 +97,35 @@ python backend/main.py   # 대안 실행 (port 5000)
 
 ```
 japan-taxi-tour/
-├── src/                        # 프론트엔드 (React)
-│   ├── components/             # React 컴포넌트
-│   │   ├── TaxiBooking.jsx    # 예약 모달 (4단계)
-│   │   ├── MapContainer.jsx   # Google Maps 연동
-│   │   ├── ReservationCheckPage.jsx  # 예약 조회/취소
-│   │   ├── PaymentPage.jsx    # 결제 처리
-│   │   ├── PricingDepositPage.jsx    # 요금/보증금 안내
-│   │   ├── ChatSupport.jsx    # 채팅 상담 위젯
-│   │   ├── FAQ.jsx            # FAQ 모달
-│   │   ├── LoginKakao.jsx     # 카카오 로그인 버튼
-│   │   └── ui/                # Radix UI 기반 공통 컴포넌트
-│   ├── assets/                # 정적 이미지 (비에이 풍경 등)
-│   ├── App.jsx                # 라우팅 및 전역 상태
-│   └── main.jsx               # React 진입점
-├── app/                        # 백엔드 (FastAPI)
-│   ├── main.py                # 앱 팩토리, 미들웨어, 라우터 등록
-│   ├── routers/
-│   │   ├── auth/kakao.py      # 카카오 OAuth 핸들러
-│   │   ├── reservations.py    # 예약 CRUD API
-│   │   └── payments.py        # 결제 API
-│   └── services/
-│       ├── mysql_user_service.py        # 사용자 DB 로직
-│       └── mysql_reservation_service.py # 예약 DB 로직
-├── public/                     # 정적 public 애셋
-├── package.json               # Node 의존성
-├── pyproject.toml             # Python 의존성
-├── vite.config.js             # Vite 설정, 경로 별칭
-└── .env.local                 # 로컬 환경변수 (git 제외)
+├── src/                        # 프론트엔드 (Next.js App Router)
+│   ├── app/                    # 라우트 (page.jsx 20개)
+│   │   ├── layout.jsx          # 루트 레이아웃 (Navigation/Footer/AppShellProvider)
+│   │   ├── globals.css         # Tailwind v4 + 세이프 에어리어 유틸
+│   │   ├── page.jsx            # 홈 (히어로 → 상품 피드 → 신뢰 스트립 → 후기)
+│   │   ├── products/           # 상품 카탈로그, 상품 상세
+│   │   ├── booking/            # 예약 입력
+│   │   ├── pricing/            # 요금 확인
+│   │   ├── payments/           # 계좌이체 / 스마트스토어
+│   │   ├── reservations/       # 예약 조회·변경·취소·후기
+│   │   ├── reviews/            # 이용 후기
+│   │   ├── admin/              # 운영자 화면
+│   │   └── guide/              # 관광 가이드 (SSG)
+│   ├── components/             # 기능 컴포넌트 + ui/ (Radix 기반)
+│   ├── products/               # 상품 레지스트리 (registry.js, items/)
+│   ├── data/                   # 정적 콘텐츠 (tourCourses, company, guideContent)
+│   ├── lib/                    # api, appShell, sheet, reservationStatus 등
+│   └── assets/                 # 정적 이미지
+├── backend/                    # 백엔드 (FastAPI, port 5000)
+│   ├── main.py                 # 앱 팩토리, CORS, 라우터 등록
+│   ├── routers/                # admin, auth/, chat, courses, maps,
+│   │                           # payments, reservations, reviews, seo
+│   ├── services/               # DB·외부 연동 로직
+│   ├── dependencies/           # auth (JWT 검증)
+│   └── scripts/                # 일회성 스크립트
+├── mobile/                     # Flutter 앱 (현재 보류)
+├── public/assets/              # 상품 대표 이미지
+├── package.json
+└── .env / .env.local           # git 제외
 ```
 
 ## 컨텍스트 맵 (작업별 위치)
@@ -131,12 +134,13 @@ japan-taxi-tour/
 |------|------|
 | 예약 UI 수정 | `src/components/TaxiBooking.jsx` |
 | 지도 기능 | `src/components/MapContainer.jsx` |
-| 결제 흐름 | `src/components/PaymentPage.jsx`, `app/routers/payments.py` |
-| 예약 조회/취소 | `src/components/ReservationCheckPage.jsx`, `app/routers/reservations.py` |
+| 결제 흐름 | `src/components/PaymentPage.jsx`, `backend/routers/payments.py` |
+| 예약 조회/취소 | `src/components/ReservationCheckPage.jsx`, `backend/routers/reservations.py` |
 | 요금 안내 | `src/components/PricingDepositPage.jsx` |
-| 카카오 인증 | `src/components/LoginKakao.jsx`, `app/routers/auth/kakao.py` |
-| 공통 UI 컴포넌트 | `src/components/ui/` |
-| DB 로직 | `app/services/` |
-| 라우팅/전역 상태 | `src/App.jsx` |
-| Vite 설정/별칭 | `vite.config.js` |
+| 카카오 인증 | `src/components/LoginKakao.jsx`, `src/app/login/page.jsx`, `backend/routers/auth/kakao.py` |
+| 공통 UI 컴포넌트 | `src/components/ui/` (직접 수정 금지, variant 추가로) |
+| 모바일 시트/세이프에어리어 | `src/lib/sheet.js`, `src/app/globals.css` |
+| DB 로직 | `backend/services/` |
+| 라우팅/전역 상태 | `src/app/layout.jsx`, `src/lib/appShell.jsx` |
+| 상품 정의 | `src/products/items/`, `src/products/registry.js` |
 | 환경변수 | `.env.local` (gitignored) |

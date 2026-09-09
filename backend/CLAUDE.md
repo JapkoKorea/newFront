@@ -1,4 +1,4 @@
-# app/ — 백엔드 작업 가이드
+# backend/ — 백엔드 작업 가이드
 
 FastAPI 기반 백엔드. 카카오 인증, 예약 관리, 결제 API 제공.
 
@@ -6,16 +6,16 @@ FastAPI 기반 백엔드. 카카오 인증, 예약 관리, 결제 API 제공.
 
 ```bash
 # 개발 (자동 리로드)
-uvicorn app.main:app --reload --port 8000
+uvicorn backend.main:app --reload --port 5000
 
 # 직접 실행 (port 5000)
-python app/main.py
+python backend/main.py
 ```
 
 ## 앱 구조
 
 ```
-app/
+backend/
 ├── main.py          # 앱 팩토리: CORS, 라우터 등록, startup 이벤트
 ├── routers/         # API 엔드포인트 (→ routers/CLAUDE.md 참조)
 │   ├── auth/
@@ -46,7 +46,7 @@ app/
 ```
 KAKAO_CLIENT_ID=...
 KAKAO_CLIENT_SECRET=...
-KAKAO_REDIRECT_URI=http://localhost:5173/login
+KAKAO_REDIRECT_URI=http://localhost:3000/login
 JWT_SECRET=...
 MYSQL_HOST=...
 MYSQL_USER=...

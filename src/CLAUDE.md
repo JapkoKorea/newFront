@@ -11,22 +11,35 @@ Next.js 15 + App Router 기반 프론트엔드. 비에이 택시투어 예약 UI
 
 | 경로 | 파일 | 렌더링 |
 |------|------|--------|
-| `/` | `app/page.jsx` | Client (풀페이지 스크롤) |
-| `/tours` | `app/tours/page.jsx` | Server + Client 필터 |
-| `/tours/[id]` | `app/tours/[id]/page.jsx` | SSG |
-| `/guide` | `app/guide/page.jsx` | Server |
-| `/guide/[slug]` | `app/guide/[slug]/page.jsx` | SSG |
-| `/login` | `app/login/page.jsx` | Client (OAuth 콜백 포함) |
+| `/` | `app/page.jsx` | Client (일반 스크롤 랜딩) |
+| `/products` | `app/products/page.jsx` | Server + Client 필터 |
+| `/products/[slug]` | `app/products/[slug]/page.jsx` | SSG |
+| `/booking` | `app/booking/page.jsx` | Client (force-dynamic) |
 | `/pricing` | `app/pricing/page.jsx` | Client (dynamic ssr:false) |
-| `/payments` | `app/payments/page.jsx` | Client (dynamic ssr:false) |
-| `/payments/success` | `app/payments/success/page.jsx` | Client (dynamic ssr:false) |
-| `/payments/fail` | `app/payments/fail/page.jsx` | Client (dynamic ssr:false) |
+| `/payments` `/success` `/fail` | `app/payments/**` | Client (dynamic ssr:false) |
 | `/reservations` | `app/reservations/page.jsx` | Client (dynamic ssr:false) |
+| `/reviews` | `app/reviews/page.jsx` | Client |
+| `/transfer-booking` | `app/transfer-booking/page.jsx` | Client |
+| `/admin` | `app/admin/page.jsx` | Client (운영자용) |
+| `/login` | `app/login/page.jsx` | Client (OAuth 콜백 포함) |
+| `/guide` `/guide/[slug]` | `app/guide/**` | Server / SSG |
+| `/tours` | `app/tours/page.jsx` | `/products` 로 리다이렉트 |
+| `/tours/[id]` | `app/tours/[id]/page.jsx` | SSG (코스 상세·지도 빌더) |
+| `/terms` `/privacy` `/refund` | `app/**` | Server |
 
 ## 전역 상태 (Navigation.jsx)
 
 - 로그인 상태: `localStorage('jwt', 'user')` → `isLoggedIn`, `nickname`
 - 모달 상태: `isBookingOpen`, `isFAQOpen`, `isChatOpen`
+
+## 모바일 규칙
+
+- 누르는 요소는 최소 44x44. 공용 `Button` 은 `size="touch"` / `size="touchIcon"`
+- 모달은 `@/lib/sheet.js` 의 `SHEET_OVERLAY` / `SHEET_PANEL`(또는 `_FLEX` + `SHEET_BODY`)
+  — 폰에서 바텀시트, `sm` 이상에서 가운데 모달
+- 높이는 `vh` 대신 `dvh` / `svh`
+- 하단 고정 요소에는 `pb-safe` / `bottom-safe`, 본문 끝에는 `pb-safe-bar`
+- 하단 액션 바를 쓰는 화면은 `useDeclareBottomBar()` 로 알린다 (플로팅 버튼이 접힌다)
 
 ## 핵심 규칙
 
@@ -44,7 +57,7 @@ Next.js 15 + App Router 기반 프론트엔드. 비에이 택시투어 예약 UI
 ```
 NEXT_PUBLIC_KAKAO_CLIENT_ID=...
 NEXT_PUBLIC_GOOGLE_MAPS_KEY=...
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+NEXT_PUBLIC_API_BASE_URL=http://localhost:5000
 ```
 
 ## 자주 쓰는 패턴
@@ -80,7 +93,8 @@ src/
 │   ├── layout.jsx   # 루트 레이아웃
 │   ├── globals.css  # Tailwind + CSS 변수
 │   ├── page.jsx     # 홈 (/)
-│   ├── tours/       # /tours, /tours/[id]
+│   ├── products/    # /products, /products/[slug] (카탈로그)
+│   ├── tours/       # /tours → /products 리다이렉트, /tours/[id] 코스 상세
 │   ├── guide/       # /guide, /guide/[slug]
 │   ├── login/       # /login
 │   ├── pricing/     # /pricing

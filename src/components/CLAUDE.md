@@ -7,7 +7,7 @@
 ### 예약 흐름
 | 파일 | 역할 |
 |------|------|
-| `TaxiBooking.jsx` | 예약 모달 (4단계: 코스→일정→경로→연락처), `useState`로 폼 관리 |
+| `TaxiBooking.jsx` | 예약 폼 (3단계: 코스 선택 → 예약 입력 → 예약자 정보), `useState`로 폼 관리 |
 | `MapContainer.jsx` | Google Maps 연동, 픽업/드롭오프 마커, 경로 렌더링 |
 | `RouteRenderer.jsx` | 지도 위 경로 시각화 보조 |
 | `MarkerWithLabel.jsx` | 커스텀 지도 마커 |
@@ -29,8 +29,6 @@
 | 파일 | 역할 |
 |------|------|
 | `LoginKakao.jsx` | 카카오 로그인 버튼 |
-| `LoginKakaoCallback.jsx` | OAuth 인가코드 수신 후 백엔드 호출, 토큰 저장 |
-| `LoginKakaoCallback.js` | (레거시, 사용 여부 확인 필요) |
 
 ### 지원
 | 파일 | 역할 |
@@ -71,7 +69,7 @@ Radix UI 기반. **직접 수정 금지** — 새 스타일이 필요하면 `var
 ```
 LoginKakao.jsx → 카카오 인가 URL 리디렉션
 → /login?code=xxx 로 돌아옴
-→ LoginKakaoCallback.jsx → POST /api/auth/kakao/callback
+→ app/login/page.jsx 가 직접 처리 → POST /api/auth/kakao/callback
 → JWT + user 정보 localStorage 저장
 → router.push('/')
 ```
