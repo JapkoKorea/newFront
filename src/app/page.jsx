@@ -1,35 +1,37 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button.jsx'
-import { ChevronDown, MapPin, Clock, Users, Star, MessageCircle, ChevronRight, Search, Plane } from 'lucide-react'
-import ChatSupport from '@/components/ChatSupport.jsx'
+import { ChevronDown, MapPin, Clock, Users, Star, ChevronRight, Search, Plane } from 'lucide-react'
 import RecentReviews from '@/components/RecentReviews.jsx'
 import ProductCard from '@/components/ProductCard.jsx'
 import { fetchReviewSummaries } from '@/lib/reviews.js'
 import { listProducts } from '@/products/registry.js'
 
 const FEATURED_PRODUCTS = listProducts().slice(0, 3)
-const LAST_SECTION = 2
 
 const SEASON_CHIPS = [
   { season: null, label: '전체' },
   { season: 'winter', label: '겨울' },
   { season: 'summer', label: '여름' },
-  { season: 'all_season', label: '사계절' },
 ]
 
+const FEATURES = [
+  { Icon: MapPin, title: '맞춤형 코스', body: '원하는 장소와 시간에 맞춘 개인 맞춤 투어' },
+  { Icon: Clock, title: '시간 절약', body: '대중교통 이용 시간을 대폭 단축' },
+  { Icon: Users, title: '전문 가이드', body: '현지 문화와 역사를 아는 전문 가이드' },
+  { Icon: Star, title: '프리미엄 서비스', body: '깨끗하고 안전한 차량으로 편안한 여행' },
+]
+
+/** 이 수보다 후기가 적으면 평점 배지를 아예 띄우지 않는다. 표본이 적은 평균은 오해를 부른다. */
+const MIN_REVIEWS_FOR_BADGE = 5
+
 import biei1 from '@/assets/aDohz2bMGHYN.jpg'
-import biei5 from '@/assets/HGsZN8MV1MIb.jpg'
-import biei6 from '@/assets/Mg1bQjbINPBk.jpg'
 
 export default function HomePage() {
   const router = useRouter()
-  const [currentSection, setCurrentSection] = useState(0)
-  const [isScrolling, setIsScrolling] = useState(false)
-  const [isChatOpen, setIsChatOpen] = useState(false)
   const [homeQuery, setHomeQuery] = useState('')
   const [productRatings, setProductRatings] = useState({})
 
@@ -38,304 +40,182 @@ export default function HomePage() {
     fetchReviewSummaries().then(setProductRatings)
   }, [])
 
+  // 전체 평점은 상품별 요약을 가중평균해서 만든다. 별도 API를 두지 않기 위함.
+  const overallRating = useMemo(() => {
+    const summaries = Object.values(productRatings).filter((s) => s && s.count > 0)
+    const count = summaries.reduce((sum, s) => sum + s.count, 0)
+    if (count < MIN_REVIEWS_FOR_BADGE) return null
+    const weighted = summaries.reduce((sum, s) => sum + s.average * s.count, 0)
+    return { average: weighted / count, count }
+  }, [productRatings])
+
   const submitSearch = (e) => {
     e.preventDefault()
     const q = homeQuery.trim()
     router.push(q ? `/products?q=${encodeURIComponent(q)}` : '/products')
   }
 
-  useEffect(() => {
-    const handleWheel = (e) => {
-      if (isScrolling) return
-
-      e.preventDefault()
-      setIsScrolling(true)
-
-      if (e.deltaY > 0 && currentSection < LAST_SECTION) {
-        setCurrentSection(currentSection + 1)
-      } else if (e.deltaY < 0 && currentSection > 0) {
-        setCurrentSection(currentSection - 1)
-      }
-
-      setTimeout(() => setIsScrolling(false), 1000)
-    }
-
-    window.addEventListener('wheel', handleWheel, { passive: false })
-    return () => window.removeEventListener('wheel', handleWheel)
-  }, [currentSection, isScrolling])
-
   return (
-    <div className="h-screen overflow-hidden">
-      {/* 메인 컨테이너 */}
-      <div
-        className="transition-transform duration-1000 ease-in-out"
-        style={{ transform: `translateY(-${currentSection * 100}vh)` }}
-      >
-        {/* 첫 번째 섹션 - 히어로 */}
-        <section className="h-screen relative flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-            style={{ backgroundImage: `url(${biei1.src})` }}
+    <div>
+      {/* 히어로. 화면을 다 채우지 않아야 아래 상품 피드가 살짝 보여 스크롤을 유도한다. */}
+      <section className="relative flex min-h-[78vh] items-center justify-center md:min-h-[70vh]">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url(${biei1.src})` }}
+        >
+          <div className="absolute inset-0 bg-black/40"></div>
+        </div>
+
+        <div className="relative z-10 mx-auto max-w-4xl px-4 py-24 text-center text-white">
+          <p className="mb-5 text-sm font-medium tracking-[0.25em] text-yellow-300 md:text-base">
+            비에이 · 후라노 전문 택시투어
+          </p>
+          <h1 className="mb-6 text-4xl font-bold tracking-tight text-balance md:text-6xl">
+            믿고 부르는 가장 편리한
+            <br />
+            <span className="text-yellow-400">잽코 택시투어</span>
+          </h1>
+          <p className="mx-auto mb-9 max-w-2xl text-lg text-pretty opacity-90 md:text-xl">
+            복잡함은 빼고 효율만 남겼습니다. 일본 여행객을 위한 전문 택시투어 서비스를 지금 소개합니다.
+          </p>
+          <Button
+            asChild
+            size="lg"
+            className="bg-yellow-500 px-8 py-6 text-base font-semibold text-white hover:bg-yellow-600"
           >
-            <div className="absolute inset-0 bg-black/40"></div>
+            <Link href="#products">택시투어 예약하기</Link>
+          </Button>
+        </div>
+
+        <ChevronDown
+          size={32}
+          aria-hidden="true"
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 animate-bounce text-white motion-reduce:animate-none"
+        />
+      </section>
+
+      {/* 상품 피드. commerce-first라 히어로 바로 다음에 둔다. */}
+      <section id="products" className="scroll-mt-20 bg-white">
+        <div className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+          <div className="mb-6">
+            <h2 className="text-3xl font-bold text-gray-900 md:text-4xl">어디로 가세요?</h2>
+            <p className="mt-2 text-gray-600">비에이의 계절별 인기 택시투어를 만나보세요.</p>
           </div>
 
-          <div className="relative z-10 text-center text-white max-w-4xl mx-auto px-4">
-            <p className="text-sm md:text-base font-medium tracking-[0.25em] mb-5 text-yellow-300">
-              비에이 · 후라노 전문 택시투어
-            </p>
-            <h1 className="text-4xl md:text-6xl font-bold mb-6 tracking-tight text-balance">
-              믿고 부르는 가장 편리한
-              <br />
-              <span className="text-yellow-400">잽코 택시투어</span>
-            </h1>
-            <p className="text-lg md:text-xl opacity-90 max-w-2xl mx-auto text-pretty">
-              복잡함은 빼고 효율만 남겼습니다. 일본 여행객을 위한 전문 택시투어 서비스를 지금 소개합니다.
-            </p>
-          </div>
-
-          {/* 스크롤 인디케이터 */}
-          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-white animate-bounce">
-            <ChevronDown size={32} />
-          </div>
-        </section>
-
-        {/* 두 번째 섹션 - 택시투어 소개 */}
-        <section className="h-screen bg-gray-50 flex items-center">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              {/* 왼쪽 - 텍스트 콘텐츠 */}
-              <div className="space-y-8">
-                <div>
-                  <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-                    전문 가이드와 함께하는
-                    <br />
-                    <span className="text-yellow-500">비에이 택시투어</span>
-                  </h2>
-                  <p className="text-lg text-gray-600 leading-relaxed">
-                    현지 전문 가이드가 동행하여 비에이의 숨겨진 명소부터 유명 관광지까지
-                    안전하고 편안하게 안내해드립니다. 언어 걱정 없이 일본 여행을 즐기세요.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="flex items-start space-x-3">
-                    <div className="flex-shrink-0">
-                      <MapPin className="h-6 w-6 text-yellow-500" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">맞춤형 코스</h3>
-                      <p className="text-sm text-gray-600">원하는 장소와 시간에 맞춘 개인 맞춤 투어</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-3">
-                    <div className="flex-shrink-0">
-                      <Clock className="h-6 w-6 text-yellow-500" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">시간 절약</h3>
-                      <p className="text-sm text-gray-600">대중교통 이용 시간을 대폭 단축</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-3">
-                    <div className="flex-shrink-0">
-                      <Users className="h-6 w-6 text-yellow-500" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">전문 가이드</h3>
-                      <p className="text-sm text-gray-600">현지 문화와 역사를 아는 전문 가이드</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-3">
-                    <div className="flex-shrink-0">
-                      <Star className="h-6 w-6 text-yellow-500" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">프리미엄 서비스</h3>
-                      <p className="text-sm text-gray-600">깨끗하고 안전한 차량으로 편안한 여행</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <Button
-                    size="lg"
-                    className="bg-yellow-500 hover:bg-yellow-600 text-white px-8 py-3"
-                    onClick={() => router.push('/products')}
-                  >
-                    택시투어 예약하기
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="border-yellow-500 text-yellow-600 hover:bg-yellow-50 px-8 py-3"
-                    onClick={() => setIsChatOpen(true)}
-                  >
-                    <MessageCircle className="mr-2 h-5 w-5" />
-                    채팅 상담
-                  </Button>
-                </div>
-              </div>
-
-              {/* 오른쪽 - 이미지 갤러리 */}
-              <div className="relative">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-4">
-                    <img
-                      src="/assets/winter-biei-field.jpeg"
-                      alt="눈 덮인 언덕 위에 홀로 선 비에이 크리스마스 트리"
-                      width={800}
-                      height={450}
-                      loading="lazy"
-                      className="w-full h-48 object-cover rounded-lg shadow-lg"
-                    />
-                    <img
-                      src={biei5.src}
-                      alt="맑은 겨울 하늘 아래 서리 맺힌 비에이 포플러 나무"
-                      width={640}
-                      height={480}
-                      loading="lazy"
-                      className="w-full h-32 object-cover rounded-lg shadow-lg"
-                    />
-                  </div>
-                  <div className="space-y-4 sm:mt-8">
-                    <img
-                      src="/assets/summer-lavender-field.jpeg"
-                      alt="여름 후라노의 보랏빛 라벤더 밭과 색색의 꽃 언덕"
-                      width={547}
-                      height={365}
-                      loading="lazy"
-                      className="w-full h-32 object-cover rounded-lg shadow-lg"
-                    />
-                    <img
-                      src={biei6.src}
-                      alt="해질 무렵 눈 언덕 위에 늘어선 비에이 마일드세븐 언덕 나무들"
-                      width={1919}
-                      height={3410}
-                      loading="lazy"
-                      className="w-full h-48 object-cover rounded-lg shadow-lg"
-                    />
-                  </div>
-                </div>
-
-                {/* 플로팅 카드 */}
-                <div className="absolute -bottom-4 -left-4 bg-white p-4 rounded-lg shadow-xl">
-                  <div className="flex items-center space-x-2">
-                    <div className="flex text-yellow-400">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className="h-4 w-4 fill-current" />
-                      ))}
-                    </div>
-                    <span className="text-sm font-semibold">4.9</span>
-                  </div>
-                  <p className="text-xs text-gray-600 mt-1">1,200+ 만족한 고객</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* 세 번째 섹션 - 추천 상품 커머스 피드 */}
-        <section className="h-screen overflow-y-auto bg-white flex items-center">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-16">
-            <div className="mb-6">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900">어디로 가세요?</h2>
-              <p className="mt-2 text-gray-600">비에이의 계절별 인기 택시투어를 만나보세요.</p>
-            </div>
-
-            {/* 검색바 */}
-            <form onSubmit={submitSearch} className="relative max-w-2xl">
-              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                value={homeQuery}
-                onChange={(e) => setHomeQuery(e.target.value)}
-                placeholder="코스, 지역, 관광지 검색"
-                className="w-full rounded-full border border-gray-300 py-3 pl-12 pr-28 text-base outline-none focus:border-yellow-400"
-              />
-              <Button
-                type="submit"
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-full px-6"
-              >
-                검색
-              </Button>
-            </form>
-
-            {/* 시즌 필터칩 */}
-            <div className="mt-4 flex flex-wrap gap-2">
-              {SEASON_CHIPS.map((chip) => (
-                <Link
-                  key={chip.label}
-                  href={chip.season ? `/products?season=${chip.season}` : '/products'}
-                  className="rounded-full border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-600 transition hover:bg-yellow-50 hover:text-yellow-700"
-                >
-                  {chip.label}
-                </Link>
-              ))}
-            </div>
-
-            <div className="mt-8 mb-4 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-gray-900">추천 상품</h3>
-              <Link
-                href="/products"
-                className="flex items-center text-sm font-medium text-yellow-600 hover:text-yellow-700"
-              >
-                전체보기
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {FEATURED_PRODUCTS.map((product) => (
-                <ProductCard key={product.slug} product={product} rating={productRatings[product.slug]} />
-              ))}
-            </div>
-
-            {/* 후기 — 예약을 고민할 때 가장 먼저 찾는 것이라 상품 바로 아래에 둔다 */}
-            <RecentReviews />
-
-            {/* 송영(공항 이동) 배너 */}
-            <button
-              type="button"
-              onClick={() => router.push('/transfer-booking')}
-              className="mt-8 flex w-full items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-6 py-5 text-left transition hover:bg-gray-100"
+          {/* 검색바 */}
+          <form onSubmit={submitSearch} className="relative max-w-2xl">
+            <label htmlFor="home-search" className="sr-only">
+              코스, 지역, 관광지 검색
+            </label>
+            <Search
+              aria-hidden="true"
+              className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+            />
+            <input
+              id="home-search"
+              name="q"
+              type="search"
+              autoComplete="off"
+              value={homeQuery}
+              onChange={(e) => setHomeQuery(e.target.value)}
+              placeholder="코스, 지역, 관광지 검색"
+              className="w-full rounded-full border border-gray-300 py-3 pl-12 pr-28 text-base outline-none focus:border-yellow-400"
+            />
+            <Button
+              type="submit"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full bg-yellow-500 px-6 text-white hover:bg-yellow-600"
             >
-              <div className="flex items-center gap-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-yellow-100">
-                  <Plane className="h-5 w-5 text-yellow-600" />
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-900">공항 송영이 필요하세요?</p>
-                  <p className="text-sm text-gray-600">신치토세·아사히카와 공항과 호텔 간 편안한 이동</p>
-                </div>
-              </div>
-              <ChevronRight className="h-5 w-5 shrink-0 text-gray-400" />
-            </button>
+              검색
+            </Button>
+          </form>
+
+          {/* 시즌 필터칩 */}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {SEASON_CHIPS.map((chip) => (
+              <Link
+                key={chip.label}
+                href={chip.season ? `/products?season=${chip.season}` : '/products'}
+                className="rounded-full border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-600 transition hover:bg-yellow-50 hover:text-yellow-700"
+              >
+                {chip.label}
+              </Link>
+            ))}
           </div>
-        </section>
-      </div>
 
-      {/* 섹션 인디케이터 */}
-      <div className="fixed right-6 top-1/2 transform -translate-y-1/2 z-50 space-y-2">
-        {[0, 1, 2].map((index) => (
+          <div className="mb-4 mt-8 flex items-center justify-between">
+            <h3 className="text-xl font-bold text-gray-900">추천 상품</h3>
+            <Link
+              href="/products"
+              className="flex items-center text-sm font-medium text-yellow-600 hover:text-yellow-700"
+            >
+              전체보기
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {FEATURED_PRODUCTS.map((product) => (
+              <ProductCard key={product.slug} product={product} rating={productRatings[product.slug]} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 신뢰 스트립. 예전 소개 섹션을 한 줄 밴드로 압축한 것. */}
+      <section className="border-y border-gray-100 bg-gray-50">
+        <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <p className="max-w-2xl text-gray-600">
+              현지 전문 가이드가 동행하여 비에이의 숨겨진 명소부터 유명 관광지까지 안전하고 편안하게
+              안내해드립니다. 언어 걱정 없이 일본 여행을 즐기세요.
+            </p>
+            {overallRating && (
+              <p className="flex items-center gap-1.5 text-sm text-gray-700">
+                <Star className="h-4 w-4 fill-current text-yellow-400" aria-hidden="true" />
+                <span className="font-semibold tabular-nums">{overallRating.average.toFixed(1)}</span>
+                <span className="text-gray-500 tabular-nums">후기 {overallRating.count}건</span>
+              </p>
+            )}
+          </div>
+
+          <ul className="mt-8 grid grid-cols-2 gap-6 lg:grid-cols-4">
+            {FEATURES.map(({ Icon, title, body }) => (
+              <li key={title} className="flex items-start gap-3">
+                <Icon className="h-6 w-6 shrink-0 text-yellow-500" aria-hidden="true" />
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-gray-900">{title}</h3>
+                  <p className="text-sm text-gray-600">{body}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* 후기 — 예약을 고민할 때 가장 먼저 찾는 것이라 상품 가까이 둔다. */}
+      <section className="bg-white">
+        <div className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+          <RecentReviews />
+
+          {/* 송영(공항 이동) 배너 */}
           <button
-            key={index}
-            onClick={() => setCurrentSection(index)}
-            className={`w-3 h-3 rounded-full transition-colors ${
-              currentSection === index ? 'bg-yellow-500' : 'bg-gray-300'
-            }`}
-          />
-        ))}
-      </div>
-
-      {/* 채팅 상담 모달 */}
-      <ChatSupport
-        isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
-      />
+            type="button"
+            onClick={() => router.push('/transfer-booking')}
+            className="mt-8 flex w-full items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-6 py-5 text-left transition hover:bg-gray-100"
+          >
+            <div className="flex items-center gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-yellow-100">
+                <Plane className="h-5 w-5 text-yellow-600" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-gray-900">공항 송영이 필요하세요?</p>
+                <p className="text-sm text-gray-600">신치토세·아사히카와 공항과 호텔 간 편안한 이동</p>
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0 text-gray-400" aria-hidden="true" />
+          </button>
+        </div>
+      </section>
     </div>
   )
 }
