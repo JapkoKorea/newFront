@@ -3,7 +3,7 @@ from typing import Any
 
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+from jose import ExpiredSignatureError, JWTError, jwt
 
 
 JWT_ALGORITHM = "HS256"
@@ -26,8 +26,20 @@ def get_current_user(
     token = credentials.credentials
     try:
         payload = jwt.decode(token, _jwt_secret(), algorithms=[JWT_ALGORITHM])
+    except ExpiredSignatureError:
+        # 만료는 흔한 일이고(기본 24시간), 고객이 할 일은 다시 로그인하는 것뿐이다.
+        # "유효하지 않은 토큰"이라고 하면 무엇이 잘못됐는지 알 수 없다.
+        raise HTTPException(
+            status_code=401,
+            detail="로그인이 만료되었습니다. 다시 로그인해 주세요.",
+            headers={"X-Auth-Error": "expired"},
+        )
     except JWTError:
-        raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다")
+        raise HTTPException(
+            status_code=401,
+            detail="로그인 정보가 올바르지 않습니다. 다시 로그인해 주세요.",
+            headers={"X-Auth-Error": "invalid"},
+        )
 
     user_id = str(payload.get("user_id") or "").strip()
     if not user_id:

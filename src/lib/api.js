@@ -1,5 +1,31 @@
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 
+/** 로그인이 풀렸을 때 던지는 오류. 화면이 이걸 보고 안내를 띄운다. */
+export class AuthExpiredError extends Error {
+  constructor(message) {
+    super(message || '로그인이 만료되었습니다. 다시 로그인해 주세요.')
+    this.name = 'AuthExpiredError'
+  }
+}
+
+/**
+ * 응답이 401 이면 AuthExpiredError 를 던진다.
+ *
+ * 만료와 토큰 오류를 서버가 구분해 주므로(dependencies/auth.py) 문구를 그대로
+ * 쓴다. 401 이 아니면 아무것도 하지 않는다.
+ */
+export async function throwIfUnauthorized(response) {
+  if (response.status !== 401) return
+  let detail = ''
+  try {
+    const body = await response.clone().json()
+    detail = body?.detail || ''
+  } catch {
+    detail = ''
+  }
+  throw new AuthExpiredError(detail)
+}
+
 export function getJwtToken() {
   return localStorage.getItem('jwt') || ''
 }

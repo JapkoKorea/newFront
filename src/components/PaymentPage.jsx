@@ -16,11 +16,12 @@ import {
   MessageCircle,
   ShoppingBag,
 } from 'lucide-react'
-import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
+import { API_BASE_URL, AuthExpiredError, getAuthHeaders, throwIfUnauthorized } from '@/lib/api.js'
 import { paymentLabel, paymentTone } from '@/lib/reservationStatus.js'
 import { BANK_ACCOUNT, NAVER_STORE_URL, hasBankAccount } from '@/lib/paymentChannels.js'
 import { KAKAO_CHANNEL_CHAT, hasKakaoChannel } from '@/lib/kakaoChannel.js'
 import ChatSupport from '@/components/ChatSupport.jsx'
+import SessionExpiredDialog from '@/components/SessionExpiredDialog.jsx'
 
 /**
  * 결제 안내 화면.
@@ -44,6 +45,8 @@ function PaymentPage() {
   const [naverOrderNo, setNaverOrderNo] = useState('')
   const [copied, setCopied] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
+  // 로그인이 풀리면 작은 글씨 대신 화면을 막고 알린다.
+  const [authError, setAuthError] = useState('')
 
   const load = useCallback(async () => {
     if (!reservationNumber) {
@@ -58,11 +61,13 @@ function PaymentPage() {
         `${API_BASE_URL}/api/payments/transfer-info?reservation_number=${encodeURIComponent(reservationNumber)}`,
         { headers: getAuthHeaders() },
       )
+      await throwIfUnauthorized(response)
       const data = await response.json()
       if (!response.ok) throw new Error(data?.detail || `HTTP ${response.status}`)
       setInfo(data)
     } catch (error) {
-      setErrorMessage(error.message || '예약 정보를 불러오지 못했습니다.')
+      if (error instanceof AuthExpiredError) setAuthError(error.message)
+      else setErrorMessage(error.message || '예약 정보를 불러오지 못했습니다.')
     } finally {
       setLoading(false)
     }
@@ -71,7 +76,7 @@ function PaymentPage() {
   useEffect(() => {
     if (!localStorage.getItem('jwt')) {
       setLoading(false)
-      setErrorMessage('로그인이 필요합니다.')
+      setAuthError('로그인 후 결제를 진행하실 수 있습니다.')
       return
     }
     load()
@@ -104,11 +109,13 @@ function PaymentPage() {
           }),
         },
       )
+      await throwIfUnauthorized(response)
       const data = await response.json()
       if (!response.ok) throw new Error(data?.detail || `HTTP ${response.status}`)
       setInfo((prev) => (prev ? { ...prev, paymentStatus: data.paymentStatus } : prev))
     } catch (error) {
-      setErrorMessage(error.message || '결제 확인 요청에 실패했습니다.')
+      if (error instanceof AuthExpiredError) setAuthError(error.message)
+      else setErrorMessage(error.message || '결제 확인 요청에 실패했습니다.')
     } finally {
       setDeclaring('')
     }
@@ -121,6 +128,16 @@ function PaymentPage() {
           <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin text-yellow-500" />
           결제 안내를 불러오는 중입니다
         </div>
+      </div>
+    )
+  }
+
+  // 로그인이 풀렸으면 결제 정보를 그리지 않는다. 뒤에 0원짜리 빈 화면과
+  // 계좌번호가 비쳐 보이면 무엇을 믿어야 할지 헷갈린다.
+  if (authError) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <SessionExpiredDialog isOpen message={authError} />
       </div>
     )
   }
@@ -419,6 +436,8 @@ function PaymentPage() {
           예약 확인으로 돌아가기
         </Button>
       </div>
+
+      <SessionExpiredDialog isOpen={Boolean(authError)} message={authError} />
 
       {/* 어느 예약 문의인지 대화에 남는다 */}
       <ChatSupport

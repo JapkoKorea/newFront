@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button.jsx'
 import ChangeRequestModal from '@/components/ChangeRequestModal.jsx'
 import ReviewModal from '@/components/ReviewModal.jsx'
+import SessionExpiredDialog from '@/components/SessionExpiredDialog.jsx'
 import { fetchReviewEligibility } from '@/lib/reviews.js'
 import ChatSupport from '@/components/ChatSupport.jsx'
 import { customerStage, paymentLabel } from '@/lib/reservationStatus.js'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
 import { Calendar, Clock, CreditCard, MapPin, RefreshCcw, Star, UserRound } from 'lucide-react'
-import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
+import { API_BASE_URL, AuthExpiredError, getAuthHeaders, throwIfUnauthorized } from '@/lib/api.js'
 
 function ReservationCheckPage() {
   const router = useRouter()
@@ -20,6 +21,8 @@ function ReservationCheckPage() {
   const [selectedReservationNumber, setSelectedReservationNumber] = useState('')
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
+  // 로그인이 풀리면 작은 글씨 대신 화면을 막고 알린다.
+  const [authError, setAuthError] = useState('')
   const [canceling, setCanceling] = useState(false)
 
   const selectedReservation = useMemo(
@@ -63,6 +66,7 @@ function ReservationCheckPage() {
       const response = await fetch(`${API_BASE_URL}/api/reservations`, {
         headers: getAuthHeaders(),
       })
+      await throwIfUnauthorized(response)
       const data = await response.json()
       if (!response.ok) {
         throw new Error(data?.detail || `HTTP ${response.status}`)
@@ -73,7 +77,8 @@ function ReservationCheckPage() {
         setSelectedReservationNumber(items[0].reservation_number)
       }
     } catch (error) {
-      setErrorMessage(error?.message || '예약 정보를 불러오지 못했습니다.')
+      if (error instanceof AuthExpiredError) setAuthError(error.message)
+      else setErrorMessage(error?.message || '예약 정보를 불러오지 못했습니다.')
       setReservations([])
     } finally {
       setLoading(false)
@@ -112,6 +117,7 @@ function ReservationCheckPage() {
           headers: getAuthHeaders(),
         }
       )
+      await throwIfUnauthorized(response)
       const data = await response.json()
       if (!response.ok) {
         throw new Error(data?.detail || `HTTP ${response.status}`)
@@ -120,10 +126,21 @@ function ReservationCheckPage() {
       alert('취소 요청이 접수되었습니다.')
       await loadReservations()
     } catch (error) {
-      alert(`취소 요청 실패: ${error?.message || error}`)
+      if (error instanceof AuthExpiredError) setAuthError(error.message)
+      else alert(`취소 요청 실패: ${error?.message || error}`)
     } finally {
       setCanceling(false)
     }
+  }
+
+  // 로그인이 풀렸으면 예약 목록을 그리지 않는다. 빈 화면이 비쳐 보이면
+  // 예약이 사라진 것처럼 읽힌다.
+  if (authError) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <SessionExpiredDialog isOpen message={authError} />
+      </div>
+    )
   }
 
   if (!localStorage.getItem('jwt')) {
@@ -304,6 +321,8 @@ function ReservationCheckPage() {
         onClose={() => setIsChatOpen(false)}
         reservationNumber={selectedReservation?.reservation_number || null}
       />
+
+      <SessionExpiredDialog isOpen={Boolean(authError)} message={authError} />
 
       <ReviewModal
         isOpen={isReviewModalOpen}
