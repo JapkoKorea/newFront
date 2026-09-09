@@ -13,6 +13,8 @@ export default function sitemap() {
     { path: '/products', priority: 0.9, changeFrequency: 'weekly' },
     { path: '/guide', priority: 0.9, changeFrequency: 'monthly' },
     { path: '/pricing', priority: 0.8, changeFrequency: 'monthly' },
+    // 후기는 예약을 고민하는 사람이 찾는 글이라 자주 갱신된다.
+    { path: '/reviews', priority: 0.8, changeFrequency: 'weekly' },
     { path: '/transfer-booking', priority: 0.7, changeFrequency: 'monthly' },
     { path: '/terms', priority: 0.3, changeFrequency: 'yearly' },
     { path: '/privacy', priority: 0.3, changeFrequency: 'yearly' },

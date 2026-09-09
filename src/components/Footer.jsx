@@ -9,6 +9,7 @@ const POLICY_LINKS = [
 
 const SERVICE_LINKS = [
   { href: '/pricing', label: '요금 안내' },
+  { href: '/reviews', label: '이용 후기' },
   { href: '/reservations', label: '예약 확인' },
 ]
 

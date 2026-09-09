@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button.jsx'
 import { ChevronDown, MapPin, Clock, Users, Star, MessageCircle, ChevronRight, Search, Plane } from 'lucide-react'
 import ChatSupport from '@/components/ChatSupport.jsx'
+import RecentReviews from '@/components/RecentReviews.jsx'
 import ProductCard from '@/components/ProductCard.jsx'
 import { fetchReviewSummaries } from '@/lib/reviews.js'
 import { listProducts } from '@/products/registry.js'
@@ -289,6 +290,9 @@ export default function HomePage() {
                 <ProductCard key={product.slug} product={product} rating={productRatings[product.slug]} />
               ))}
             </div>
+
+            {/* 후기 — 예약을 고민할 때 가장 먼저 찾는 것이라 상품 바로 아래에 둔다 */}
+            <RecentReviews />
 
             {/* 송영(공항 이동) 배너 */}
             <button
