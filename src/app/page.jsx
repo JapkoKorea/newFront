@@ -58,7 +58,7 @@ export default function HomePage() {
   return (
     <div>
       {/* 히어로. 화면을 다 채우지 않아야 아래 상품 피드가 살짝 보여 스크롤을 유도한다. */}
-      <section className="relative flex min-h-[78vh] items-center justify-center md:min-h-[70vh]">
+      <section className="relative flex min-h-[78svh] items-center justify-center md:min-h-[70svh]">
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{ backgroundImage: `url(${biei1.src})` }}

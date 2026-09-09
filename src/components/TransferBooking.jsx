@@ -13,6 +13,7 @@ import { getLocalDateString } from '@/lib/date.js'
 import MapContainer from '@/components/MapContainer.jsx'
 import { COORDS_DICT } from '@/lib/spotCoords.js'
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
+import { SHEET_OVERLAY, SHEET_PANEL } from '@/lib/sheet.js'
 
 const passengerOptions = [
   { value: '1', label: '1명', helper: '개인 여행' },
@@ -230,11 +231,11 @@ export default function TransferBooking({ isOpen = false, onClose, displayMode =
   if (!shouldRender) return null
 
   const outerClassName = displayMode === 'modal'
-    ? 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4'
+    ? SHEET_OVERLAY
     : 'w-full'
 
   const contentClassName = displayMode === 'modal'
-    ? 'bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto'
+    ? `${SHEET_PANEL} max-w-6xl`
     : 'bg-white rounded-lg w-full border shadow-sm'
 
   return (

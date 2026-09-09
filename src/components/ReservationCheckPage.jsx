@@ -210,8 +210,8 @@ function ReservationCheckPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-1 h-fit">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <Card className="h-fit md:col-span-1">
               <CardHeader>
                 <CardTitle className="text-base">내 예약 목록</CardTitle>
               </CardHeader>
@@ -249,13 +249,13 @@ function ReservationCheckPage() {
             </Card>
 
             {selectedReservation && (
-              <div className="lg:col-span-2 space-y-4">
+              <div className="space-y-4 md:col-span-2">
                 <Card className="border-yellow-200 bg-yellow-50/60">
                   <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle className="text-lg">예약 상태</CardTitle>
                     <Badge className={`border ${stage.tone}`}>{stage.label}</Badge>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                  <CardContent className="grid grid-cols-1 gap-3 text-sm lg:grid-cols-2">
                     <p className="md:col-span-2 text-gray-700">{stage.detail}</p>
                     {reviewEligibility?.canWrite ? (
                       <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2">
@@ -286,7 +286,7 @@ function ReservationCheckPage() {
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2"><Calendar className="h-4 w-4 text-yellow-600" />일정 정보</CardTitle>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                  <CardContent className="grid grid-cols-1 gap-3 text-sm lg:grid-cols-2">
                     <p><span className="text-gray-500">투어 날짜:</span> <span className="font-medium">{selectedReservation.tour_date}</span></p>
                     <p><span className="text-gray-500">시작 시간:</span> <span className="font-medium">{String(selectedReservation.tour_start_time).slice(0, 5)}</span></p>
                     <p><span className="text-gray-500">소요 시간:</span> <span className="font-medium">{selectedReservation.tour_duration_hours}시간</span></p>
@@ -309,7 +309,7 @@ function ReservationCheckPage() {
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2"><UserRound className="h-4 w-4 text-yellow-600" />예약자 정보</CardTitle>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                  <CardContent className="grid grid-cols-1 gap-3 text-sm lg:grid-cols-2">
                     <p><span className="text-gray-500">이름:</span> <span className="font-medium">{selectedReservation.english_name}</span></p>
                     <p><span className="text-gray-500">연락처:</span> <span className="font-medium">{selectedReservation.contact_number || '-'}</span></p>
                   </CardContent>

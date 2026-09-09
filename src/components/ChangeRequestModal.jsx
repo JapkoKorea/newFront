@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button.jsx'
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
 import { getLocalDateString } from '@/lib/date.js'
 import { useModalDismiss } from '@/lib/useModalDismiss.js'
+import { SHEET_OVERLAY, SHEET_PANEL_FLEX, SHEET_BODY } from '@/lib/sheet.js'
 
 const TIME_OPTIONS = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00']
 
@@ -79,11 +80,11 @@ export default function ChangeRequestModal({ isOpen, onClose, reservation, onSub
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className={SHEET_OVERLAY}
       {...overlay}
     >
       <div
-        className="flex max-h-[88vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl"
+        className={`${SHEET_PANEL_FLEX} max-w-lg`}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between border-b p-6">
@@ -98,7 +99,7 @@ export default function ChangeRequestModal({ isOpen, onClose, reservation, onSub
           </Button>
         </div>
 
-        <div className="flex-1 space-y-5 overflow-y-auto p-6">
+        <div className={`${SHEET_BODY} space-y-5 p-6`}>
           <div className="rounded-lg bg-gray-50 p-4 text-sm">
             <p className="text-gray-500">현재 일정</p>
             <p className="mt-1 font-semibold text-gray-900">

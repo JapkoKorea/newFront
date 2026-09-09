@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { ChevronDown, ChevronUp, X, HelpCircle, Clock, CreditCard, MapPin, Phone } from 'lucide-react'
 import { useModalDismiss } from '@/lib/useModalDismiss.js'
+import { SHEET_OVERLAY, SHEET_PANEL } from '@/lib/sheet.js'
 
 const FAQ = ({ isOpen, onClose }) => {
   const overlay = useModalDismiss(isOpen, onClose)
@@ -112,8 +113,8 @@ const FAQ = ({ isOpen, onClose }) => {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" {...overlay}>
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+    <div className={SHEET_OVERLAY} {...overlay}>
+      <div className={`${SHEET_PANEL} max-w-4xl`}>
         <div className="flex justify-between items-center p-6 border-b">
           <div className="flex items-center gap-3">
             <HelpCircle className="h-6 w-6 text-yellow-500" />

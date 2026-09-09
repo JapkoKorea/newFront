@@ -3,6 +3,7 @@
 import { X, Clock, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
 import { useModalDismiss } from '@/lib/useModalDismiss.js'
+import { SHEET_OVERLAY, SHEET_PANEL_FLEX, SHEET_BODY } from '@/lib/sheet.js'
 
 /**
  * 상품에 속한 코스 중 하나를 고르는 모달.
@@ -14,11 +15,11 @@ export default function CourseSelectModal({ isOpen, onClose, productName, course
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className={SHEET_OVERLAY}
       {...overlay}
     >
       <div
-        className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl"
+        className={`${SHEET_PANEL_FLEX} max-w-2xl`}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between border-b p-6">
@@ -33,7 +34,7 @@ export default function CourseSelectModal({ isOpen, onClose, productName, course
           </Button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className={`${SHEET_BODY} p-6`}>
           <div className="space-y-3">
             {courses.map((course) => (
               <button

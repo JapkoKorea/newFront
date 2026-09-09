@@ -17,6 +17,7 @@ import { getLocalDateString } from '@/lib/date.js'
 import { getHourlyRate, getDepositKrw, isLastMinuteBooking } from '@/lib/pricing.js'
 import { resolveProductSlug } from '@/products/registry.js'
 import { detectSeason, tourCourses } from '@/data/tourCourses.js'
+import { SHEET_OVERLAY, SHEET_PANEL } from '@/lib/sheet.js'
 
 // tourCourses 안의 'custom' 은 "장소를 직접 고르는 모드"를 뜻하는 화면 전용
 // 항목이다. courses 테이블에는 없으므로 예약에 코스로 보내면 외래키에서 막힌다.
@@ -560,11 +561,11 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
   if (!shouldRender) return null
 
   const outerClassName = displayMode === 'modal'
-    ? 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4'
+    ? SHEET_OVERLAY
     : 'w-full'
 
   const contentClassName = displayMode === 'modal'
-    ? 'bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto'
+    ? `${SHEET_PANEL} max-w-6xl`
     : 'bg-white rounded-lg w-full border shadow-sm'
 
   return (
@@ -575,10 +576,11 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
       }}
     >
       <div className={contentClassName} onMouseDown={(e) => e.stopPropagation()}>
-        <div className="flex justify-between items-center p-6 border-b">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">택시 투어 예약</h2>
-            <p className="text-sm text-gray-500 mt-1">{skipCourseStep ? '코스 선택은 완료되었습니다. 남은 2단계를 입력해 주세요.' : '3단계로 간단하게 예약을 완료할 수 있어요.'}</p>
+        <div className="flex items-center justify-between border-b p-4 sm:p-6">
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">택시 투어 예약</h2>
+            {/* 안내 문구는 아래 단계 표시와 같은 말이라 좁은 화면에서는 뺀다. */}
+            <p className="mt-1 hidden text-sm text-gray-500 sm:block">{skipCourseStep ? '코스 선택은 완료되었습니다. 남은 2단계를 입력해 주세요.' : '3단계로 간단하게 예약을 완료할 수 있어요.'}</p>
           </div>
           <Button variant="ghost" size="touchIcon" className="h-11 w-11" aria-label="예약 닫기" onClick={onClose}>
             <X className="h-5 w-5" aria-hidden="true" />
@@ -586,10 +588,13 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
         </div>
 
         {/* 진행 단계 표시 */}
-        <div className="p-6 border-b space-y-4">
+        <div className="space-y-3 border-b p-4 sm:space-y-4 sm:p-6">
           <div>
-            <div className="flex justify-between text-sm text-gray-600 mb-2">
-              <span>진행률</span>
+            <div className="mb-2 flex justify-between text-sm text-gray-600">
+              <span className="sm:hidden">
+                {visibleStepIndex + 1}/{totalSteps} · {stepLabels[visibleStepIndex]}
+              </span>
+              <span className="hidden sm:inline">진행률</span>
               <span>{progressPercent}%</span>
             </div>
             <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -602,7 +607,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                 <button
                   type="button"
                   onClick={() => handleStepClick(step)}
-                  className="flex min-h-11 items-center gap-2 rounded-full px-1"
+                  className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full px-1 sm:justify-start"
                   aria-current={currentStep === step ? 'step' : undefined}
                   title={`${stepLabels[index]} 단계로 이동`}
                 >
@@ -613,7 +618,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                     {index + 1}
                   </span>
                   <span
-                    className={`text-sm transition-colors ${currentStep >= step ? 'font-medium text-yellow-700' : 'text-gray-400'}`}
+                    className={`hidden text-sm transition-colors sm:inline ${currentStep >= step ? 'font-medium text-yellow-700' : 'text-gray-400'}`}
                   >
                     {stepLabels[index]}
                   </span>
@@ -637,12 +642,15 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
           )}
 
           {(currentStep === 2 || currentStep === 3) && (
-            <div className="mb-5 rounded-lg border bg-gray-50 p-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-              <div>
+            <div className="mb-5 rounded-lg border bg-gray-50 p-3 text-sm sm:grid sm:grid-cols-2 sm:gap-3 sm:p-4">
+              <p className="truncate font-medium text-gray-900 sm:hidden">
+                {summaryCourseName || '코스 미선택'} · {bookingData.selectedSpots?.length || 0}곳
+              </p>
+              <div className="hidden sm:block">
                 <p className="text-gray-500">선택 코스</p>
                 <p className="font-medium text-gray-900">{summaryCourseName || '아직 선택 전'}</p>
               </div>
-              <div>
+              <div className="hidden sm:block">
                 <p className="text-gray-500">방문 장소 수</p>
                 <p className="font-medium text-gray-900">{bookingData.selectedSpots?.length || 0}곳</p>
               </div>

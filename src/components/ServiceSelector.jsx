@@ -1,6 +1,7 @@
 import { X, MapPin, Navigation, Route } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
 import { useModalDismiss } from '@/lib/useModalDismiss.js'
+import { SHEET_OVERLAY, SHEET_PANEL } from '@/lib/sheet.js'
 
 export default function ServiceSelector({ isOpen, onClose, onSelectTour, onSelectCustom, onSelectTransfer }) {
   const overlay = useModalDismiss(isOpen, onClose)
@@ -8,11 +9,11 @@ export default function ServiceSelector({ isOpen, onClose, onSelectTour, onSelec
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      className={SHEET_OVERLAY}
       {...overlay}
     >
       <div
-        className="bg-white rounded-2xl w-full max-w-3xl shadow-xl"
+        className={`${SHEET_PANEL} max-w-3xl`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center p-6 border-b">
@@ -44,7 +45,6 @@ export default function ServiceSelector({ isOpen, onClose, onSelectTour, onSelec
               <div className="mt-3 flex flex-wrap justify-center gap-1">
                 <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">겨울 코스</span>
                 <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">여름 코스</span>
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">사계절</span>
               </div>
             </div>
           </button>

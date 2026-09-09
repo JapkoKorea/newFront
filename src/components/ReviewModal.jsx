@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button.jsx'
 import StarRating from '@/components/StarRating.jsx'
 import { submitReview } from '@/lib/reviews.js'
 import { useModalDismiss } from '@/lib/useModalDismiss.js'
+import { SHEET_OVERLAY, SHEET_PANEL } from '@/lib/sheet.js'
 
 const BODY_MAX = 2000
 
@@ -69,10 +70,10 @@ export default function ReviewModal({ isOpen, onClose, reservation, allowedTags 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+      className={SHEET_OVERLAY}
       {...overlay}
     >
-      <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white sm:rounded-2xl">
+      <div className={`${SHEET_PANEL} max-w-md`}>
         <div className="flex items-start justify-between border-b border-gray-100 p-5">
           <div>
             <h2 className="text-lg font-bold text-gray-900">이용 후기 작성</h2>

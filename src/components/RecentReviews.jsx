@@ -55,7 +55,7 @@ export default function RecentReviews({ limit = 3, title = '고객 후기' }) {
         </Link>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {reviews.map((review) => (
           <article key={review.id} className="rounded-xl border border-gray-200 bg-white p-4">
             <div className="flex items-center gap-1.5">

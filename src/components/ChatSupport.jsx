@@ -8,6 +8,7 @@ import { Send, X, MessageCircle, User, Headset, LogIn } from 'lucide-react'
 import { getJwtToken } from '@/lib/api.js'
 import { openConversation, fetchMessages, sendMessage, ChatAuthError } from '@/lib/chat.js'
 import { useModalDismiss } from '@/lib/useModalDismiss.js'
+import { SHEET_OVERLAY, SHEET_PANEL_FLEX, SHEET_BODY } from '@/lib/sheet.js'
 
 const POLL_INTERVAL_MS = 4000
 
@@ -123,10 +124,10 @@ const ChatSupport = ({ isOpen, onClose, reservationNumber = null }) => {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" {...overlay}>
-      <div className="bg-white rounded-lg max-w-md w-full h-[600px] flex flex-col">
+    <div className={SHEET_OVERLAY} {...overlay}>
+      <div className={`${SHEET_PANEL_FLEX} h-[88dvh] max-w-md sm:h-[600px]`}>
         {/* 헤더 */}
-        <div className="flex justify-between items-center p-4 border-b bg-green-500 text-white rounded-t-lg">
+        <div className="flex justify-between items-center p-4 border-b bg-green-500 text-white rounded-t-2xl">
           <div className="flex items-center gap-3">
             <MessageCircle className="h-5 w-5" />
             <div>
@@ -161,7 +162,7 @@ const ChatSupport = ({ isOpen, onClose, reservationNumber = null }) => {
         ) : (
           <>
             {/* 메시지 영역 */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className={`${SHEET_BODY} space-y-4 p-4`}>
               {/* 인트로(상담원) */}
               <div className="flex justify-start">
                 <div className="flex items-start gap-2 max-w-[80%]">
