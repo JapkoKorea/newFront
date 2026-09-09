@@ -236,6 +236,13 @@ function ReservationCheckPage() {
                     <span className={`mt-2 inline-block rounded-full border px-2 py-0.5 text-xs ${customerStage(reservation.status, reservation.payment_status, { channel: reservation.payment_channel, orderNo: reservation.payment_order_no }).tone}`}>
                       {customerStage(reservation.status, reservation.payment_status, { channel: reservation.payment_channel, orderNo: reservation.payment_order_no }).label}
                     </span>
+                    {/* 후기를 쓸 수 있다는 것을 눌러보기 전에 알 수 있어야 한다. */}
+                    {reservation.status === 'completed' ? (
+                      <span className="ml-1 mt-2 inline-flex items-center gap-1 rounded-full border border-yellow-200 bg-yellow-50 px-2 py-0.5 text-xs text-yellow-800">
+                        <Star className="h-3 w-3" />
+                        후기 작성
+                      </span>
+                    ) : null}
                   </button>
                 ))}
               </CardContent>
@@ -250,6 +257,24 @@ function ReservationCheckPage() {
                   </CardHeader>
                   <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                     <p className="md:col-span-2 text-gray-700">{stage.detail}</p>
+                    {reviewEligibility?.canWrite ? (
+                      <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2">
+                        <span className="text-sm text-yellow-900">{reviewEligibility.notice}</span>
+                        <Button
+                          size="sm"
+                          className="bg-gray-900 hover:bg-gray-800"
+                          onClick={() => setIsReviewModalOpen(true)}
+                        >
+                          <Star className="mr-1 h-4 w-4" />
+                          후기 작성
+                        </Button>
+                      </div>
+                    ) : null}
+                    {reviewEligibility?.alreadyWritten ? (
+                      <p className="md:col-span-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600">
+                        이미 후기를 남기셨습니다. 감사합니다.
+                      </p>
+                    ) : null}
                     <p><span className="text-gray-500">예약번호:</span> <span className="font-medium break-all">{selectedReservation.reservation_number}</span></p>
                     <p><span className="text-gray-500">접수일시:</span> <span className="font-medium">{selectedReservation.created_at?.replace('T', ' ').slice(0, 16) || '-'}</span></p>
                     <p><span className="text-gray-500">결제 상태:</span> <span className="font-medium">{paymentLabel(selectedReservation.payment_status)}</span></p>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Star, Flag, BadgeCheck, ExternalLink, Loader2, PenLine } from 'lucide-react'
+import { Star, Flag, BadgeCheck, ExternalLink, Loader2 } from 'lucide-react'
 import StarRating from '@/components/StarRating.jsx'
 import { fetchReviews, formatReviewDate, reportReview } from '@/lib/reviews.js'
 
@@ -17,35 +17,11 @@ const PAGE_SIZE = 5
  * 첫 후기를 기다리는 상태로 쓴다. 예약 전환을 막지 않도록 톤을 낮춘다.
  */
 
-function WriteCta({ loggedIn }) {
-  // 후기는 이용을 마친 예약에만 쓸 수 있다. 그 판정은 예약 확인 화면이 하므로
-  // 여기서는 그쪽으로 보내기만 한다.
-  return (
-    <a
-      href={loggedIn ? '/reservations' : '/login'}
-      className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-yellow-400 hover:bg-yellow-50"
-    >
-      <PenLine className="h-4 w-4" />
-      후기 작성하기
-    </a>
-  )
-}
-
 export default function ReviewList({ productSlug, onSummary }) {
   const [data, setData] = useState(null)
-  // 로그인한 사람에게만 작성 안내를 보여준다. 비로그인에게는 할 수 있는 게 없다.
-  const [loggedIn, setLoggedIn] = useState(false)
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(false)
   const [reported, setReported] = useState({})
-
-  useEffect(() => {
-    try {
-      setLoggedIn(Boolean(localStorage.getItem('jwt')))
-    } catch {
-      setLoggedIn(false)
-    }
-  }, [])
 
   useEffect(() => {
     let alive = true
@@ -90,7 +66,6 @@ export default function ReviewList({ productSlug, onSummary }) {
         <p className="mt-1 text-xs text-gray-500">
           투어를 마치신 분들의 후기가 이곳에 표시됩니다.
         </p>
-        <WriteCta loggedIn={loggedIn} />
       </div>
     )
   }
@@ -216,7 +191,6 @@ export default function ReviewList({ productSlug, onSummary }) {
 
       <div className="mt-4 border-t border-gray-100 pt-4">
         <p className="text-sm text-gray-600">투어를 다녀오셨나요?</p>
-        <WriteCta loggedIn={loggedIn} />
       </div>
 
       {reviews.length > PAGE_SIZE && !expanded ? (
