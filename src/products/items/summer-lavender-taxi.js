@@ -119,10 +119,11 @@ export default defineProduct({
     },
   ],
 
-  reviewEvent: {
-    title: '잽코 리뷰 이벤트',
-    body: '택시 투어 후 정성스러운 포토 리뷰를 작성하시면 잽코 예약권과 커피 기프티콘을 드립니다.',
-  },
+  // 리뷰 이벤트 중단 — 다시 할 때 주석을 푼다.
+  // reviewEvent: {
+  //   title: '잽코 리뷰 이벤트',
+  //   body: '택시 투어 후 정성스러운 포토 리뷰를 작성하시면 잽코 예약권과 커피 기프티콘을 드립니다.',
+  // },
 
   cta: {
     kakaoUrl: KAKAO_URL,

@@ -229,6 +229,60 @@ def create_own_review(
     return review_id
 
 
+def create_external_review(
+    source: str,
+    product_slug: str | None,
+    rating: int,
+    body: str | None,
+    author_display: str | None,
+    external_id: str,
+    external_url: str | None = None,
+    course_id: str | None = None,
+) -> int:
+    """외부(네이버 쇼핑 등) 후기를 등록한다.
+
+    우리 예약과 이어지지 않으므로 reservation_number 가 없다. 같은 후기를
+    두 번 넣지 않도록 (source, external_id) 를 유일 키로 쓴다 — 이미 있으면
+    내용만 갱신한다.
+
+    평점 집계에는 넣지 않는다(summarize_reviews 는 own 만 센다). 우리가
+    검증할 수 없는 값이라 목록에 함께 보여주되 우리 평점으로 삼지 않는다.
+    """
+    if source == "own":
+        raise ReviewError("invalid_source", "자체 후기는 예약을 통해 작성합니다.")
+    if not isinstance(rating, int) or not (RATING_MIN <= rating <= RATING_MAX):
+        raise ReviewError("invalid_rating", "별점은 1점에서 5점 사이여야 합니다.")
+    if not (external_id or "").strip():
+        raise ReviewError("external_id_required", "외부 후기 식별자가 필요합니다.")
+
+    clean_body = (body or "").strip()[:BODY_MAX_LENGTH] or None
+    conn = _connect()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO reviews (
+                    source, reservation_number, user_id, product_slug, course_id,
+                    rating, body, status, author_display, external_id, external_url
+                ) VALUES (%s, NULL, NULL, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    rating = VALUES(rating), body = VALUES(body),
+                    author_display = VALUES(author_display),
+                    external_url = VALUES(external_url),
+                    product_slug = VALUES(product_slug)
+                """,
+                (
+                    source, product_slug, course_id, rating, clean_body, VISIBLE,
+                    mask_name(author_display), external_id.strip(), (external_url or "").strip() or None,
+                ),
+            )
+            review_id = cursor.lastrowid
+        conn.commit()
+    finally:
+        conn.close()
+    return review_id
+
+
 def list_reviews(
     product_slug: str | None = None,
     course_id: str | None = None,

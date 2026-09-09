@@ -86,3 +86,7 @@ export const fetchNaverIntegration = () => request('/integrations/naver')
 /** 예약 처리 내역. 언제 무엇을 확정·반려했고 사유가 무엇이었는지. */
 export const fetchStatusHistory = (reservationNumber) =>
   request(`/reservations/history${reservationNumber ? `?reservation_number=${encodeURIComponent(reservationNumber)}` : ''}`)
+
+/** 네이버 등 외부 후기 등록. 같은 external_id 면 내용만 갱신된다. */
+export const addExternalReview = (review) =>
+  request('/reviews/external', { method: 'POST', body: JSON.stringify(review) })

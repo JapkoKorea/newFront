@@ -35,6 +35,7 @@ from services.manual_payment_service import (
 )
 from services.review_service import (
     ReviewError,
+    create_external_review,
     list_reviews_for_admin,
     set_review_status,
 )
@@ -357,3 +358,42 @@ async def get_status_history(
 ):
     """예약 처리 내역. 언제 무엇을 확정·반려했고 사유가 무엇이었는지."""
     return {"history": list_status_history(reservation_number=reservation_number, limit=limit)}
+
+
+class ExternalReviewPayload(BaseModel):
+    """스마트스토어 등 외부 후기를 옮겨 담을 때 쓴다."""
+
+    source: Literal["naver"] = "naver"
+    product_slug: str | None = None
+    rating: int = Field(ge=1, le=5)
+    body: str | None = Field(default=None, max_length=2000)
+    author_display: str | None = Field(default=None, max_length=64)
+    # 같은 후기를 두 번 넣지 않기 위한 식별자. 스토어 리뷰 번호나 주문번호.
+    external_id: str = Field(min_length=1, max_length=128)
+    external_url: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/reviews/external")
+async def add_external_review(
+    payload: ExternalReviewPayload,
+    current_admin: dict[str, Any] = Depends(get_current_admin),
+):
+    """외부 후기 등록. 같은 external_id 로 다시 넣으면 내용만 갱신된다.
+
+    우리 평점 집계에는 넣지 않는다 — 검증할 수 없는 값이라 목록에만 함께
+    보여준다.
+    """
+    try:
+        review_id = create_external_review(
+            source=payload.source,
+            product_slug=payload.product_slug,
+            rating=payload.rating,
+            body=payload.body,
+            author_display=payload.author_display,
+            external_id=payload.external_id,
+            external_url=payload.external_url,
+        )
+    except ReviewError as error:
+        raise HTTPException(status_code=400, detail=error.message) from error
+
+    return {"reviewId": review_id, "message": "외부 후기를 등록했습니다."}

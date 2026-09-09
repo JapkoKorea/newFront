@@ -10,7 +10,7 @@ import {
   ROUTE_RULES,
   POLICIES,
   FAQ,
-  REVIEW_EVENT,
+  // REVIEW_EVENT,   // 리뷰 이벤트 중단
   KAKAO_URL,
 } from '../common.js'
 
@@ -52,7 +52,7 @@ export default defineProduct({
   routeRules: ROUTE_RULES,
   policies: POLICIES,
   faq: FAQ,
-  reviewEvent: REVIEW_EVENT,
+  // reviewEvent: REVIEW_EVENT,   // 리뷰 이벤트 중단
 
   cta: {
     kakaoUrl: KAKAO_URL,

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Loader2, RefreshCw, Send, Star, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
 import {
+  addExternalReview,
   fetchAdminMe,
   fetchAdminReservations,
   fetchAdminReviews,
@@ -54,6 +55,11 @@ export default function AdminDashboard() {
   const [conversations, setConversations] = useState([])
   const [reviews, setReviews] = useState([])
   const [history, setHistory] = useState([])
+  // 네이버 후기를 옮겨 담는 입력값. 스토어에서 복사해 붙여 넣는다.
+  const [naverReview, setNaverReview] = useState({
+    external_id: '', author_display: '', rating: 5, body: '',
+    product_slug: 'winter-taxi-tour', external_url: '',
+  })
   // 네이버 커머스 API 가 붙어 있을 때만 자동 확인 버튼을 보여준다.
   const [naverReady, setNaverReady] = useState(false)
   const [activeChat, setActiveChat] = useState(null)
@@ -610,7 +616,76 @@ export default function AdminDashboard() {
             ) : null}
 
             {tab === 'reviews' ? (
-              reviews.length === 0 ? (
+              <>
+              {/* 스마트스토어 후기를 옮겨 담는다. 자동으로 가져올 방법이 없어
+                  손으로 넣되, 같은 식별자로 다시 넣으면 갱신만 된다. */}
+              <details className="mb-4 rounded-xl border border-gray-200 bg-white p-4">
+                <summary className="cursor-pointer text-sm font-semibold text-gray-900">
+                  네이버 후기 옮겨 담기
+                </summary>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <input
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                    placeholder="스토어 리뷰 식별자 (중복 방지)"
+                    value={naverReview.external_id}
+                    onChange={(e) => setNaverReview((v) => ({ ...v, external_id: e.target.value }))}
+                  />
+                  <input
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                    placeholder="작성자 (예: 김민수)"
+                    value={naverReview.author_display}
+                    onChange={(e) => setNaverReview((v) => ({ ...v, author_display: e.target.value }))}
+                  />
+                  <select
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                    value={naverReview.product_slug}
+                    onChange={(e) => setNaverReview((v) => ({ ...v, product_slug: e.target.value }))}
+                  >
+                    <option value="winter-taxi-tour">겨울 택시투어</option>
+                    <option value="summer-taxi-tour">여름 택시투어</option>
+                  </select>
+                  <select
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                    value={naverReview.rating}
+                    onChange={(e) => setNaverReview((v) => ({ ...v, rating: Number(e.target.value) }))}
+                  >
+                    {[5, 4, 3, 2, 1].map((n) => (
+                      <option key={n} value={n}>{n}점</option>
+                    ))}
+                  </select>
+                  <input
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm sm:col-span-2"
+                    placeholder="원문 링크 (선택)"
+                    value={naverReview.external_url}
+                    onChange={(e) => setNaverReview((v) => ({ ...v, external_url: e.target.value }))}
+                  />
+                  <textarea
+                    rows={3}
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm sm:col-span-2"
+                    placeholder="후기 내용"
+                    value={naverReview.body}
+                    onChange={(e) => setNaverReview((v) => ({ ...v, body: e.target.value }))}
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  className="mt-3 bg-yellow-500 hover:bg-yellow-600"
+                  disabled={!naverReview.external_id.trim() || busy === 'ext-review'}
+                  onClick={() =>
+                    act('ext-review', async () => {
+                      await addExternalReview({ source: 'naver', ...naverReview })
+                      setNaverReview((v) => ({ ...v, external_id: '', author_display: '', body: '', external_url: '' }))
+                    })
+                  }
+                >
+                  등록
+                </Button>
+                <p className="mt-2 text-xs text-gray-500">
+                  외부 후기는 목록에만 함께 보이고, 우리 평점 평균에는 넣지 않습니다.
+                </p>
+              </details>
+
+              {reviews.length === 0 ? (
                 <Empty>등록된 후기가 없습니다.</Empty>
               ) : (
                 <ul className="space-y-3">
@@ -688,7 +763,8 @@ export default function AdminDashboard() {
                     </li>
                   ))}
                 </ul>
-              )
+              )}
+              </>
             ) : null}
           </div>
         )}
