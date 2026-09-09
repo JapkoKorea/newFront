@@ -27,6 +27,7 @@ from services.reservation_admin_service import (
 )
 from services.manual_payment_service import (
     ManualPaymentError,
+    auto_verify_naver,
     confirm as confirm_manual_payment,
     list_for_reservations as list_payment_records,
     revert as revert_manual_payment,
@@ -272,3 +273,76 @@ async def update_payment_status(
             result["reservationError"] = error.message
 
     return {"reservationNumber": reservation_number, **result}
+
+
+@router.post("/reservations/{reservation_number}/payment/verify-naver")
+async def verify_naver_payment(
+    reservation_number: str,
+    current_admin: dict[str, Any] = Depends(get_current_admin),
+):
+    """스마트스토어 주문을 판매자 API 로 대조한다.
+
+    고객이 남긴 주문번호로 실제 주문·결제 상태·금액을 확인하고, 맞으면 결제
+    완료로 바꾼다. 확신이 서지 않으면 아무것도 바꾸지 않고 이유를 돌려준다.
+    """
+    from services.manual_payment_service import list_for_reservations
+    from services.mysql_user_service import _connect
+
+    record = list_for_reservations([reservation_number]).get(reservation_number)
+    if not record or record.get("channel") != "naver":
+        raise HTTPException(status_code=400, detail="스마트스토어로 결제했다고 알린 예약이 아닙니다")
+
+    order_id = (record.get("external_order_no") or "").strip()
+    if not order_id:
+        raise HTTPException(status_code=400, detail="고객이 남긴 주문번호가 없습니다")
+
+    conn = _connect()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT payment_amount_krw FROM reservations WHERE reservation_number = %s",
+                (reservation_number,),
+            )
+            row = cursor.fetchone()
+    finally:
+        conn.close()
+
+    expected = int((row or {}).get("payment_amount_krw") or record.get("amount_krw") or 0)
+    result = auto_verify_naver(reservation_number, order_id, expected)
+    # 원본 응답은 크고 화면에 필요 없다. 판단에 쓴 값만 돌려준다.
+    order = result.get("order") or {}
+    return {
+        "reservationNumber": reservation_number,
+        "confirmed": bool(result.get("confirmed")),
+        "reason": result.get("reason"),
+        "message": result.get("message"),
+        "orderStatus": order.get("status"),
+        "orderAmount": order.get("amount"),
+        "expectedAmount": expected,
+    }
+
+
+@router.get("/integrations/naver")
+async def naver_integration_status(
+    current_admin: dict[str, Any] = Depends(get_current_admin),
+):
+    """네이버 커머스 API 연결 상태. 키가 맞는지 토큰 발급으로 확인한다."""
+    from services.naver_commerce_service import (
+        NaverCommerceError,
+        _issue_token,
+        is_configured,
+    )
+
+    if not is_configured():
+        return {
+            "configured": False,
+            "connected": False,
+            "message": "NAVER_COMMERCE_CLIENT_ID / SECRET 이 설정되지 않았습니다",
+        }
+
+    try:
+        _issue_token()
+    except NaverCommerceError as error:
+        return {"configured": True, "connected": False, "message": error.message}
+
+    return {"configured": True, "connected": True, "message": "연결됨"}

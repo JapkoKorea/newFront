@@ -136,6 +136,25 @@ def declare(
     }
 
 
+def auto_verify_naver(reservation_number: str, order_id: str, expected_amount: int) -> dict[str, Any]:
+    """스마트스토어 주문을 판매자 API 로 대조해 자동 확인한다.
+
+    사람이 스토어를 열어 확인하던 자리를 대신한다. 확인되면 결제 완료까지
+    바로 처리하고, 확신이 서지 않으면 아무것도 바꾸지 않고 이유만 돌려준다.
+    자동 확인이 틀리는 것보다 사람이 한 번 더 보는 편이 낫다.
+
+    예약 상태는 여기서도 바꾸지 않는다 — 확정은 사람이 판단한다.
+    """
+    from services.naver_commerce_service import verify_payment
+
+    result = verify_payment(order_id, expected_amount)
+    if not result.get("verified"):
+        return {"confirmed": False, **result}
+
+    confirm(reservation_number, admin_user_id="naver-api")
+    return {"confirmed": True, **result}
+
+
 def confirm(reservation_number: str, admin_user_id: str) -> dict[str, Any]:
     """운영자가 입금·결제를 확인한다. 원장과 예약 모두 결제 완료로 바꾼다."""
     now = datetime.now()

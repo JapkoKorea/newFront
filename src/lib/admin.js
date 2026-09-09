@@ -73,3 +73,12 @@ export const setReservationPaymentStatus = (reservationNumber, paymentStatus, co
     method: 'PATCH',
     body: JSON.stringify({ payment_status: paymentStatus, confirm_reservation: confirmReservation }),
   })
+
+/** 스마트스토어 주문을 판매자 API 로 대조해 자동 확인한다. */
+export const verifyNaverPayment = (reservationNumber) =>
+  request(`/reservations/${encodeURIComponent(reservationNumber)}/payment/verify-naver`, {
+    method: 'POST',
+  })
+
+/** 네이버 커머스 API 연결 상태. 키가 없으면 자동 확인 버튼을 감춘다. */
+export const fetchNaverIntegration = () => request('/integrations/naver')

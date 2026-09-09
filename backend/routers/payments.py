@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from dependencies.auth import get_current_user
 from services.manual_payment_service import (
     ManualPaymentError,
+    auto_verify_naver,
     declare as declare_manual_payment,
     list_for_reservations as list_payment_records,
 )
@@ -550,6 +551,28 @@ async def declare_payment(
 
     if result.get("alreadyPaid"):
         return {"paymentStatus": "paid", "message": "이미 결제가 확인된 예약입니다."}
+
+    # 스마트스토어 주문번호를 남겼으면 판매자 API 로 바로 대조한다. 사람이
+    # 스토어를 열어 확인하던 자리다. 실패해도 선언 자체는 이미 접수됐으므로
+    # 흐름을 막지 않는다 — 운영자가 확인하면 된다.
+    if payload.channel == "naver" and result.get("channel") == "naver":
+        order_id = (payload.external_order_no or "").strip()
+        if order_id:
+            try:
+                verified = auto_verify_naver(reservation_number, order_id, amount)
+            except Exception as error:  # 자동 확인 실패가 예약을 막아서는 안 된다
+                print(f"[WARN] naver auto verify failed ({reservation_number}): {error}")
+                verified = {"confirmed": False, "reason": "error"}
+
+            if verified.get("confirmed"):
+                return {
+                    **result,
+                    "paymentStatus": "paid",
+                    "autoVerified": True,
+                    "message": "스마트스토어 주문이 확인되어 결제가 완료 처리되었습니다.",
+                }
+            result["autoVerified"] = False
+            result["autoVerifyReason"] = verified.get("reason")
 
     return {
         **result,

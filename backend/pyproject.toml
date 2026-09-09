@@ -13,4 +13,6 @@ dependencies = [
     "jose>=1.0.0",
     "jwt>=1.4.0",
     "python-jose>=3.5.0",
+    # 네이버 커머스 API 인증 서명(client_secret 을 salt 로 쓰는 bcrypt)
+    "bcrypt>=4.0.0",
 ]

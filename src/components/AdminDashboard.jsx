@@ -9,12 +9,14 @@ import {
   fetchAdminReservations,
   fetchAdminReviews,
   fetchChangeRequests,
+  fetchNaverIntegration,
   fetchConversationMessages,
   fetchConversations,
   replyToConversation,
   resolveChangeRequest,
   setReservationPaymentStatus,
   setReviewVisibility,
+  verifyNaverPayment,
   updateReservationStatus,
 } from '@/lib/admin.js'
 import { paymentLabel, paymentTone, statusLabel, statusTone } from '@/lib/reservationStatus.js'
@@ -48,6 +50,8 @@ export default function AdminDashboard() {
   const [changes, setChanges] = useState([])
   const [conversations, setConversations] = useState([])
   const [reviews, setReviews] = useState([])
+  // 네이버 커머스 API 가 붙어 있을 때만 자동 확인 버튼을 보여준다.
+  const [naverReady, setNaverReady] = useState(false)
   const [activeChat, setActiveChat] = useState(null)
   const [chatMessages, setChatMessages] = useState([])
   const [reply, setReply] = useState('')
@@ -64,6 +68,9 @@ export default function AdminDashboard() {
         fetchConversations(),
         fetchAdminReviews(),
       ])
+      fetchNaverIntegration()
+        .then((info) => setNaverReady(Boolean(info?.connected)))
+        .catch(() => setNaverReady(false))
       setReservations(r.reservations || [])
       setChanges(c.requests || [])
       setConversations(v.conversations || [])
@@ -295,6 +302,28 @@ export default function AdminDashboard() {
                           >
                             입금 확인 + 예약 확정
                           </Button>
+                          {/* 스마트스토어 주문번호가 있으면 사람이 스토어를 열어
+                              확인하는 대신 판매자 API 로 대조한다. */}
+                          {naverReady
+                            && item.payment_record?.channel === 'naver'
+                            && item.payment_record?.external_order_no ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-sky-300 text-sky-800 hover:bg-sky-50"
+                              disabled={busy === `pay-${item.reservation_number}`}
+                              onClick={() =>
+                                act(`pay-${item.reservation_number}`, async () => {
+                                  const result = await verifyNaverPayment(item.reservation_number)
+                                  if (!result.confirmed) {
+                                    throw new Error(result.message || '주문을 확인하지 못했습니다.')
+                                  }
+                                })
+                              }
+                            >
+                              스토어 주문 자동 확인
+                            </Button>
+                          ) : null}
                           {item.payment_status === 'ready' ? (
                             <span className="text-xs text-amber-700">고객이 결제했다고 알렸습니다</span>
                           ) : null}
