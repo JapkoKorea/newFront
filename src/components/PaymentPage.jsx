@@ -375,9 +375,16 @@ function PaymentPage() {
                     {declaring === 'bank_transfer' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
                     {settled ? '입금 확인됨' : declared ? '확인 요청됨' : '입금 완료'}
                   </Button>
-                  <Button variant="outline" className="flex-1" onClick={() => router.back()}>
+                  {/* 뒤로가기(router.back)는 히스토리에 따라 예약 생성 흐름으로
+                      돌아가 코스 선택부터 다시 시작하게 된다. 이미 만들어진
+                      예약이므로 예약 확인 화면으로 보낸다. */}
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => router.push('/reservations')}
+                  >
                     <ArrowLeft className="mr-1 h-4 w-4" />
-                    취소
+                    나중에 하기
                   </Button>
                 </div>
               </>
@@ -493,9 +500,6 @@ function PaymentPage() {
 
         {errorMessage ? <p className="text-sm text-rose-600">{errorMessage}</p> : null}
 
-        <Button variant="ghost" className="w-full" onClick={() => router.push('/reservations')}>
-          예약 확인으로 돌아가기
-        </Button>
       </div>
 
       <SessionExpiredDialog isOpen={Boolean(authError)} message={authError} />
