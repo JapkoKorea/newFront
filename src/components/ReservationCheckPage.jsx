@@ -57,6 +57,16 @@ function ReservationCheckPage() {
     },
   )
 
+  // 결제 버튼 상태.
+  //
+  // 결제가 확인됐거나(paid) 예약이 확정·이용 완료된 건은 더 낼 돈이 없다.
+  // 확정 예약에 "결제하기"가 활성으로 남아 있으면 이미 낸 돈을 또 낼 수 있다.
+  // 취소·반려 건은 결제 자체를 열지 않는다.
+  const paymentSettled =
+    selectedReservation?.payment_status === 'paid'
+    || ['confirmed', 'completed'].includes(selectedReservation?.status)
+  const paymentClosed = ['cancelled', 'rejected'].includes(selectedReservation?.status)
+
   const canCancel = selectedReservation && !['cancelled', 'rejected', 'completed'].includes(selectedReservation.status)
 
   const loadReservations = async () => {
@@ -281,14 +291,16 @@ function ReservationCheckPage() {
                 </Card>
 
                 <div className="flex gap-2">
-                  <Button
-                    className="bg-yellow-500 hover:bg-yellow-600"
-                    onClick={() => router.push(`/payments?reservation_number=${encodeURIComponent(selectedReservation.reservation_number)}`)}
-                    disabled={selectedReservation.payment_status === 'paid' || selectedReservation.status === 'cancelled'}
-                  >
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    {selectedReservation.payment_status === 'paid' ? '결제 완료' : '결제하기'}
-                  </Button>
+                  {paymentClosed ? null : (
+                    <Button
+                      className="bg-yellow-500 hover:bg-yellow-600"
+                      onClick={() => router.push(`/payments?reservation_number=${encodeURIComponent(selectedReservation.reservation_number)}`)}
+                      disabled={paymentSettled}
+                    >
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      {paymentSettled ? '결제 완료' : '결제하기'}
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     onClick={() => setIsChangeModalOpen(true)}
