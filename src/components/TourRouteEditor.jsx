@@ -24,6 +24,7 @@ import { useMapsLoader } from '@/lib/mapsLoader.js'
 import { clearRoute, computeRoute, drawRoute } from '@/lib/routePath.js'
 import MarkerWithLabel from '@/components/MarkerWithLabel.jsx'
 import { GripVertical, Clock, Camera, Search, X } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 function getInitialRoutePreset(fixedRouteProfile, departure, destination, spots) {
   if (fixedRouteProfile) {
@@ -200,7 +201,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
     const nextDeparture = setPlace === setDeparture ? name : departure.name
     const nextDestination = setPlace === setDestination ? name : destination.name
     if (shouldBlockBieiPair(nextDeparture, nextDestination)) {
-      alert(BIEI_PAIR_ALERT_MESSAGE)
+      toast.error(BIEI_PAIR_ALERT_MESSAGE)
       return
     }
 
@@ -235,7 +236,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
     const finalCoord = coord || coordFromSelection
     if (!finalCoord) return
     if (!isInAllowedRegion(finalCoord.lat, finalCoord.lng)) {
-      alert(OUT_OF_REGION_MESSAGE)
+      toast.error(OUT_OF_REGION_MESSAGE)
       return
     }
     addWaypoint(name)
@@ -271,7 +272,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
       const { name, coord } = resolved
 
       if (!isInAllowedRegion(coord.lat, coord.lng)) {
-        alert(OUT_OF_REGION_MESSAGE)
+        toast.error(OUT_OF_REGION_MESSAGE)
         return
       }
 
@@ -283,7 +284,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
       const nextDeparture = mode === 'departure' ? name : departure.name
       const nextDestination = mode === 'destination' ? name : destination.name
       if (shouldBlockBieiPair(nextDeparture, nextDestination)) {
-        alert(BIEI_PAIR_ALERT_MESSAGE)
+        toast.error(BIEI_PAIR_ALERT_MESSAGE)
         return
       }
 
@@ -342,7 +343,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
 
     if (!nearest || nearestDistance > 0.04) {
       setSelectionNotice('가까운 선택 가능 지점을 클릭해 주세요. (아사히카와·비에이·후라노 한정)')
-      alert(OUT_OF_REGION_MESSAGE)
+      toast.error(OUT_OF_REGION_MESSAGE)
       return
     }
 

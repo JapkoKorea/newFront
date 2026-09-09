@@ -48,10 +48,10 @@ export default function RecentReviews({ limit = 3, title = '고객 후기' }) {
         </div>
         <Link
           href="/reviews"
-          className="flex items-center gap-0.5 text-sm font-medium text-gray-600 hover:text-yellow-600"
+          className="flex min-h-11 items-center gap-0.5 text-sm font-medium text-gray-600 hover:text-yellow-600"
         >
           후기 더 보기
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
         </Link>
       </div>
 

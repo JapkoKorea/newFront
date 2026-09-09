@@ -153,7 +153,12 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {/* 상품이 둘뿐일 때 3열이면 오른쪽 한 칸이 빈다. 개수에 맞춰 열을 정한다. */}
+          <div
+            className={`grid grid-cols-1 gap-6 sm:grid-cols-2 ${
+              FEATURED_PRODUCTS.length > 2 ? 'lg:grid-cols-3' : 'lg:max-w-4xl'
+            }`}
+          >
             {FEATURED_PRODUCTS.map((product) => (
               <ProductCard key={product.slug} product={product} rating={productRatings[product.slug]} />
             ))}

@@ -21,7 +21,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
 import { saveTourBookingPrefill } from '@/lib/bookingPrefill.js'
-import { formatDeposit, readWishlist, toggleWishlist } from '@/lib/product.js'
+import { formatDeposit, formatPrimaryPrice, readWishlist, toggleWishlist } from '@/lib/product.js'
 import { tourCourses } from '@/data/tourCourses.js'
 import CourseSelectModal from '@/components/CourseSelectModal.jsx'
 import ReviewList from '@/components/ReviewList.jsx'
@@ -113,6 +113,7 @@ export default function ProductDetailClient({ product }) {
   }
 
   const depositLabel = formatDeposit(product)
+  const priceLabel = formatPrimaryPrice(product)
 
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false)
   const [reviewSummary, setReviewSummary] = useState(null)
@@ -217,9 +218,17 @@ export default function ProductDetailClient({ product }) {
 
         <h1 className="mt-3 text-2xl font-bold text-gray-900">{product.name}</h1>
         <p className="mt-2 text-gray-600">{product.summary}</p>
+        {priceLabel || depositLabel ? (
+          <p className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            {priceLabel ? (
+              <span className="text-xl font-bold text-gray-900">{priceLabel}</span>
+            ) : null}
+            {depositLabel ? <span className="text-sm text-gray-600">{depositLabel}</span> : null}
+          </p>
+        ) : null}
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
           <span className="flex items-center gap-1">
-            <Clock className="h-4 w-4" />
+            <Clock className="h-4 w-4" aria-hidden="true" />
             소요시간 {product.durationLabel}
           </span>
           {reviewSummary?.count > 0 ? (
@@ -279,7 +288,7 @@ export default function ProductDetailClient({ product }) {
 
         {/* 요금 안내 — 전세 정액(charterPricing) 우선, 없으면 시간당(vehicleTiers) */}
         {product.charterPricing.length > 0 ? (
-          <Section icon={Car} title="요금 안내 (전세)">
+          <Section icon={Car} title="요금 안내 (전세)" collapsible>
             <div className="overflow-hidden rounded-xl border border-gray-200">
               {product.charterPricing.map((tier, idx) => (
                 <div
@@ -304,7 +313,7 @@ export default function ProductDetailClient({ product }) {
 
         {/* 요금 안내 (시간당) */}
         {product.vehicleTiers.length > 0 ? (
-          <Section icon={Car} title="요금 안내 (시간당)">
+          <Section icon={Car} title="요금 안내 (시간당)" collapsible>
           <div className="grid gap-4 sm:grid-cols-2">
             {product.vehicleTiers.map((tier) => (
               <div key={tier.name} className="rounded-xl border border-gray-200 p-5">
@@ -335,7 +344,7 @@ export default function ProductDetailClient({ product }) {
 
         {/* 예약 수수료 */}
         {product.reservationFees.length > 0 ? (
-          <Section icon={CreditCard} title="예약 수수료">
+          <Section icon={CreditCard} title="예약 수수료" collapsible>
             <div className="grid gap-4 sm:grid-cols-2">
               {product.reservationFees.map((fee) => (
                 <div key={fee.label} className="rounded-xl border border-gray-200 p-5">

@@ -8,8 +8,7 @@ import { Label } from '@/components/ui/label.jsx'
 import { Textarea } from '@/components/ui/textarea.jsx'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx'
-import { Clock, MapPin, CreditCard, X, AlertTriangle, Loader2, Minus, Plus } from 'lucide-react'
-import { Toaster } from 'react-hot-toast'
+import { Check, Clock, MapPin, CreditCard, X, AlertTriangle, Loader2, Minus, Plus } from 'lucide-react'
 import MapContainer from '@/components/MapContainer.jsx'
 import { COORDS_DICT } from '@/lib/spotCoords.js'
 import { useRouter } from 'next/navigation'
@@ -447,6 +446,21 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
     setShowValidation(true)
   }
 
+  /**
+   * 첫 오류 항목으로 스크롤한다.
+   *
+   * 오류 요약은 폼 상단에만 뜨는데 이 폼은 모바일에서 화면 여러 개 분량이라,
+   * 어느 칸을 고쳐야 하는지 보려면 다시 위로 올라가야 했다.
+   */
+  const scrollToFirstError = () => {
+    requestAnimationFrame(() => {
+      const target = document.querySelector('[data-field-error="true"]')
+      if (!target) return
+      const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' })
+    })
+  }
+
   const handleNext = () => {
     const maxStep = flowSteps[flowSteps.length - 1]
     if (currentStep < maxStep && canProceedToNext()) {
@@ -455,6 +469,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
       return
     }
     setShowValidation(true)
+    scrollToFirstError()
   }
 
   const handlePrev = () => {
@@ -464,7 +479,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
 
   const handleSubmit = async () => {
     if (isSubmitting) return
-    if (!canSubmit()) { setShowValidation(true); return }
+    if (!canSubmit()) { setShowValidation(true); scrollToFirstError(); return }
 
     const durationNumber = Number(bookingData.duration)
     const passengersNumber = Number(bookingData.passengers)
@@ -675,40 +690,44 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
 
               <div>
                 <h3 className="text-lg font-semibold mb-4">투어 코스를 선택해주세요</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {tourCourses.map((course) => (
-                    <Card
-                      key={course.id}
-                      className={`cursor-pointer transition-all ${bookingData.course === course.id ? 'ring-2 ring-yellow-500 bg-yellow-50' : 'hover:shadow-md'}`}
-                      onClick={() => handleCourseSelect(course.id)}
-                    >
-                      <CardHeader className="pb-3">
-                        <div className="flex justify-between items-start">
-                          <CardTitle className="text-base">{course.name}</CardTitle>
-                          <span className="text-sm font-medium text-gray-600">{course.duration}</span>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="flex items-center text-sm text-gray-600">
-                          <MapPin className="h-4 w-4 mr-1" />
-                          <span>출발: {course.departure}</span>
-                        </div>
-                        <div className="flex items-center text-sm text-gray-600">
-                          <MapPin className="h-4 w-4 mr-1" />
-                          <span>도착: {course.destination}</span>
-                        </div>
-                        <p className="text-sm text-gray-600">{course.description}</p>
-                        {course.spots.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {course.spots.map((spot, index) => (
-                              <span key={index} className="text-xs bg-gray-100 px-2 py-1 rounded">{spot}</span>
-                            ))}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {tourCourses.map((course) => {
+                    const selected = bookingData.course === course.id
+                    return (
+                      <li key={course.id}>
+                        <button
+                          type="button"
+                          onClick={() => handleCourseSelect(course.id)}
+                          aria-pressed={selected}
+                          className={`flex w-full items-start gap-3 rounded-xl border p-4 text-left transition ${
+                            selected
+                              ? 'border-yellow-500 bg-yellow-50 ring-1 ring-yellow-300'
+                              : 'border-gray-200 hover:border-yellow-300 hover:bg-yellow-50/40'
+                          }`}
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="flex flex-wrap items-baseline gap-x-2">
+                              <span className="font-semibold text-gray-900">{course.name}</span>
+                              <span className="text-xs text-gray-500">{course.duration}</span>
+                            </span>
+                            <span className="mt-1 block text-sm text-gray-600 line-clamp-2">
+                              {course.description}
+                            </span>
+                            <span className="mt-1.5 block truncate text-xs text-gray-500">
+                              {course.departure} → {course.destination}
+                              {course.spots.length > 0
+                                ? ` · ${course.spots.slice(0, 2).join(' · ')}${course.spots.length > 2 ? ` 외 ${course.spots.length - 2}곳` : ''}`
+                                : ''}
+                            </span>
+                          </span>
+                          {selected ? (
+                            <Check className="mt-0.5 h-5 w-5 shrink-0 text-yellow-600" aria-hidden="true" />
+                          ) : null}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
               </div>
             </div>
           )}
@@ -771,6 +790,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                       <button
                         type="button"
                         onClick={() => requestMapSelectionMode('departure')}
+                        data-field-error={bookingData.departure ? undefined : 'true'}
                         className={`mt-2 flex min-h-11 w-full items-center rounded-md border px-3 text-left text-sm hover:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
                           bookingData.departure ? 'border-gray-300 bg-white text-gray-900' : 'border-dashed border-gray-300 bg-gray-50 text-gray-500'
                         }`}
@@ -803,6 +823,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                       <button
                         type="button"
                         onClick={() => requestMapSelectionMode('destination')}
+                        data-field-error={bookingData.destination ? undefined : 'true'}
                         className={`mt-2 flex min-h-11 w-full items-center rounded-md border px-3 text-left text-sm hover:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
                           bookingData.destination ? 'border-gray-300 bg-white text-gray-900' : 'border-dashed border-gray-300 bg-gray-50 text-gray-500'
                         }`}
@@ -962,7 +983,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                       전일·당일 예약이라 예약금이 {depositKrw.toLocaleString()}원으로 적용됩니다.
                     </p>
                   ) : null}
-                  {!bookingData.date && <p className="mt-2 text-xs text-rose-600">투어 날짜를 선택해 주세요.</p>}
+                  {!bookingData.date && <p data-field-error="true" className="mt-2 text-xs text-rose-600">투어 날짜를 선택해 주세요.</p>}
                 </div>
 
                 <div className="rounded-xl border border-gray-200 p-4">
@@ -991,7 +1012,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                       )
                     })}
                   </div>
-                  {!bookingData.time && <p className="mt-2 text-xs text-rose-600">투어 시작 시간을 선택해 주세요.</p>}
+                  {!bookingData.time && <p data-field-error="true" className="mt-2 text-xs text-rose-600">투어 시작 시간을 선택해 주세요.</p>}
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1026,7 +1047,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                         <Plus className="h-4 w-4" />
                       </Button>
                     </div>
-                    {!bookingData.passengers && <p className="mt-2 text-xs text-rose-600">탑승 인원을 선택해 주세요.</p>}
+                    {!bookingData.passengers && <p data-field-error="true" className="mt-2 text-xs text-rose-600">탑승 인원을 선택해 주세요.</p>}
                   </div>
 
                   <div className="rounded-xl border border-gray-200 p-4">
@@ -1051,7 +1072,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                         )
                       })}
                     </div>
-                    {!bookingData.duration && <p className="mt-2 text-xs text-rose-600">예상 소요 시간을 선택해 주세요.</p>}
+                    {!bookingData.duration && <p data-field-error="true" className="mt-2 text-xs text-rose-600">예상 소요 시간을 선택해 주세요.</p>}
                   </div>
                 </div>
               </section>
@@ -1139,6 +1160,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                     <div>
                       <Label htmlFor="name">이름 *</Label>
                       <Input
+                        data-field-error={bookingData.name ? undefined : 'true'}
                         id="name"
                         placeholder="홍길동"
                         value={bookingData.name}
@@ -1221,11 +1243,13 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
           </Button>
           <div className="flex gap-2">
             {currentStep < 3 ? (
-              <Button onClick={handleNext} className="h-11 bg-yellow-500 px-8 hover:bg-yellow-600" disabled={!canProceedToNext()}>
+              /* 눌러야 무엇이 비었는지 알 수 있다. 비활성으로 막아두면 왜 못 넘어가는지
+                 알 방법이 없어서, 대신 눌렀을 때 오류를 띄우고 첫 항목으로 스크롤한다. */
+              <Button onClick={handleNext} className="h-11 bg-yellow-500 px-8 hover:bg-yellow-600">
                 다음
               </Button>
             ) : (
-              <Button onClick={handleSubmit} className="h-11 bg-yellow-500 hover:bg-yellow-600" disabled={!canSubmit() || isSubmitting}>
+              <Button onClick={handleSubmit} className="h-11 bg-yellow-500 hover:bg-yellow-600" disabled={isSubmitting}>
                 {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />로딩 중...</> : <><CreditCard className="mr-2 h-4 w-4" />요금 확인 및 결제</>}
               </Button>
             )}
@@ -1233,7 +1257,6 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
         </div>
       </div>
 
-      <Toaster position="top-right" />
 
       <Dialog open={showBieiPairWarning} onOpenChange={setShowBieiPairWarning}>
         <DialogContent>

@@ -87,7 +87,11 @@ export default function ProductsPageClient({ products, initialSeason = null, ini
           <p className="mt-1 text-xs text-gray-500">다른 시즌이나 검색어로 다시 찾아보세요.</p>
         </div>
       ) : (
-        <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          className={`mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 ${
+            filtered.length > 2 ? 'lg:grid-cols-3' : 'lg:max-w-4xl'
+          }`}
+        >
           {filtered.map((product) => (
             <ProductCard key={product.slug} product={product} rating={productRatings[product.slug]} />
           ))}
