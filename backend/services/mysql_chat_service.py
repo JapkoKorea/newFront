@@ -8,6 +8,7 @@ conversations / messages 테이블을 사용한다. 관리자는 공유 DB(japko
 """
 
 import uuid
+from datetime import datetime
 from typing import Any
 
 from services.mysql_user_service import _connect
@@ -74,12 +75,20 @@ def ensure_chat_tables() -> None:
 
 
 def _serialize_conversation(row: dict[str, Any]) -> dict[str, Any]:
+    def iso(key: str):
+        value = row.get(key)
+        return value.isoformat() if isinstance(value, datetime) else value
+
     return {
         "id": row["id"],
         "userId": row["user_id"],
         "channel": row.get("channel", "web"),
         "reservationNumber": row.get("reservation_number"),
         "status": row.get("status", "open"),
+        # 문의가 들어온 시각과 마지막 대화 시각. 무엇부터 볼지 정하는 기준이다.
+        "createdAt": iso("created_at"),
+        "updatedAt": iso("updated_at"),
+        "lastMessageAt": iso("last_message_at"),
     }
 
 
@@ -229,6 +238,8 @@ def list_conversations_for_admin(
                        (SELECT sender FROM messages m WHERE m.conversation_id = c.id
                          ORDER BY m.id DESC LIMIT 1) AS last_sender,
                        (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id) AS message_count,
+                       (SELECT MAX(m.created_at) FROM messages m
+                         WHERE m.conversation_id = c.id) AS last_message_at,
                        (SELECT MAX(m.id) FROM messages m
                          WHERE m.conversation_id = c.id AND m.sender = 'user') AS last_user_id,
                        (SELECT MAX(m.id) FROM messages m

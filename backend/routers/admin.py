@@ -24,6 +24,7 @@ from services.reservation_admin_service import (
     change_reservation_status,
     get_reservation_for_admin,
     list_reservations_for_admin,
+    list_status_history,
 )
 from services.manual_payment_service import (
     ManualPaymentError,
@@ -346,3 +347,13 @@ async def naver_integration_status(
         return {"configured": True, "connected": False, "message": error.message}
 
     return {"configured": True, "connected": True, "message": "연결됨"}
+
+
+@router.get("/reservations/history")
+async def get_status_history(
+    reservation_number: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    current_admin: dict[str, Any] = Depends(get_current_admin),
+):
+    """예약 처리 내역. 언제 무엇을 확정·반려했고 사유가 무엇이었는지."""
+    return {"history": list_status_history(reservation_number=reservation_number, limit=limit)}

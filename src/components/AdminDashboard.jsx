@@ -10,6 +10,7 @@ import {
   fetchAdminReviews,
   fetchChangeRequests,
   fetchNaverIntegration,
+  fetchStatusHistory,
   fetchConversationMessages,
   fetchConversations,
   replyToConversation,
@@ -20,12 +21,14 @@ import {
   updateReservationStatus,
 } from '@/lib/admin.js'
 import { paymentLabel, paymentTone, statusLabel, statusTone } from '@/lib/reservationStatus.js'
+import { formatDateTime, timeAgo } from '@/lib/datetime.js'
 
 const TABS = [
   { key: 'reservations', label: '예약' },
   { key: 'changes', label: '변경 요청' },
   { key: 'chats', label: '상담' },
   { key: 'reviews', label: '후기' },
+  { key: 'history', label: '처리 내역' },
 ]
 
 function Badge({ status }) {
@@ -50,6 +53,7 @@ export default function AdminDashboard() {
   const [changes, setChanges] = useState([])
   const [conversations, setConversations] = useState([])
   const [reviews, setReviews] = useState([])
+  const [history, setHistory] = useState([])
   // 네이버 커머스 API 가 붙어 있을 때만 자동 확인 버튼을 보여준다.
   const [naverReady, setNaverReady] = useState(false)
   const [activeChat, setActiveChat] = useState(null)
@@ -68,6 +72,9 @@ export default function AdminDashboard() {
         fetchConversations(),
         fetchAdminReviews(),
       ])
+      fetchStatusHistory()
+        .then((h) => setHistory(h.history || []))
+        .catch(() => setHistory([]))
       fetchNaverIntegration()
         .then((info) => setNaverReady(Boolean(info?.connected)))
         .catch(() => setNaverReady(false))
@@ -464,7 +471,13 @@ export default function AdminDashboard() {
                   {conversations.length === 0 ? (
                     <Empty>상담이 없습니다.</Empty>
                   ) : (
-                    conversations.map((item) => (
+                    [...conversations]
+                      .sort((a, b) => {
+                        // 답변이 필요한 대화가 먼저, 그다음은 최근 순.
+                        if (a.unanswered !== b.unanswered) return a.unanswered ? -1 : 1
+                        return String(b.lastMessageAt || '').localeCompare(String(a.lastMessageAt || ''))
+                      })
+                      .map((item) => (
                       <button
                         key={item.id}
                         type="button"
@@ -488,6 +501,10 @@ export default function AdminDashboard() {
                           {item.messageCount}개 · 마지막 {item.lastSender}
                           {item.reservationNumber ? ` · 예약 ${item.reservationNumber.slice(0, 8)}` : ''}
                         </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          문의 {formatDateTime(item.createdAt)}
+                          {item.lastMessageAt ? ` · 마지막 ${timeAgo(item.lastMessageAt)}` : ''}
+                        </p>
                       </button>
                     ))
                   )}
@@ -508,8 +525,10 @@ export default function AdminDashboard() {
                                     : 'bg-blue-50 text-gray-900'
                               }`}
                             >
-                              <p className="mb-1 text-[11px] opacity-70">
-                                {msg.sender === 'admin' ? '나' : msg.sender === 'bot' ? '자동 안내' : '고객'}
+                              <p className="mb-1 flex items-center gap-2 text-[11px] opacity-70">
+                                <span>{msg.sender === 'admin' ? '나' : msg.sender === 'bot' ? '자동 안내' : '고객'}</span>
+                                {/* 언제 온 말인지 알아야 답변이 늦었는지 판단할 수 있다 */}
+                                <span>{formatDateTime(msg.createdAt)}</span>
                               </p>
                               <p className="whitespace-pre-wrap">{msg.body}</p>
                             </div>
@@ -543,6 +562,51 @@ export default function AdminDashboard() {
                   )}
                 </div>
               </div>
+            ) : null}
+
+            {tab === 'history' ? (
+              history.length === 0 ? (
+                <Empty>아직 처리한 내역이 없습니다.</Empty>
+              ) : (
+                <ul className="space-y-2">
+                  {history.map((item) => (
+                    <li key={item.id} className="rounded-xl border border-gray-200 bg-white p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {item.from_label ? (
+                            <>
+                              <span className={`rounded-full border px-2 py-0.5 text-xs ${statusTone(item.from_status)}`}>
+                                {item.from_label}
+                              </span>
+                              <span className="text-xs text-gray-400">→</span>
+                            </>
+                          ) : null}
+                          <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${statusTone(item.to_status)}`}>
+                            {item.to_label}
+                          </span>
+                          <span className="text-sm text-gray-900">{item.english_name}</span>
+                          <span className="text-xs text-gray-500">{item.user_display_name}</span>
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          {formatDateTime(item.created_at)}
+                          <span className="ml-1 text-gray-400">({timeAgo(item.created_at)})</span>
+                        </span>
+                      </div>
+
+                      <p className="mt-2 text-xs text-gray-500">
+                        투어 {item.tour_date} · 예약 {String(item.reservation_number).slice(0, 8)}
+                        {item.changed_by_name ? ` · 처리 ${item.changed_by_name}` : ' · 고객 요청'}
+                      </p>
+
+                      {item.reason ? (
+                        <p className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                          사유: {item.reason}
+                        </p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )
             ) : null}
 
             {tab === 'reviews' ? (

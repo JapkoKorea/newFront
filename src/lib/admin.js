@@ -82,3 +82,7 @@ export const verifyNaverPayment = (reservationNumber) =>
 
 /** 네이버 커머스 API 연결 상태. 키가 없으면 자동 확인 버튼을 감춘다. */
 export const fetchNaverIntegration = () => request('/integrations/naver')
+
+/** 예약 처리 내역. 언제 무엇을 확정·반려했고 사유가 무엇이었는지. */
+export const fetchStatusHistory = (reservationNumber) =>
+  request(`/reservations/history${reservationNumber ? `?reservation_number=${encodeURIComponent(reservationNumber)}` : ''}`)

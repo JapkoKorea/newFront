@@ -185,3 +185,55 @@ def change_reservation_status(
         raise
     finally:
         conn.close()
+
+
+def list_status_history(
+    reservation_number: str | None = None,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    """예약 상태 변경 이력.
+
+    확정·반려한 건은 목록 아래로 밀려나 다시 찾기 어렵다. 언제 무엇을 어떻게
+    바꿨고 사유가 무엇이었는지는 reservation_status_history 에 이미 쌓이고
+    있었지만 볼 곳이 없었다.
+
+    바꾼 사람(changed_by)은 사용자 id 라 이름을 붙여 준다. 시스템이 바꾼
+    건(고객 취소 요청 등)은 이름이 없다.
+    """
+    conn = _connect()
+    try:
+        with conn.cursor() as cursor:
+            sql = """
+                SELECT h.id, h.reservation_number, h.from_status, h.to_status,
+                       h.reason, h.created_at, h.changed_by,
+                       actor.display_name AS changed_by_name,
+                       r.english_name, r.tour_date, r.status AS current_status,
+                       owner.display_name AS user_display_name
+                FROM reservation_status_history h
+                JOIN reservations r ON r.reservation_number = h.reservation_number
+                JOIN users owner ON owner.id = r.user_id
+                LEFT JOIN users actor ON actor.id = h.changed_by
+            """
+            params: list[Any] = []
+            if reservation_number:
+                sql += " WHERE h.reservation_number = %s"
+                params.append(reservation_number)
+            sql += " ORDER BY h.created_at DESC LIMIT %s"
+            params.append(int(limit))
+
+            cursor.execute(sql, tuple(params))
+            rows = cursor.fetchall()
+    finally:
+        conn.close()
+
+    out = []
+    for row in rows:
+        item = _serialize(row)
+        item["from_label"] = STATUS_LABELS.get(item.get("from_status"), item.get("from_status"))
+        item["to_label"] = STATUS_LABELS.get(item.get("to_status"), item.get("to_status"))
+        # 시스템이 남긴 표식은 화면에 보여줄 말이 아니다.
+        # created: 예약이 처음 만들어진 기록, admin_status_change: 사유를 안 적은 경우.
+        if item.get("reason") in {"admin_status_change", "created"}:
+            item["reason"] = None
+        out.append(item)
+    return out
