@@ -2,20 +2,20 @@
 
 import { X, Clock, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
+import { useModalDismiss } from '@/lib/useModalDismiss.js'
 
 /**
  * 상품에 속한 코스 중 하나를 고르는 모달.
  * 고르면 onSelect(course) 로 넘겨 예약 흐름을 시작한다.
  */
 export default function CourseSelectModal({ isOpen, onClose, productName, courses, onSelect }) {
+  const overlay = useModalDismiss(isOpen, onClose)
   if (!isOpen) return null
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
+      {...overlay}
     >
       <div
         className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl"

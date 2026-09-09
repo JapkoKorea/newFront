@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { X, CalendarDays, Clock, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
 import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
 import { getLocalDateString } from '@/lib/date.js'
+import { useModalDismiss } from '@/lib/useModalDismiss.js'
 
 const TIME_OPTIONS = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00']
 
@@ -21,15 +22,21 @@ export default function ChangeRequestModal({ isOpen, onClose, reservation, onSub
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  // ESC 로 닫기. 훅은 조건부 return 앞에 있어야 한다.
-  useEffect(() => {
-    if (!isOpen) return undefined
-    const onKey = (event) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [isOpen, onClose])
+  // 닫을 때 입력을 비운다. ESC·바깥 클릭도 같은 경로를 탄다.
+  const reset = useCallback(() => {
+    setTourDate('')
+    setStartTime('')
+    setReason('')
+    setError('')
+  }, [])
+
+  const close = useCallback(() => {
+    reset()
+    onClose()
+  }, [reset, onClose])
+
+  // 훅은 조건부 return 앞에 있어야 한다.
+  const overlay = useModalDismiss(isOpen, close)
 
   if (!isOpen || !reservation) return null
 
@@ -40,18 +47,6 @@ export default function ChangeRequestModal({ isOpen, onClose, reservation, onSub
 
   const currentDate = String(reservation.tour_date || '').slice(0, 10)
   const currentTime = String(reservation.tour_start_time || '').slice(0, 5)
-
-  const reset = () => {
-    setTourDate('')
-    setStartTime('')
-    setReason('')
-    setError('')
-  }
-
-  const close = () => {
-    reset()
-    onClose()
-  }
 
   const submit = async () => {
     setError('')
@@ -85,9 +80,7 @@ export default function ChangeRequestModal({ isOpen, onClose, reservation, onSub
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) close()
-      }}
+      {...overlay}
     >
       <div
         className="flex max-h-[88vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl"

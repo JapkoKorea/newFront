@@ -1,13 +1,15 @@
 import { X, MapPin, Navigation, Route } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
+import { useModalDismiss } from '@/lib/useModalDismiss.js'
 
 export default function ServiceSelector({ isOpen, onClose, onSelectTour, onSelectCustom, onSelectTransfer }) {
+  const overlay = useModalDismiss(isOpen, onClose)
   if (!isOpen) return null
 
   return (
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
+      {...overlay}
     >
       <div
         className="bg-white rounded-2xl w-full max-w-3xl shadow-xl"

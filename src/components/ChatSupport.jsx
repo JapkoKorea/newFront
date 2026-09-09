@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input.jsx'
 import { Send, X, MessageCircle, User, Headset, LogIn } from 'lucide-react'
 import { getJwtToken } from '@/lib/api.js'
 import { openConversation, fetchMessages, sendMessage, ChatAuthError } from '@/lib/chat.js'
+import { useModalDismiss } from '@/lib/useModalDismiss.js'
 
 const POLL_INTERVAL_MS = 4000
 
@@ -16,6 +17,7 @@ const GREETING = '안녕하세요, 잽코 택시투어 상담입니다. 예약, 
 const QUICK_REPLIES = ['예약 문의', '요금 문의', '코스 추천', '취소/변경', '공항 픽업']
 
 const ChatSupport = ({ isOpen, onClose, reservationNumber = null }) => {
+  const overlay = useModalDismiss(isOpen, onClose)
   const router = useRouter()
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [conversationId, setConversationId] = useState(null)
@@ -121,7 +123,7 @@ const ChatSupport = ({ isOpen, onClose, reservationNumber = null }) => {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" {...overlay}>
       <div className="bg-white rounded-lg max-w-md w-full h-[600px] flex flex-col">
         {/* 헤더 */}
         <div className="flex justify-between items-center p-4 border-b bg-green-500 text-white rounded-t-lg">

@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { X, Loader2, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
 import StarRating from '@/components/StarRating.jsx'
 import { submitReview } from '@/lib/reviews.js'
+import { useModalDismiss } from '@/lib/useModalDismiss.js'
 
 const BODY_MAX = 2000
 
@@ -24,27 +25,23 @@ export default function ReviewModal({ isOpen, onClose, reservation, allowedTags 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    if (!isOpen) return undefined
-    const onKey = (event) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [isOpen, onClose])
-
-  if (!isOpen || !reservation) return null
-
-  const toggleTag = (tag) => {
-    setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
-  }
-
-  const close = () => {
+  // 닫을 때 입력을 비운다. ESC·바깥 클릭도 같은 경로를 타야 다음에 열었을 때
+  // 이전 입력이 남지 않는다.
+  const close = useCallback(() => {
     setRating(0)
     setTags([])
     setBody('')
     setError('')
     onClose()
+  }, [onClose])
+
+  // 훅은 조건부 return 앞에 있어야 한다.
+  const overlay = useModalDismiss(isOpen, close)
+
+  if (!isOpen || !reservation) return null
+
+  const toggleTag = (tag) => {
+    setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
   }
 
   const submit = async () => {
@@ -71,7 +68,10 @@ export default function ReviewModal({ isOpen, onClose, reservation, allowedTags 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+      {...overlay}
+    >
       <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white sm:rounded-2xl">
         <div className="flex items-start justify-between border-b border-gray-100 p-5">
           <div>
