@@ -25,7 +25,7 @@ MOBILE_APP_REDIRECT_URI = os.getenv('MOBILE_APP_REDIRECT_URI', 'japkotaxi://auth
 # 카카오 콘솔 Redirect URI 허용목록에도 동일 값을 등록해야 함.
 MOBILE_KAKAO_REDIRECT_URI = os.getenv(
     'MOBILE_KAKAO_REDIRECT_URI',
-    'http://localhost:8000/api/auth/kakao/mobile/callback',
+    'http://localhost:5000/api/auth/kakao/mobile/callback',
 ).strip()
 JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', '').strip()
 JWT_ALGORITHM = 'HS256'

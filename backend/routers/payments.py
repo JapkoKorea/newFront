@@ -274,7 +274,8 @@ async def prepare_payment(
             amount=amount,
         )
 
-    frontend_base_url = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173").rstrip("/")
+    # 결제 후 돌아올 프런트 주소. 기본값은 Next 개발 서버.
+    frontend_base_url = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000").rstrip("/")
 
     return PaymentPrepareResponse(
         order_id=order_id,

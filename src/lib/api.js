@@ -1,4 +1,5 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
+// 백엔드는 backend/main.py 기준 5000 에서 돈다. 배포에서는 NEXT_PUBLIC_API_BASE_URL 로 덮는다.
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
 
 /** 로그인이 풀렸을 때 던지는 오류. 화면이 이걸 보고 안내를 띄운다. */
 export class AuthExpiredError extends Error {

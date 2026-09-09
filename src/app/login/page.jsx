@@ -3,8 +3,7 @@
 import { useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import LoginKakaoButton from '@/components/LoginKakao.jsx'
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
+import { API_BASE_URL } from '@/lib/api.js'
 
 function LoginCallbackHandler() {
   const router = useRouter()

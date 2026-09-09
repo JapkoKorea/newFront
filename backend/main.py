@@ -51,12 +51,16 @@ def _load_optional_router(
 
 app = FastAPI()
 
-cors_origins_raw = os.getenv("CORS_ALLOW_ORIGINS", "http://localhost:5173")
+# 프런트는 Next 개발 서버(3000)에서 돈다. Vite 시절 기본값(5173)이 남아 있으면
+# CORS_ALLOW_ORIGINS 를 빠뜨렸을 때 모든 API 호출이 조용히 막힌다.
+DEFAULT_DEV_ORIGIN = "http://localhost:3000"
+
+cors_origins_raw = os.getenv("CORS_ALLOW_ORIGINS", DEFAULT_DEV_ORIGIN)
 allowed_origins = [origin.strip() for origin in cors_origins_raw.split(",") if origin.strip()]
 if not allowed_origins:
-    allowed_origins = ["http://localhost:5173"]
+    allowed_origins = [DEFAULT_DEV_ORIGIN]
 
-# CORS 설정 (프론트엔드 주소로 변경 권장)
+# 운영에서는 CORS_ALLOW_ORIGINS 에 실제 도메인을 넣는다. 전체 허용(*)은 금지.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
