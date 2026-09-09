@@ -27,6 +27,10 @@ CHANNELS = {
 DECLARED_STATUS = "ready"
 CONFIRMED_STATUS = "paid"
 
+# 스마트스토어 주문번호 자릿수. 네이버 주문번호·상품주문번호는 16자리 숫자다.
+# 형식이 바뀌면 이 값만 고치면 된다.
+NAVER_ORDER_NO_LENGTH = 16
+
 
 class ManualPaymentError(Exception):
     def __init__(self, code: str, message: str) -> None:
@@ -56,6 +60,19 @@ def declare(
     """
     if channel not in CHANNELS:
         raise ManualPaymentError("invalid_channel", f"알 수 없는 결제 수단입니다: {channel}")
+
+    # 스마트스토어는 주문번호가 있어야 대조할 수 있다. 없거나 형식이 다르면
+    # 확인할 방법이 없으므로 받지 않는다.
+    if channel == "naver":
+        order_no = (external_order_no or "").strip()
+        if not order_no:
+            raise ManualPaymentError("order_no_required", "스마트스토어 주문번호를 입력해 주세요.")
+        if not order_no.isdigit() or len(order_no) != NAVER_ORDER_NO_LENGTH:
+            raise ManualPaymentError(
+                "order_no_format",
+                f"주문번호는 숫자 {NAVER_ORDER_NO_LENGTH}자리입니다. 스마트스토어 주문 내역에서 다시 확인해 주세요.",
+            )
+        external_order_no = order_no
 
     now = datetime.now()
     conn = _connect()
@@ -194,6 +211,63 @@ def confirm(reservation_number: str, admin_user_id: str) -> dict[str, Any]:
         conn.close()
 
     return {"paymentStatus": CONFIRMED_STATUS, "ledgerUpdated": ledger_rows}
+
+
+def withdraw(user_id: str, reservation_number: str) -> dict[str, Any]:
+    """고객이 결제 알림을 철회한다.
+
+    잘못 눌렀거나 실제로는 결제하지 않은 경우다. 결제 전으로 되돌려 다시
+    수단을 고를 수 있게 한다. 예약은 그대로 둔다 — 결제를 무르는 것과 예약을
+    취소하는 것은 다른 결정이다.
+
+    이미 운영자가 확인한 결제는 고객이 무를 수 없다. 그건 취소·환불의 영역이고
+    문의로 처리한다.
+    """
+    now = datetime.now()
+    conn = _connect()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT payment_status FROM reservations
+                WHERE user_id = %s AND reservation_number = %s
+                FOR UPDATE
+                """,
+                (user_id, reservation_number),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise ManualPaymentError("not_found", "예약을 찾을 수 없습니다")
+            if row.get("payment_status") == CONFIRMED_STATUS:
+                conn.rollback()
+                raise ManualPaymentError(
+                    "already_confirmed",
+                    "이미 결제가 확인되었습니다. 취소는 문의로 요청해 주세요.",
+                )
+
+            cursor.execute(
+                """
+                DELETE FROM reservation_payments
+                WHERE reservation_number = %s AND user_id = %s AND status = %s
+                """,
+                (reservation_number, user_id, DECLARED_STATUS),
+            )
+            cursor.execute(
+                """
+                UPDATE reservations
+                SET payment_status = 'unpaid', payment_amount_krw = NULL, payment_updated_at = %s
+                WHERE user_id = %s AND reservation_number = %s AND payment_status <> %s
+                """,
+                (now, user_id, reservation_number, CONFIRMED_STATUS),
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    return {"paymentStatus": "unpaid"}
 
 
 def revert(reservation_number: str) -> dict[str, Any]:

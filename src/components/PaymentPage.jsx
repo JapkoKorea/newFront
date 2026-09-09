@@ -23,6 +23,10 @@ import { KAKAO_CHANNEL_CHAT, hasKakaoChannel } from '@/lib/kakaoChannel.js'
 import ChatSupport from '@/components/ChatSupport.jsx'
 import SessionExpiredDialog from '@/components/SessionExpiredDialog.jsx'
 
+// 스마트스토어 주문번호는 숫자 16자리다. 백엔드도 같은 값으로 검사한다
+// (manual_payment_service.NAVER_ORDER_NO_LENGTH).
+const NAVER_ORDER_NO_LENGTH = 16
+
 /**
  * 결제 안내 화면.
  *
@@ -43,6 +47,7 @@ function PaymentPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [declaring, setDeclaring] = useState('')
   const [naverOrderNo, setNaverOrderNo] = useState('')
+  const [withdrawing, setWithdrawing] = useState(false)
   const [copied, setCopied] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
   // 로그인이 풀리면 작은 글씨 대신 화면을 막고 알린다.
@@ -121,6 +126,28 @@ function PaymentPage() {
     }
   }
 
+  /** 결제 알림 철회. 잘못 눌렀거나 실제로 결제하지 않은 경우. */
+  const withdrawDeclaration = async () => {
+    setWithdrawing(true)
+    setErrorMessage('')
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/payments/declare/withdraw?reservation_number=${encodeURIComponent(reservationNumber)}`,
+        { method: 'POST', headers: getAuthHeaders() },
+      )
+      await throwIfUnauthorized(response)
+      const data = await response.json()
+      if (!response.ok) throw new Error(data?.detail || `HTTP ${response.status}`)
+      setNaverOrderNo('')
+      setInfo((prev) => (prev ? { ...prev, paymentStatus: data.paymentStatus, paymentChannel: null, paymentOrderNo: null } : prev))
+    } catch (error) {
+      if (error instanceof AuthExpiredError) setAuthError(error.message)
+      else setErrorMessage(error.message || '취소 요청에 실패했습니다.')
+    } finally {
+      setWithdrawing(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center pt-20">
@@ -175,6 +202,11 @@ function PaymentPage() {
   // 취소·반려·이용 완료 예약은 더 받을 돈이 없다. 계좌를 보여주면 고객이
   // 송금한 뒤에야 안 되는 예약임을 알게 된다. 서버 판정을 그대로 따른다.
   const canPay = info?.canPay !== false
+
+  // 주문번호는 숫자 16자리여야 대조할 수 있다. 형식이 맞을 때만 보낼 수 있다.
+  const orderNoDigits = naverOrderNo.replace(/\D/g, '')
+  const orderNoValid = orderNoDigits.length === NAVER_ORDER_NO_LENGTH
+  const orderNoTouched = naverOrderNo.trim().length > 0
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-24">
@@ -274,6 +306,20 @@ function PaymentPage() {
               </CardContent>
             </Card>
           )
+        ) : null}
+
+        {/* 잘못 눌렀거나 실제로 결제하지 않았을 때 되돌린다. 예약은 그대로 두고
+            결제만 무른다 — 예약 취소는 예약 확인 화면에서 따로 한다. */}
+        {declared && !settled ? (
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={withdrawDeclaration}
+            disabled={withdrawing}
+          >
+            {withdrawing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+            결제 확인 요청 취소
+          </Button>
         ) : null}
 
         {!canPay ? (
@@ -379,15 +425,30 @@ function PaymentPage() {
                   <input
                     id="naver-order"
                     type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
                     value={naverOrderNo}
-                    onChange={(event) => setNaverOrderNo(event.target.value)}
-                    placeholder="예: 2026090812345678"
-                    className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-green-400"
+                    maxLength={NAVER_ORDER_NO_LENGTH}
+                    onChange={(event) =>
+                      // 숫자만 받는다. 붙여넣기에 하이픈이나 공백이 섞여도 걸러진다.
+                      setNaverOrderNo(event.target.value.replace(/\D/g, '').slice(0, NAVER_ORDER_NO_LENGTH))
+                    }
+                    placeholder={`숫자 ${NAVER_ORDER_NO_LENGTH}자리`}
+                    className={`mt-2 w-full rounded-lg border px-3 py-2 text-sm outline-none ${
+                      orderNoTouched && !orderNoValid
+                        ? 'border-rose-300 focus:border-rose-400'
+                        : 'border-gray-200 focus:border-green-400'
+                    }`}
                   />
+                  <p className={`mt-1 text-xs ${orderNoTouched && !orderNoValid ? 'text-rose-600' : 'text-gray-500'}`}>
+                    {orderNoTouched && !orderNoValid
+                      ? `주문번호는 숫자 ${NAVER_ORDER_NO_LENGTH}자리입니다. 지금 ${orderNoDigits.length}자리 입력하셨습니다.`
+                      : `${orderNoDigits.length} / ${NAVER_ORDER_NO_LENGTH}`}
+                  </p>
                   <Button
                     className="mt-2 w-full bg-green-600 hover:bg-green-700"
                     onClick={() => declarePayment('naver')}
-                    disabled={Boolean(declaring) || declared || settled}
+                    disabled={Boolean(declaring) || declared || settled || !orderNoValid}
                   >
                     {declaring === 'naver' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
                     {settled ? '결제 확인됨' : declared ? '확인 요청됨' : '스마트스토어에서 결제했습니다'}

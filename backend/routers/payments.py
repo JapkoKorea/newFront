@@ -16,6 +16,7 @@ from services.manual_payment_service import (
     auto_verify_naver,
     declare as declare_manual_payment,
     list_for_reservations as list_payment_records,
+    withdraw as withdraw_manual_payment,
 )
 from services.mysql_user_service import _connect
 
@@ -578,3 +579,22 @@ async def declare_payment(
         **result,
         "message": "결제 확인 요청이 접수되었습니다. 확인 후 예약을 확정해 드리겠습니다.",
     }
+
+
+@router.post("/declare/withdraw")
+async def withdraw_declaration(
+    reservation_number: str,
+    current_user: dict[str, Any] = Depends(get_current_user),
+):
+    """결제 알림 철회. 잘못 눌렀거나 실제로 결제하지 않은 경우다.
+
+    결제 전으로 돌아가 다시 수단을 고를 수 있다. 예약은 그대로다.
+    """
+    user_id = str(current_user.get("user_id") or "").strip()
+    try:
+        result = withdraw_manual_payment(user_id, reservation_number)
+    except ManualPaymentError as error:
+        status_code = 404 if error.code == "not_found" else 400
+        raise HTTPException(status_code=status_code, detail=error.message) from error
+
+    return {**result, "message": "결제 확인 요청을 취소했습니다."}

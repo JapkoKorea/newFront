@@ -96,6 +96,14 @@ class PaymentApi {
     );
   }
 
+  /// 결제 알림 철회. 잘못 눌렀거나 실제로 결제하지 않은 경우.
+  Future<Map<String, dynamic>> withdrawDeclaration(String reservationNumber) {
+    return _apiClient.postJson(
+      '/api/payments/declare/withdraw',
+      query: <String, String>{'reservation_number': reservationNumber},
+    );
+  }
+
   // ── 토스 결제 (심사 전까지 비활성) ────────────────────────────
   // 결제 화면이 계좌이체·스마트스토어로 바뀌면서 아래 세 호출은 쓰이지 않는다.
   // 백엔드 엔드포인트는 그대로 살아 있으므로, 카드 결제를 되살릴 때 주석만

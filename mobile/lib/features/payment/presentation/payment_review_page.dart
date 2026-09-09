@@ -7,6 +7,10 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/config/app_config.dart';
 import '../data/payment_api.dart';
 
+/// 스마트스토어 주문번호는 숫자 16자리다.
+/// 웹(PaymentPage.jsx)과 백엔드(manual_payment_service)도 같은 값을 쓴다.
+const int kNaverOrderNoLength = 16;
+
 /// 예약금 결제 안내.
 ///
 /// 카드 결제(토스)는 심사 전까지 내려 두고 두 가지로 받는다.
@@ -32,11 +36,16 @@ class _PaymentReviewPageState extends ConsumerState<PaymentReviewPage> {
   String? _error;
   ManualPaymentInfo? _info;
   String _declaring = '';
+  bool _withdrawing = false;
   final TextEditingController _orderNoController = TextEditingController();
+
+  bool get _orderNoValid => _orderNoController.text.length == kNaverOrderNoLength;
 
   @override
   void initState() {
     super.initState();
+    // 입력할 때마다 버튼 활성 상태가 바뀌어야 한다.
+    _orderNoController.addListener(() => setState(() {}));
     _load();
   }
 
@@ -109,6 +118,26 @@ class _PaymentReviewPageState extends ConsumerState<PaymentReviewPage> {
       if (!mounted) return;
       setState(() => _declaring = '');
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
+  /// 결제 알림 철회. 예약은 그대로 두고 결제만 무른다.
+  Future<void> _withdraw() async {
+    setState(() => _withdrawing = true);
+    try {
+      await ref.read(paymentApiProvider).withdrawDeclaration(widget.reservationNumber);
+      if (!mounted) return;
+      _orderNoController.clear();
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('결제 확인 요청을 취소했습니다.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _withdrawing = false);
     }
   }
 
@@ -196,11 +225,27 @@ class _PaymentReviewPageState extends ConsumerState<PaymentReviewPage> {
           _NaverCard(
             controller: _orderNoController,
             declaring: _declaring == 'naver',
-            disabled: _declaring.isNotEmpty || declared || settled,
+            // 주문번호가 16자리여야 대조할 수 있다. 그전에는 보낼 수 없다.
+            disabled: _declaring.isNotEmpty || declared || settled || !_orderNoValid,
             settled: settled,
             declared: declared,
             onOpen: () => _openUrl(AppConfig.naverStoreUrl),
             onDeclare: () => _declare('naver'),
+          ),
+        ],
+        const SizedBox(height: 12),
+        // 잘못 눌렀거나 실제로 결제하지 않았을 때 되돌린다. 예약은 그대로 두고
+        // 결제만 무른다 — 예약 취소는 예약 확인 화면에서 따로 한다.
+        if (declared && !settled) ...<Widget>[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: _withdrawing ? null : _withdraw,
+              child: _withdrawing
+                  ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('결제 확인 요청 취소'),
+            ),
           ),
         ],
         const SizedBox(height: 12),
@@ -501,10 +546,20 @@ class _NaverCard extends StatelessWidget {
               const SizedBox(height: 8),
               TextField(
                 controller: controller,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
+                keyboardType: TextInputType.number,
+                maxLength: kNaverOrderNoLength,
+                inputFormatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
                   isDense: true,
-                  hintText: '예: 2026090812345678',
+                  hintText: '숫자 $kNaverOrderNoLength자리',
+                  counterText: '${controller.text.length} / $kNaverOrderNoLength',
+                  errorText: controller.text.isNotEmpty &&
+                          controller.text.length != kNaverOrderNoLength
+                      ? '주문번호는 숫자 $kNaverOrderNoLength자리입니다.'
+                      : null,
                 ),
               ),
               const SizedBox(height: 8),
