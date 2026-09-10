@@ -3,11 +3,12 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
-import { ChevronDown, ChevronUp, X, HelpCircle, Clock, CreditCard, MapPin, Phone } from 'lucide-react'
+import { ChevronDown, ChevronUp, X, HelpCircle, Clock, CreditCard, MapPin, Phone, ExternalLink } from 'lucide-react'
 import { useModalDismiss } from '@/lib/useModalDismiss.js'
 import { SHEET_OVERLAY, SHEET_PANEL } from '@/lib/sheet.js'
+import { KAKAO_CHANNEL_CHAT, hasKakaoChannel } from '@/lib/kakaoChannel.js'
 
-const FAQ = ({ isOpen, onClose }) => {
+const FAQ = ({ isOpen, onClose, onStartChat }) => {
   const overlay = useModalDismiss(isOpen, onClose)
   const [openItems, setOpenItems] = useState({})
 
@@ -169,12 +170,25 @@ const FAQ = ({ isOpen, onClose }) => {
           <div className="mt-8 p-6 bg-yellow-50 rounded-lg">
             <h3 className="font-semibold text-gray-900 mb-2">더 궁금한 점이 있으신가요?</h3>
             <p className="text-gray-600 mb-4">
-              위에서 답을 찾지 못하셨다면 언제든지 채팅 상담을 통해 문의해주세요. 
-              전문 상담원이 친절하게 답변해드립니다.
+              위에서 답을 찾지 못하셨다면 언제든지 문의해 주세요. 순차적으로 답변드립니다.
             </p>
-            <Button className="bg-green-500 hover:bg-green-600 text-white">
-              채팅 상담 시작하기
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              {/* onClick 이 없어서 눌러도 아무 일도 일어나지 않던 버튼이다. */}
+              <Button
+                className="bg-green-500 text-white hover:bg-green-600"
+                onClick={() => onStartChat?.()}
+              >
+                채팅 상담 시작하기
+              </Button>
+              {hasKakaoChannel() ? (
+                <Button variant="outline" asChild>
+                  <a href={KAKAO_CHANNEL_CHAT} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="mr-1 h-4 w-4" aria-hidden="true" />
+                    카카오톡 채널로 문의
+                  </a>
+                </Button>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

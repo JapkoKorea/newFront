@@ -11,8 +11,8 @@
 
 const clean = (value) => (value || '').trim()
 
-// 채널 공개 ID. 카카오톡 채널 관리자센터의 "채널 URL"에서 _ 뒤 부분이다.
-// 예: https://pf.kakao.com/_abcdEF -> _abcdEF
+// 채널 공개 ID. 카카오톡 채널 관리자센터의 "채널 URL"에서 마지막 조각이다.
+// 밑줄까지 포함한다. 예: https://pf.kakao.com/_abcdEF -> _abcdEF
 const CHANNEL_ID = clean(process.env.NEXT_PUBLIC_KAKAO_CHANNEL_ID)
 
 // 전체 주소를 직접 넣고 싶을 때(단축 URL 등). ID 보다 우선한다.
