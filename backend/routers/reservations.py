@@ -3,7 +3,7 @@ from datetime import date, datetime, time, timedelta
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from dependencies.auth import get_current_user
 from services.mysql_reservation_service import (
@@ -45,6 +45,7 @@ class RoutePointInput(BaseModel):
 class ReservationPayload(BaseModel):
     english_name: str
     contact_number: str
+
     tour_date: str
     tour_start_time: str
     tour_duration: float
@@ -61,6 +62,34 @@ class ReservationPayload(BaseModel):
     is_custom: bool = False
     source_channel: Literal["web", "app"] = "web"
     selected_spots: list[RoutePointInput] | None = None
+
+    @field_validator("english_name")
+    @classmethod
+    def _name_not_blank(cls, value: str) -> str:
+        name = (value or "").strip()
+        if not name:
+            raise ValueError("예약자 이름을 입력해 주세요.")
+        return name
+
+    @field_validator("contact_number")
+    @classmethod
+    def _contact_usable(cls, value: str) -> str:
+        """연락처는 비어 있으면 안 된다.
+
+        예약 확정·변경을 알릴 수단이 이 번호뿐이라, 빈 값으로 들어오면
+        나중에 연락할 방법이 없다. 컬럼이 NOT NULL 이어도 빈 문자열은
+        통과하므로 여기서 막는다.
+
+        국가번호나 하이픈 표기는 사람마다 달라 형식은 강제하지 않고
+        숫자 개수만 본다.
+        """
+        contact = (value or "").strip()
+        digits = "".join(ch for ch in contact if ch.isdigit())
+        if not digits:
+            raise ValueError("연락처를 입력해 주세요.")
+        if len(digits) < 9:
+            raise ValueError("연락처를 다시 확인해 주세요.")
+        return contact
 
 
 def _user_exists(user_id: str) -> bool:

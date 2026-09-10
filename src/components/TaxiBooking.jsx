@@ -414,6 +414,11 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
     if (step === 3) {
       const errors = []
       if (!bookingData.name) errors.push('예약자 이름을 입력해 주세요.')
+      // 예약 확정·변경을 알릴 수단이 연락처뿐이다. 비면 연락할 방법이 없다.
+      // 국가번호나 하이픈은 자유롭게 쓰게 두고 숫자 개수만 본다.
+      const digits = (bookingData.phone || '').replace(/\D/g, '')
+      if (!digits) errors.push('연락처를 입력해 주세요.')
+      else if (digits.length < 9) errors.push('연락처를 다시 확인해 주세요.')
       return errors
     }
     return []
@@ -570,6 +575,7 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
   const originCourse = tourCourses.find(c => c.id === originCourseId)
   const summaryCourseName = (selectedCourse?.id === CUSTOM_COURSE_ID ? originCourse?.name : selectedCourse?.name)
     || selectedCourse?.name
+  const phoneDigits = (bookingData.phone || '').replace(/\D/g, '')
   const currentStepErrors = getStepErrors(currentStep)
 
   const shouldRender = displayMode === 'page' || isOpen
@@ -1167,17 +1173,29 @@ const TaxiBooking = ({ isOpen = false, onClose, initialDraft = null, displayMode
                         onChange={(e) => handleInputChange('name', e.target.value)}
                         className="mt-1 border-2 border-yellow-300 bg-white focus-visible:ring-yellow-500"
                       />
-                      <p className="mt-1 text-xs text-gray-600">예약 확인을 위해 이름은 필수 입력입니다.</p>
+                      <p className="mt-1 text-xs text-gray-600">예약 확인 시 본인 확인에 쓰입니다.</p>
                     </div>
                     <div>
-                      <Label htmlFor="phone">연락처</Label>
+                      <Label htmlFor="phone">연락처 *</Label>
                       <Input
+                        data-field-error={phoneDigits.length >= 9 ? undefined : 'true'}
                         id="phone"
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
                         placeholder="010-1234-5678"
                         value={bookingData.phone}
                         onChange={(e) => handleInputChange('phone', e.target.value)}
-                        className="mt-1 border-2 border-gray-200 bg-white focus-visible:ring-yellow-500"
+                        className="mt-1 border-2 border-yellow-300 bg-white focus-visible:ring-yellow-500"
                       />
+                      <p className="mt-1 text-xs text-gray-600">
+                        예약 확정과 변경 안내를 이 번호로 드립니다.
+                      </p>
+                      {showValidation && phoneDigits.length < 9 ? (
+                        <p className="mt-1 text-xs text-rose-600">
+                          {phoneDigits.length === 0 ? '연락처를 입력해 주세요.' : '연락처를 다시 확인해 주세요.'}
+                        </p>
+                      ) : null}
                     </div>
                   </CardContent>
                 </Card>
