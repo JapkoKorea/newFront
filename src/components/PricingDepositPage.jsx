@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
 import { CheckCircle2, Clock3, Coins, Loader2, Route, ShieldCheck, Users, Wallet } from 'lucide-react'
-import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
+import { apiFetchJson } from '@/lib/api.js'
 import { getHourlyRate, HOURLY_RATE, getDepositKrw, isLastMinuteBooking, BASE_DEPOSIT_KRW, LAST_MINUTE_DEPOSIT_KRW } from '@/lib/pricing.js'
 import { PRICING_FAQ } from '@/data/pricingFaq.js'
 
@@ -123,14 +123,10 @@ function PricingDepositPage() {
     setIsCreatingReservation(true)
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/reservations`,
-        {
-          method: 'POST',
-          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify(bookingDraft.reservationPayload),
-        }
-      )
+      const response = await apiFetchJson('/api/reservations', {
+        method: 'POST',
+        body: bookingDraft.reservationPayload,
+      })
 
       const data = await response.json()
       if (!response.ok) {

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button.jsx'
 import { Input } from '@/components/ui/input.jsx'
 import { Send, X, MessageCircle, User, Headset, LogIn } from 'lucide-react'
-import { getJwtToken } from '@/lib/api.js'
+import { useSession } from '@/lib/useSession.js'
 import { openConversation, fetchMessages, sendMessage, ChatAuthError } from '@/lib/chat.js'
 import { useModalDismiss } from '@/lib/useModalDismiss.js'
 import { SHEET_OVERLAY, SHEET_PANEL_FLEX, SHEET_BODY } from '@/lib/sheet.js'
@@ -21,6 +21,8 @@ const ChatSupport = ({ isOpen, onClose, reservationNumber = null }) => {
   const overlay = useModalDismiss(isOpen, onClose)
   const router = useRouter()
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const session = useSession()
+  const { settled } = session
   const [conversationId, setConversationId] = useState(null)
   const [messages, setMessages] = useState([])
   const [inputMessage, setInputMessage] = useState('')
@@ -56,12 +58,15 @@ const ChatSupport = ({ isOpen, onClose, reservationNumber = null }) => {
     }
   }, [conversationId, mergeMessages])
 
-  // 열릴 때: 로그인 확인 -> 대화 오픈 -> 초기 메시지 로드
+  // 열릴 때: 로그인 확인 -> 대화 오픈 -> 초기 메시지 로드.
+  //
+  // 세션 갱신이 끝나기를 기다린다. 새로고침 직후에는 로그인해 있어도 메모리에
+  // 토큰이 없어서, 먼저 물어보면 로그인 안내가 잘못 뜬다.
   useEffect(() => {
     if (!isOpen) return
-    const loggedIn = Boolean(getJwtToken())
-    setIsLoggedIn(loggedIn)
-    if (!loggedIn) return
+    if (!settled) return
+    setIsLoggedIn(session.isLoggedIn)
+    if (!session.isLoggedIn) return
 
     let cancelled = false
     setError('')
@@ -80,7 +85,7 @@ const ChatSupport = ({ isOpen, onClose, reservationNumber = null }) => {
       }
     })()
     return () => { cancelled = true }
-  }, [isOpen, reservationNumber, mergeMessages])
+  }, [isOpen, settled, session.isLoggedIn, reservationNumber, mergeMessages])
 
   // 폴링
   useEffect(() => {

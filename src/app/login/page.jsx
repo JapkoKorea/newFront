@@ -4,6 +4,7 @@ import { useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import LoginKakaoButton from '@/components/LoginKakao.jsx'
 import { API_BASE_URL } from '@/lib/api.js'
+import { setSession } from '@/lib/session.js'
 
 function LoginCallbackHandler() {
   const router = useRouter()
@@ -18,6 +19,9 @@ function LoginCallbackHandler() {
         const response = await fetch(`${API_BASE_URL}/api/auth/kakao/callback`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          // 서버가 리프레시 쿠키를 심는 응답이다. 이게 없으면 쿠키가 버려지고
+          // 30분 뒤 로그인이 풀린다.
+          credentials: 'include',
           body: JSON.stringify({ code }),
         })
 
@@ -26,8 +30,7 @@ function LoginCallbackHandler() {
         const data = await response.json()
         const token = data?.token || data?.access_token
         if (token) {
-          localStorage.setItem('jwt', token)
-          if (data.user) localStorage.setItem('user', JSON.stringify(data.user))
+          setSession({ token, user: data.user || null, expiresIn: data.expires_in })
         }
         router.push('/')
       } catch (err) {

@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation'
 import { getLocalDateString } from '@/lib/date.js'
 import MapContainer from '@/components/MapContainer.jsx'
 import { COORDS_DICT } from '@/lib/spotCoords.js'
-import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
+import { apiFetchJson } from '@/lib/api.js'
 import { SHEET_OVERLAY, SHEET_PANEL } from '@/lib/sheet.js'
 
 const passengerOptions = [
@@ -197,14 +197,10 @@ export default function TransferBooking({ isOpen = false, onClose, displayMode =
     setIsSubmitting(true)
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/reservations`,
-        {
-          method: 'POST',
-          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify(payload),
-        }
-      )
+      const response = await apiFetchJson('/api/reservations', {
+        method: 'POST',
+        body: payload,
+      })
 
       const result = await response.json()
       if (!response.ok) {

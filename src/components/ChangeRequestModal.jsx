@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react'
 import { X, CalendarDays, Clock, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
-import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
+import { apiFetchJson } from '@/lib/api.js'
 import { getLocalDateString } from '@/lib/date.js'
 import { useModalDismiss } from '@/lib/useModalDismiss.js'
 import { SHEET_OVERLAY, SHEET_PANEL_FLEX, SHEET_BODY } from '@/lib/sheet.js'
@@ -53,16 +53,15 @@ export default function ChangeRequestModal({ isOpen, onClose, reservation, onSub
     setError('')
     setSubmitting(true)
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/reservations/${encodeURIComponent(reservation.reservation_number)}/change-requests`,
+      const response = await apiFetchJson(
+        `/api/reservations/${encodeURIComponent(reservation.reservation_number)}/change-requests`,
         {
           method: 'POST',
-          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({
+          body: {
             tour_date: tourDate || null,
             tour_start_time: startTime || null,
             reason: reason.trim() || null,
-          }),
+          },
         },
       )
       const data = await response.json().catch(() => ({}))

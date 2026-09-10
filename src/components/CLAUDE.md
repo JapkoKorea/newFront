@@ -70,6 +70,6 @@ Radix UI 기반. **직접 수정 금지** — 새 스타일이 필요하면 `var
 LoginKakao.jsx → 카카오 인가 URL 리디렉션
 → /login?code=xxx 로 돌아옴
 → app/login/page.jsx 가 직접 처리 → POST /api/auth/kakao/callback
-→ JWT + user 정보 localStorage 저장
+→ 액세스 토큰은 메모리(setSession), 리프레시 토큰은 httpOnly 쿠키(서버가 심음)
 → router.push('/')
 ```

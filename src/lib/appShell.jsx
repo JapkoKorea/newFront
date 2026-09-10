@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { bootstrapSession } from '@/lib/session.js'
 
 /**
  * 전역 셸 상태.
@@ -20,6 +21,13 @@ export function AppShellProvider({ children }) {
   const [bottomBarCount, setBottomBarCount] = useState(0)
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [isFAQOpen, setIsFAQOpen] = useState(false)
+
+  // 액세스 토큰은 메모리에만 있어서 새로고침하면 사라진다. 앱이 뜨자마자
+  // 리프레시 쿠키로 한 번 복구한다. 여기 말고 다른 데서 하면 화면마다
+  // 제각기 부르게 되고, 셸은 모든 페이지에 한 번씩만 마운트된다.
+  useEffect(() => {
+    bootstrapSession()
+  }, [])
 
   const registerBottomBar = useCallback(() => {
     setBottomBarCount((n) => n + 1)

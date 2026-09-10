@@ -29,7 +29,8 @@ Next.js 15 + App Router 기반 프론트엔드. 비에이 택시투어 예약 UI
 
 ## 전역 상태 (Navigation.jsx)
 
-- 로그인 상태: `localStorage('jwt', 'user')` → `isLoggedIn`, `nickname`
+- 로그인 상태: `useSession()` → `{ isLoggedIn, nickname, settled }`
+  (액세스 토큰은 메모리, 리프레시 토큰은 httpOnly 쿠키. `localStorage` 에는 표시용 `user` 힌트만)
 - 모달 상태: `isBookingOpen`, `isFAQOpen`, `isChatOpen`
 
 ## 모바일 규칙
@@ -50,7 +51,8 @@ Next.js 15 + App Router 기반 프론트엔드. 비에이 택시투어 예약 UI
 - 환경변수: `process.env.NEXT_PUBLIC_*` 형태로만 접근
 - `localStorage` 접근은 반드시 `useEffect` 안에서 또는 `dynamic({ ssr: false })` 페이지에서
 - 라우팅: `useRouter`, `usePathname` from `next/navigation`, `Link` from `next/link`
-- 백엔드 API 호출: `src/lib/api.js`의 `API_BASE_URL` 사용
+- 백엔드 API 호출: 인증 필요하면 `apiFetch`/`apiFetchJson`, 공개 API 만 `API_BASE_URL` + `fetch`
+- 액세스 토큰을 `localStorage` 에 저장하거나 직접 읽지 말 것
 
 ## 환경변수 (`.env.local`)
 
@@ -63,11 +65,14 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:5000
 ## 자주 쓰는 패턴
 
 ```jsx
-// API 호출 예시
-import { API_BASE_URL } from '@/lib/api.js'
-const res = await fetch(`${API_BASE_URL}/api/reservations`, {
-  headers: { Authorization: `Bearer ${localStorage.getItem('jwt')}` }
-})
+// 인증이 필요한 API 호출 — 토큰 확보와 만료 재시도를 apiFetch 가 맡는다
+import { apiFetch, apiFetchJson } from '@/lib/api.js'
+const res = await apiFetch('/api/reservations')
+const created = await apiFetchJson('/api/reservations', { method: 'POST', body: payload })
+
+// 로그인 상태 — settled 전에는 로그인 안내를 띄우지 말 것
+import { useSession } from '@/lib/useSession.js'
+const { isLoggedIn, settled } = useSession()
 
 // UI 컴포넌트 import
 import { Button } from '@/components/ui/button.jsx'

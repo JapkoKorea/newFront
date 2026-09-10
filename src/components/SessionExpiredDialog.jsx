@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button.jsx'
 import { LogIn, X } from 'lucide-react'
-import { clearSession } from '@/lib/session.js'
+import { signOut } from '@/lib/session.js'
 
 /**
  * 로그인이 풀렸을 때 띄우는 알림.
@@ -12,14 +12,15 @@ import { clearSession } from '@/lib/session.js'
  * 전에는 작은 빨간 글씨로만 나와서 놓치기 쉬웠다. 로그인이 풀리면 그 화면에서
  * 할 수 있는 일이 없으므로, 확실히 막아 세우고 로그인으로 보낸다.
  *
- * 남아 있는 만료 토큰은 지운다. 그대로 두면 다음 요청도 같은 오류가 난다.
+ * 남아 있는 세션은 서버까지 정리한다. 여기까지 왔다는 건 갱신도 실패했다는
+ * 뜻이라 쿠키를 남겨 둘 이유가 없다.
  */
 export default function SessionExpiredDialog({ isOpen, message, onClose }) {
   const router = useRouter()
 
   useEffect(() => {
     if (!isOpen) return
-    clearSession()
+    signOut()
   }, [isOpen])
 
   if (!isOpen) return null

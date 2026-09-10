@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { AlertTriangle } from 'lucide-react'
-import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
+import { apiFetchJson } from '@/lib/api.js'
 
 function PaymentFailPage() {
   const router = useRouter()
@@ -30,10 +30,9 @@ function PaymentFailPage() {
     }
 
     const markFailed = async () => {
-      await fetch(`${API_BASE_URL}/api/payments/fail`, {
+      await apiFetchJson('/api/payments/fail', {
         method: 'POST',
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ orderId, code, message }),
+        body: { orderId, code, message },
       })
     }
 

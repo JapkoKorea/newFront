@@ -3,12 +3,14 @@
 // 모든 요청은 관리자 토큰이 필요하며, 권한은 서버가 users.role 로 판정한다.
 // 화면은 권한을 스스로 판단하지 않고 /api/admin/me 결과만 따른다.
 
-import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
+import { apiFetch } from '@/lib/api.js'
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}/api/admin${path}`, {
+  // apiFetch 가 토큰 확보와 만료 재시도를 맡는다. 운영 화면은 오래 열어 두는
+  // 일이 많아 액세스 토큰이 도중에 만료되는 것이 정상이다.
+  const response = await apiFetch(`/api/admin${path}`, {
     ...options,
-    headers: getAuthHeaders({ 'Content-Type': 'application/json', ...(options.headers || {}) }),
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     cache: 'no-store',
   })
 

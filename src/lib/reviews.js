@@ -1,4 +1,4 @@
-import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
+import { API_BASE_URL, apiFetch, apiFetchJson } from '@/lib/api.js'
 
 /**
  * 후기 조회. 로그인 없이 열려 있어 서버 컴포넌트에서도 호출할 수 있다.
@@ -23,30 +23,22 @@ export async function fetchReviews({ productSlug, courseId, source, limit = 20 }
 }
 
 export async function fetchReviewEligibility(reservationNumber) {
-  const res = await fetch(
-    `${API_BASE_URL}/api/reviews/eligibility/${encodeURIComponent(reservationNumber)}`,
-    { headers: getAuthHeaders() },
+  const res = await apiFetch(
+    `/api/reviews/eligibility/${encodeURIComponent(reservationNumber)}`,
   )
   if (!res.ok) return null
   return res.json()
 }
 
 export async function submitReview(payload) {
-  const res = await fetch(`${API_BASE_URL}/api/reviews`, {
-    method: 'POST',
-    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(payload),
-  })
+  const res = await apiFetchJson('/api/reviews', { method: 'POST', body: payload })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.detail || '후기 등록에 실패했습니다.')
   return data
 }
 
 export async function reportReview(reviewId) {
-  const res = await fetch(`${API_BASE_URL}/api/reviews/${reviewId}/report`, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-  })
+  const res = await apiFetch(`/api/reviews/${reviewId}/report`, { method: 'POST' })
   if (!res.ok) throw new Error('신고에 실패했습니다.')
   return res.json()
 }

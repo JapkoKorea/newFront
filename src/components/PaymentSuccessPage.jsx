@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
 import { CheckCircle2, Loader2 } from 'lucide-react'
-import { API_BASE_URL, getAuthHeaders } from '@/lib/api.js'
+import { apiFetchJson } from '@/lib/api.js'
 
 function PaymentSuccessPage() {
   const router = useRouter()
@@ -48,10 +48,9 @@ function PaymentSuccessPage() {
 
     const confirm = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/payments/confirm`, {
+        const response = await apiFetchJson('/api/payments/confirm', {
           method: 'POST',
-          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({ paymentKey, orderId, amount }),
+          body: { paymentKey, orderId, amount },
         })
         const data = await response.json()
         if (!response.ok) {

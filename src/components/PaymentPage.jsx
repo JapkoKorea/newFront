@@ -16,13 +16,13 @@ import {
   MessageCircle,
   ShoppingBag,
 } from 'lucide-react'
-import { API_BASE_URL, AuthExpiredError, getAuthHeaders, throwIfUnauthorized } from '@/lib/api.js'
+import { AuthExpiredError, apiFetch, apiFetchJson, throwIfUnauthorized } from '@/lib/api.js'
 import { paymentLabel, paymentTone } from '@/lib/reservationStatus.js'
 import { BANK_ACCOUNT, NAVER_STORE_URL, hasBankAccount } from '@/lib/paymentChannels.js'
 import { KAKAO_CHANNEL_CHAT, hasKakaoChannel } from '@/lib/kakaoChannel.js'
 import ChatSupport from '@/components/ChatSupport.jsx'
 import SessionExpiredDialog from '@/components/SessionExpiredDialog.jsx'
-import { getValidToken } from '@/lib/session.js'
+import { useSession } from '@/lib/useSession.js'
 
 // 스마트스토어 주문번호는 숫자 16자리다. 백엔드도 같은 값으로 검사한다
 // (manual_payment_service.NAVER_ORDER_NO_LENGTH).
@@ -53,6 +53,8 @@ function PaymentPage() {
   const [isChatOpen, setIsChatOpen] = useState(false)
   // 로그인이 풀리면 작은 글씨 대신 화면을 막고 알린다.
   const [authError, setAuthError] = useState('')
+  // settled 는 이 화면에서 이미 '결제 완료'를 뜻한다. 세션 쪽은 이름을 나눈다.
+  const { isLoggedIn, settled: sessionSettled } = useSession()
 
   const load = useCallback(async () => {
     if (!reservationNumber) {
@@ -63,9 +65,8 @@ function PaymentPage() {
     setLoading(true)
     setErrorMessage('')
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/payments/transfer-info?reservation_number=${encodeURIComponent(reservationNumber)}`,
-        { headers: getAuthHeaders() },
+      const response = await apiFetch(
+        `/api/payments/transfer-info?reservation_number=${encodeURIComponent(reservationNumber)}`,
       )
       await throwIfUnauthorized(response)
       const data = await response.json()
@@ -79,14 +80,17 @@ function PaymentPage() {
     }
   }, [reservationNumber])
 
+  // 갱신이 끝나기 전에는 판단하지 않는다. 새로고침 직후에는 로그인해 있어도
+  // 메모리에 토큰이 없어서, 먼저 물어보면 멀쩡한 결제를 막게 된다.
   useEffect(() => {
-    if (!getValidToken()) {
+    if (!sessionSettled) return
+    if (!isLoggedIn) {
       setLoading(false)
       setAuthError('로그인 후 결제를 진행하실 수 있습니다.')
       return
     }
     load()
-  }, [load])
+  }, [sessionSettled, isLoggedIn, load])
 
   const copyAccount = async () => {
     try {
@@ -104,15 +108,14 @@ function PaymentPage() {
     setDeclaring(channel)
     setErrorMessage('')
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/payments/declare?reservation_number=${encodeURIComponent(reservationNumber)}`,
+      const response = await apiFetchJson(
+        `/api/payments/declare?reservation_number=${encodeURIComponent(reservationNumber)}`,
         {
           method: 'POST',
-          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({
+          body: {
             channel,
             external_order_no: channel === 'naver' ? naverOrderNo.trim() || null : null,
-          }),
+          },
         },
       )
       await throwIfUnauthorized(response)
@@ -132,9 +135,9 @@ function PaymentPage() {
     setWithdrawing(true)
     setErrorMessage('')
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/payments/declare/withdraw?reservation_number=${encodeURIComponent(reservationNumber)}`,
-        { method: 'POST', headers: getAuthHeaders() },
+      const response = await apiFetch(
+        `/api/payments/declare/withdraw?reservation_number=${encodeURIComponent(reservationNumber)}`,
+        { method: 'POST' },
       )
       await throwIfUnauthorized(response)
       const data = await response.json()

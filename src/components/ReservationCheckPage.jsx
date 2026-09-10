@@ -12,12 +12,14 @@ import { customerStage, paymentLabel } from '@/lib/reservationStatus.js'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
 import { Calendar, Clock, CreditCard, MapPin, RefreshCcw, Star, UserRound } from 'lucide-react'
-import { API_BASE_URL, AuthExpiredError, getAuthHeaders, throwIfUnauthorized } from '@/lib/api.js'
-import { getValidToken } from '@/lib/session.js'
+import { AuthExpiredError, apiFetch, throwIfUnauthorized } from '@/lib/api.js'
+import { useSession } from '@/lib/useSession.js'
 
 function ReservationCheckPage() {
   const router = useRouter()
   const [nickname, setNickname] = useState('')
+  const session = useSession()
+  const { isLoggedIn, settled } = session
   const [reservations, setReservations] = useState([])
   const [selectedReservationNumber, setSelectedReservationNumber] = useState('')
   const [loading, setLoading] = useState(true)
@@ -74,9 +76,7 @@ function ReservationCheckPage() {
     setLoading(true)
     setErrorMessage('')
     try {
-      const response = await fetch(`${API_BASE_URL}/api/reservations`, {
-        headers: getAuthHeaders(),
-      })
+      const response = await apiFetch('/api/reservations')
       await throwIfUnauthorized(response)
       const data = await response.json()
       if (!response.ok) {
@@ -96,22 +96,18 @@ function ReservationCheckPage() {
     }
   }
 
+  // 세션 갱신이 끝난 뒤에 판단한다. 새로고침 직후에는 로그인해 있어도
+  // 메모리에 토큰이 없어서, 먼저 물어보면 예약이 없는 것처럼 보인다.
   useEffect(() => {
-    const userRaw = localStorage.getItem('user')
-    if (!userRaw) {
+    if (!settled) return
+    if (!isLoggedIn) {
       setLoading(false)
       return
     }
-
-    try {
-      const user = JSON.parse(userRaw)
-      setNickname(user?.nickname || user?.userName || '')
-      loadReservations()
-    } catch {
-      setLoading(false)
-      setErrorMessage('로그인 정보를 읽을 수 없습니다. 다시 로그인해 주세요.')
-    }
-  }, [])
+    setNickname(session.nickname)
+    loadReservations()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settled, isLoggedIn])
 
   const handleCancelRequest = async () => {
     if (!selectedReservation || !canCancel) return
@@ -121,12 +117,9 @@ function ReservationCheckPage() {
 
     setCanceling(true)
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/reservations/${encodeURIComponent(selectedReservation.reservation_number)}/cancel`,
-        {
-          method: 'PATCH',
-          headers: getAuthHeaders(),
-        }
+      const response = await apiFetch(
+        `/api/reservations/${encodeURIComponent(selectedReservation.reservation_number)}/cancel`,
+        { method: 'PATCH' },
       )
       await throwIfUnauthorized(response)
       const data = await response.json()
@@ -154,7 +147,7 @@ function ReservationCheckPage() {
     )
   }
 
-  if (!getValidToken()) {
+  if (settled && !isLoggedIn) {
     return (
       <div className="min-h-screen bg-gray-50 py-20 px-4">
         <div className="max-w-3xl mx-auto">

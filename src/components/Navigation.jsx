@@ -1,38 +1,31 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button.jsx'
 import { MessageCircle, HelpCircle, Menu, X } from 'lucide-react'
 import FAQ from './FAQ.jsx'
 import ChatSupport from './ChatSupport.jsx'
 import ServiceSelector from './ServiceSelector.jsx'
 import { useAppShell } from '@/lib/appShell.jsx'
-import { clearSession, readSession } from '@/lib/session.js'
+import { signOut } from '@/lib/session.js'
+import { useSession } from '@/lib/useSession.js'
 
 export default function Navigation() {
   const [isServiceSelectorOpen, setIsServiceSelectorOpen] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   // 상담/FAQ 모달 상태는 전역 셸이 들고 있다. 하단 액션 바 같은 다른 화면 요소도 같은 모달을 연다.
   const { hasBottomBar, isChatOpen, isFAQOpen, openChat, openFAQ, closeChat, closeFAQ } = useAppShell()
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [nickname, setNickname] = useState('')
+  // 로그인 상태는 세션 모듈이 들고 있다. 갱신이 끝나거나 로그아웃하면
+  // 구독을 통해 알아서 다시 그려진다.
+  const { isLoggedIn, nickname } = useSession()
   const router = useRouter()
-  const pathname = usePathname()
-
-  // 토큰이 "있는지" 가 아니라 "아직 유효한지" 를 본다. 만료된 토큰이 남아
-  // 있으면 로그인된 것처럼 보이다가 결제 단계에서야 401 로 튕겼다.
-  useEffect(() => {
-    const session = readSession()
-    setIsLoggedIn(session.isLoggedIn)
-    setNickname(session.nickname)
-  }, [pathname])
 
   const handleLogout = () => {
-    clearSession()
-    setIsLoggedIn(false)
-    setNickname('')
+    // 서버의 리프레시 세션까지 끊는다. 로컬만 비우면 쿠키가 남아 다음
+    // 방문에 다시 로그인된 상태가 된다.
+    signOut()
     router.push('/')
   }
 
