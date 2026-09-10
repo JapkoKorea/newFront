@@ -31,6 +31,7 @@ python backend/main.py
 - `.env` / `.env.local` 파일 커밋 금지 (API 키 포함)
 - Kakao Client ID / Google Maps API 키 소스코드 하드코딩 금지
 - 프로덕션에서 `allow_origins=["*"]` CORS 전체 허용 금지
+- 액세스 토큰을 `localStorage` / `sessionStorage` 에 저장 금지 (메모리만)
 - JWT secret / 사용자 토큰 로그 출력 금지
 - `.next/` 빌드 산출물 버전 관리 금지
 
@@ -85,8 +86,11 @@ python backend/main.py
 
 ### 인증 (Kakao OAuth)
 - 카카오 소셜 로그인만 지원 (로컬 인증 없음)
-- JWT 발급 → 프론트엔드 `localStorage` 저장 (`jwt`, `user` 키)
-- 로그인 상태: `localStorage` 기반, 라우트 변경 시 재확인
+- 액세스 토큰(30분)은 **메모리에만** 둔다 (`src/lib/session.js`). localStorage 저장 금지
+- 리프레시 토큰(30일)은 **httpOnly 쿠키** — JS 가 읽을 수 없다. `POST /api/auth/refresh` 로 회전
+- localStorage 에는 표시용 `user` 힌트만 둔다. 로그인 여부의 근거가 아니다
+- 인증 API 호출은 `apiFetch` / `apiFetchJson` (`src/lib/api.js`) — 401 시 자동 갱신 후 1회 재시도
+- 화면에서 로그인 상태는 `useSession()` (`src/lib/useSession.js`). `settled` 가 true 가 된 뒤에 판단할 것
 
 ### 지도 (Google Maps)
 - 비에이/아사히카와 지역으로 제한
