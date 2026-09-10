@@ -8,6 +8,7 @@ from typing import cast
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from services.mysql_user_service import ensure_user_tables
+from services.auth_session_service import ensure_auth_session_tables, purge_expired
 from routers import seo
 from routers import maps
 from routers import courses
@@ -27,6 +28,21 @@ def _load_kakao_router() -> APIRouter | None:
         if missing in {"jose", "jwt"}:
             print(
                 f"[WARN] Kakao auth router disabled: missing dependency '{missing}'. Install backend auth deps to enable /api/auth routes."
+            )
+            return None
+        raise
+
+
+def _load_session_router() -> APIRouter | None:
+    try:
+        from routers.auth import session  # pylint: disable=import-outside-toplevel
+
+        return session.router
+    except ModuleNotFoundError as error:
+        missing = getattr(error, "name", "")
+        if missing in {"jose", "jwt"}:
+            print(
+                f"[WARN] Session auth router disabled: missing dependency '{missing}'."
             )
             return None
         raise
@@ -73,6 +89,11 @@ app.add_middleware(
 kakao_router = _load_kakao_router()
 if kakao_router is not None:
     app.include_router(kakao_router)
+
+# 세션 갱신/로그아웃 (리프레시 쿠키)
+session_router = _load_session_router()
+if session_router is not None:
+    app.include_router(session_router)
 
 reservations_router = _load_optional_router(
     "routers.reservations",
@@ -125,6 +146,13 @@ async def startup_event():
         ensure_user_tables()
     except Exception as error:
         print(f"[WARN] user table initialization skipped: {error}")
+
+    try:
+        ensure_auth_session_tables()
+        # 만료된 세션 행이 쌓이지 않게 재시작마다 한 번 정리한다.
+        purge_expired()
+    except Exception as error:
+        print(f"[WARN] auth session table initialization skipped: {error}")
 
     try:
         ensure_reservation_tables()

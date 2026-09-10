@@ -19,11 +19,14 @@ backend/
 ├── main.py          # 앱 팩토리: CORS, 라우터 등록, startup 이벤트
 ├── routers/         # API 엔드포인트 (→ routers/CLAUDE.md 참조)
 │   ├── auth/
-│   │   └── kakao.py
+│   │   ├── kakao.py     # 로그인 (인가 코드 -> 액세스 토큰 + 리프레시 쿠키)
+│   │   ├── session.py   # POST /api/auth/refresh, /api/auth/logout
+│   │   └── tokens.py    # 토큰 발급 + 쿠키 규칙 (양쪽이 공유)
 │   ├── reservations.py
 │   └── payments.py
 └── services/        # 비즈니스 로직 + DB 작업
     ├── mysql_user_service.py
+    ├── auth_session_service.py   # 리프레시 토큰 저장소 (회전·재사용 감지)
     └── mysql_reservation_service.py
 ```
 
@@ -37,7 +40,8 @@ backend/
 
 ## main.py 핵심 사항
 
-- CORS: 현재 `allow_origins=["*"]` → **프로덕션 배포 전 반드시 도메인 제한**
+- CORS: `CORS_ALLOW_ORIGINS` 로 제한. 전체 허용(`*`) 금지
+- 쿠키 인증이 있으므로 `allow_credentials=True` 유지 필수
 - startup 이벤트에서 DB 테이블 자동 생성 (`ensure_*_tables()`)
 - 라우터 prefix는 각 라우터 파일에서 정의
 
@@ -47,7 +51,10 @@ backend/
 KAKAO_CLIENT_ID=...
 KAKAO_CLIENT_SECRET=...
 KAKAO_REDIRECT_URI=http://localhost:3000/login
-JWT_SECRET=...
+JWT_SECRET_KEY=
+ACCESS_TOKEN_MINUTES=30
+REFRESH_TOKEN_DAYS=30
+REFRESH_COOKIE_DOMAIN=      # 운영만: .japkokorea.com...
 MYSQL_HOST=...
 MYSQL_USER=...
 MYSQL_PASSWORD=...

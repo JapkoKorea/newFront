@@ -10,8 +10,10 @@ dependencies = [
     "pymysql>=1.1.1",
     "python-dotenv>=1.1.1",
     "uvicorn>=0.35.0",
-    "jose>=1.0.0",
-    "jwt>=1.4.0",
+    # JWT 는 python-jose 만 쓴다. 예전에 함께 들어 있던 jose(1.0.0) 는 2016년
+    # 이후 방치된 별개 패키지인데 최상위 모듈 이름이 'jose' 로 같아서,
+    # 설치 순서에 따라 `from jose import jwt` 가 그쪽으로 잡힐 수 있었다.
+    # jwt(1.4.0) 는 어디서도 쓰지 않는다.
     "python-jose>=3.5.0",
     # 네이버 커머스 API 인증 서명(client_secret 을 salt 로 쓰는 bcrypt)
     "bcrypt>=4.0.0",
