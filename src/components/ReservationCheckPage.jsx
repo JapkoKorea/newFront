@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.j
 import { Badge } from '@/components/ui/badge.jsx'
 import { Calendar, Clock, CreditCard, MapPin, RefreshCcw, Star, UserRound } from 'lucide-react'
 import { API_BASE_URL, AuthExpiredError, getAuthHeaders, throwIfUnauthorized } from '@/lib/api.js'
+import { getValidToken } from '@/lib/session.js'
 
 function ReservationCheckPage() {
   const router = useRouter()
@@ -153,7 +154,7 @@ function ReservationCheckPage() {
     )
   }
 
-  if (!localStorage.getItem('jwt')) {
+  if (!getValidToken()) {
     return (
       <div className="min-h-screen bg-gray-50 py-20 px-4">
         <div className="max-w-3xl mx-auto">

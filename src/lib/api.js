@@ -1,3 +1,5 @@
+import { getValidToken } from '@/lib/session.js'
+
 // 백엔드는 backend/main.py 기준 5000 에서 돈다. 배포에서는 NEXT_PUBLIC_API_BASE_URL 로 덮는다.
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
 
@@ -27,8 +29,9 @@ export async function throwIfUnauthorized(response) {
   throw new AuthExpiredError(detail)
 }
 
+// 만료된 토큰은 없는 것으로 본다. 들고 있어 봐야 401 만 돌아온다.
 export function getJwtToken() {
-  return localStorage.getItem('jwt') || ''
+  return getValidToken()
 }
 
 export function getAuthHeaders(extraHeaders = {}) {

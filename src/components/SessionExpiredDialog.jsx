@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button.jsx'
 import { LogIn, X } from 'lucide-react'
+import { clearSession } from '@/lib/session.js'
 
 /**
  * 로그인이 풀렸을 때 띄우는 알림.
@@ -18,12 +19,7 @@ export default function SessionExpiredDialog({ isOpen, message, onClose }) {
 
   useEffect(() => {
     if (!isOpen) return
-    try {
-      localStorage.removeItem('jwt')
-      localStorage.removeItem('user')
-    } catch {
-      // 저장소를 못 건드려도 로그인 안내는 그대로 보여준다.
-    }
+    clearSession()
   }, [isOpen])
 
   if (!isOpen) return null

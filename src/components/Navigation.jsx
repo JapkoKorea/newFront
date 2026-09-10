@@ -9,6 +9,7 @@ import FAQ from './FAQ.jsx'
 import ChatSupport from './ChatSupport.jsx'
 import ServiceSelector from './ServiceSelector.jsx'
 import { useAppShell } from '@/lib/appShell.jsx'
+import { clearSession, readSession } from '@/lib/session.js'
 
 export default function Navigation() {
   const [isServiceSelectorOpen, setIsServiceSelectorOpen] = useState(false)
@@ -20,27 +21,16 @@ export default function Navigation() {
   const router = useRouter()
   const pathname = usePathname()
 
+  // 토큰이 "있는지" 가 아니라 "아직 유효한지" 를 본다. 만료된 토큰이 남아
+  // 있으면 로그인된 것처럼 보이다가 결제 단계에서야 401 로 튕겼다.
   useEffect(() => {
-    const jwtToken = localStorage.getItem('jwt')
-    const userRaw = localStorage.getItem('user')
-    if (!jwtToken || !userRaw) {
-      setIsLoggedIn(false)
-      setNickname('')
-      return
-    }
-    try {
-      const parsedUser = JSON.parse(userRaw)
-      setIsLoggedIn(true)
-      setNickname(parsedUser?.nickname || parsedUser?.userName || '')
-    } catch {
-      setIsLoggedIn(false)
-      setNickname('')
-    }
+    const session = readSession()
+    setIsLoggedIn(session.isLoggedIn)
+    setNickname(session.nickname)
   }, [pathname])
 
   const handleLogout = () => {
-    localStorage.removeItem('jwt')
-    localStorage.removeItem('user')
+    clearSession()
     setIsLoggedIn(false)
     setNickname('')
     router.push('/')

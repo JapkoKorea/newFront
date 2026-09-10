@@ -22,6 +22,7 @@ import { BANK_ACCOUNT, NAVER_STORE_URL, hasBankAccount } from '@/lib/paymentChan
 import { KAKAO_CHANNEL_CHAT, hasKakaoChannel } from '@/lib/kakaoChannel.js'
 import ChatSupport from '@/components/ChatSupport.jsx'
 import SessionExpiredDialog from '@/components/SessionExpiredDialog.jsx'
+import { getValidToken } from '@/lib/session.js'
 
 // 스마트스토어 주문번호는 숫자 16자리다. 백엔드도 같은 값으로 검사한다
 // (manual_payment_service.NAVER_ORDER_NO_LENGTH).
@@ -79,7 +80,7 @@ function PaymentPage() {
   }, [reservationNumber])
 
   useEffect(() => {
-    if (!localStorage.getItem('jwt')) {
+    if (!getValidToken()) {
       setLoading(false)
       setAuthError('로그인 후 결제를 진행하실 수 있습니다.')
       return
