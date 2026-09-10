@@ -9,7 +9,7 @@
 
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from dependencies.auth import get_current_admin
@@ -26,6 +26,8 @@ from services.reservation_admin_service import (
     list_reservations_for_admin,
     list_status_history,
 )
+from services.mysql_user_service import get_user_email
+from services.notification_service import notify_status_changed
 from services.manual_payment_service import (
     ManualPaymentError,
     auto_verify_naver,
@@ -91,6 +93,7 @@ async def get_reservations(
 async def update_reservation_status(
     reservation_number: str,
     payload: ReservationStatusPayload,
+    background_tasks: BackgroundTasks,
     current_admin: dict[str, Any] = Depends(get_current_admin),
 ):
     """예약을 확정하거나 반려한다.
@@ -120,10 +123,22 @@ async def update_reservation_status(
         status_code = 404 if error.code == "not_found" else 409
         raise HTTPException(status_code=status_code, detail=error.message) from error
 
+    updated = get_reservation_for_admin(reservation_number)
+
+    # 확정·반려는 고객이 가장 기다리는 소식이다. 지금까지는 고객이 예약
+    # 확인 화면을 다시 열어 봐야만 알 수 있었다.
+    background_tasks.add_task(
+        notify_status_changed,
+        updated or {"reservation_number": reservation_number},
+        payload.status,
+        get_user_email(str((updated or {}).get("user_id") or "")),
+        payload.reason or "",
+    )
+
     return {
         "message": "상태를 변경했습니다.",
         **result,
-        "reservation": get_reservation_for_admin(reservation_number),
+        "reservation": updated,
     }
 
 

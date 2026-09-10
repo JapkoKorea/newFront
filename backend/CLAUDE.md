@@ -27,6 +27,7 @@ backend/
 └── services/        # 비즈니스 로직 + DB 작업
     ├── mysql_user_service.py
     ├── auth_session_service.py   # 리프레시 토큰 저장소 (회전·재사용 감지)
+    ├── notification_service.py   # 예약 알림 메일 (SMTP)
     └── mysql_reservation_service.py
 ```
 
@@ -94,3 +95,25 @@ async def create_reservation(data: ReservationCreate) -> dict:
 uv add <package>      # 패키지 추가
 uv sync               # 의존성 동기화
 ```
+
+## 알림 (notification_service.py)
+
+예약 흐름의 네 지점에서 메일이 나간다.
+
+| 시점 | 받는 사람 |
+|------|-----------|
+| 예약 접수 | 운영자 + 고객 |
+| 확정 / 반려 / 취소 / 완료 | 고객 |
+| 고객 취소 요청 | 운영자 |
+| 결제 확인 요청 | 운영자 |
+
+두 가지를 반드시 지킬 것.
+
+- **알림 실패가 본 작업을 막으면 안 된다.** 모든 전송은 예외를 삼키고 로그만
+  남긴다. 메일 서버가 죽었다고 고객 예약이 실패하면 훨씬 나쁘다.
+- **`BackgroundTasks` 로 응답 뒤에 보낸다.** SMTP 는 블로킹이라 응답 안에서
+  보내면 예약 화면이 같이 느려진다.
+
+`SMTP_*` 가 없으면 조용히 건너뛴다(`is_configured()`). 고객 주소는
+`users.email` 이고, 카카오 이메일 동의를 안 한 사용자는 값이 없다 — 그 경우
+고객 알림만 빠지고 운영자 알림은 그대로 나간다.

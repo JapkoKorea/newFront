@@ -97,6 +97,9 @@ async def _handle_kakao_callback(
             provider='kakao',
             provider_user_id=str(kakao_id),
             display_name=nickname or 'Unknown',
+            # 예약 알림 메일을 보내려면 주소가 있어야 한다. 카카오 동의 항목이라
+            # 사용자가 동의하지 않았으면 None 이 온다 - 그 경우 알림은 건너뛴다.
+            email=email,
         )
 
         token, payload, expires_in = issue_access_token(

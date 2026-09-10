@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime, time, timedelta
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
 from dependencies.auth import get_current_user
@@ -21,7 +21,11 @@ from services.change_request_service import (
     validate_change_request,
     REASON_MAX_LENGTH,
 )
-from services.mysql_user_service import _connect
+from services.mysql_user_service import _connect, get_user_email
+from services.notification_service import (
+    notify_cancel_requested,
+    notify_reservation_created,
+)
 
 
 router = APIRouter(prefix="/api/reservations", tags=["reservations"])
@@ -186,6 +190,7 @@ def _find_reservation(user_id: str, reservation_number: str):
 @router.post("")
 async def create_reservation(
     payload: ReservationPayload,
+    background_tasks: BackgroundTasks,
     current_user: dict[str, Any] = Depends(get_current_user),
 ):
     user_id = str(current_user.get("user_id") or "").strip()
@@ -230,6 +235,25 @@ async def create_reservation(
         "selectedSpots": [spot.model_dump() for spot in (payload.selected_spots or [])],
     }
     save_reservation_mysql(record)
+
+    # 알림은 응답을 보낸 뒤에 보낸다. 메일 서버가 느리다고 해서 예약 화면이
+    # 같이 느려질 이유가 없고, 실패해도 예약은 이미 저장돼 있다.
+    background_tasks.add_task(
+        notify_reservation_created,
+        {
+            "reservation_number": reservation_number,
+            "english_name": payload.english_name,
+            "contact_number": payload.contact_number,
+            "tour_date": str(payload.tour_date),
+            "tour_start_time": str(payload.tour_start_time or ""),
+            "number_of_people": payload.number_of_people,
+            "tour_course": payload.desired_course,
+            "departure": payload.departure,
+            "destination": payload.destination,
+        },
+        get_user_email(user_id),
+    )
+
     return {"message": "Reservation successful", "reservationNumber": reservation_number}
 
 
@@ -301,6 +325,7 @@ async def list_reservations(
 @router.patch("/{reservation_number}/cancel")
 async def request_cancel_reservation(
     reservation_number: str,
+    background_tasks: BackgroundTasks,
     current_user: dict[str, Any] = Depends(get_current_user),
 ):
     user_id = str(current_user.get("user_id") or "").strip()
@@ -342,6 +367,10 @@ async def request_cancel_reservation(
         conn.commit()
     finally:
         conn.close()
+
+    # 취소는 운영자가 차량과 일정을 다시 잡아야 하는 일이다. 알아서 /admin 을
+    # 열어 보기를 기대하지 말고 알린다.
+    background_tasks.add_task(notify_cancel_requested, reservation)
 
     return {
         "message": "취소 요청이 접수되었습니다",

@@ -7,10 +7,11 @@ from zoneinfo import ZoneInfo
 from typing import Any, Literal
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from dependencies.auth import get_current_user
+from services.notification_service import notify_payment_declared
 from services.manual_payment_service import (
     ManualPaymentError,
     auto_verify_naver,
@@ -522,6 +523,7 @@ class DeclarePaymentPayload(BaseModel):
 async def declare_payment(
     reservation_number: str,
     payload: DeclarePaymentPayload,
+    background_tasks: BackgroundTasks,
     current_user: dict[str, Any] = Depends(get_current_user),
 ):
     """고객이 "결제했다"고 알린다. 확인은 운영자가 한다.
@@ -575,6 +577,15 @@ async def declare_payment(
                 }
             result["autoVerified"] = False
             result["autoVerifyReason"] = verified.get("reason")
+
+    # 여기까지 왔다는 건 사람이 통장이나 스토어를 대조해야 한다는 뜻이다.
+    # (스마트스토어 자동 확인이 된 건은 위에서 이미 반환됐다.)
+    background_tasks.add_task(
+        notify_payment_declared,
+        reservation,
+        payload.channel,
+        (payload.external_order_no or "").strip(),
+    )
 
     return {
         **result,

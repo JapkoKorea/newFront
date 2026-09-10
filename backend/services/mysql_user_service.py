@@ -50,6 +50,7 @@ def ensure_user_tables() -> None:
                 CREATE TABLE IF NOT EXISTS users (
                     id CHAR(36) NOT NULL,
                     display_name VARCHAR(100) NULL,
+                    email VARCHAR(255) NULL,
                     birthday VARCHAR(20) NULL,
                     phone_number VARCHAR(30) NULL,
                     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -75,18 +76,33 @@ def ensure_user_tables() -> None:
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                 """
             )
+            # 이미 만들어진 표에도 붙인다. 알림 메일을 보내려면 주소가 필요한데,
+            # 그동안 카카오가 준 이메일을 받아서 그냥 버리고 있었다.
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS n FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'email'
+                """
+            )
+            if not cursor.fetchone()["n"]:
+                cursor.execute("ALTER TABLE users ADD COLUMN email VARCHAR(255) NULL AFTER display_name")
         conn.commit()
     finally:
         conn.close()
 
 
-def upsert_oauth_user(provider: str, provider_user_id: str, display_name: str) -> str:
+def upsert_oauth_user(
+    provider: str,
+    provider_user_id: str,
+    display_name: str,
+    email: str | None = None,
+) -> str:
     conn = _connect()
     try:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT u.id, u.display_name
+                SELECT u.id, u.display_name, u.email
                 FROM auth_identities ai
                 JOIN users u ON u.id = ai.user_id
                 WHERE ai.provider = %s AND ai.provider_user_id = %s
@@ -111,16 +127,23 @@ def upsert_oauth_user(provider: str, provider_user_id: str, display_name: str) -
                         "UPDATE users SET display_name = %s WHERE id = %s",
                         (display_name, user_id),
                     )
+                # 이메일은 카카오 동의 항목이라 나중에 켜질 수 있다. 값이 올 때마다
+                # 갱신하되, 빈 값으로 기존 주소를 지우지는 않는다.
+                if email:
+                    cursor.execute(
+                        "UPDATE users SET email = %s WHERE id = %s AND (email IS NULL OR email <> %s)",
+                        (email, user_id, email),
+                    )
                 conn.commit()
                 return user_id
 
             user_id = str(uuid.uuid4())
             cursor.execute(
                 """
-                INSERT INTO users (id, display_name, birthday, phone_number)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO users (id, display_name, email, birthday, phone_number)
+                VALUES (%s, %s, %s, %s, %s)
                 """,
-                (user_id, display_name or "Unknown", "", ""),
+                (user_id, display_name or "Unknown", email or None, "", ""),
             )
             cursor.execute(
                 """
@@ -133,3 +156,21 @@ def upsert_oauth_user(provider: str, provider_user_id: str, display_name: str) -
             return user_id
     finally:
         conn.close()
+
+
+def get_user_email(user_id: str) -> str:
+    """알림을 보낼 주소. 없으면 빈 문자열.
+
+    카카오 이메일 동의를 하지 않은 사용자는 주소가 없다. 그건 오류가 아니라
+    흔한 경우이므로, 호출부는 빈 문자열을 받으면 그냥 건너뛴다.
+    """
+    if not user_id:
+        return ""
+    conn = _connect()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT email FROM users WHERE id = %s LIMIT 1", (user_id,))
+            row = cursor.fetchone()
+    finally:
+        conn.close()
+    return (row or {}).get("email") or ""
