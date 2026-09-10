@@ -12,7 +12,7 @@ from fastapi.responses import Response
 
 router = APIRouter()
 
-SITE_URL = os.getenv("SITE_URL", "https://japko.kr")
+SITE_URL = os.getenv("SITE_URL", "https://japkokorea.com")
 
 # 투어 코스 슬러그 목록 — tourCourses.js의 id와 동기화 유지
 TOUR_IDS = [

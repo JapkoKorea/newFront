@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ChevronRight, Mountain, Flower2, CalendarDays, Car } from 'lucide-react'
 import { guideIndex } from '@/data/guideContent.js'
+import { SITE_URL } from '@/lib/site.js'
 
 // 가이드 카드 아이콘. 데이터에는 이름만 두고 컴포넌트 매핑은 여기서 한다.
 const GUIDE_ICONS = { Mountain, Flower2, CalendarDays, Car }
@@ -21,8 +22,8 @@ export default function GuidePage() {
               '@context': 'https://schema.org',
               '@type': 'BreadcrumbList',
               itemListElement: [
-                { '@type': 'ListItem', position: 1, name: '홈', item: 'https://japko.kr' },
-                { '@type': 'ListItem', position: 2, name: '관광 가이드', item: 'https://japko.kr/guide' },
+                { '@type': 'ListItem', position: 1, name: '홈', item: SITE_URL },
+                { '@type': 'ListItem', position: 2, name: '관광 가이드', item: `${SITE_URL}/guide` },
               ],
             }),
           }}
