@@ -253,8 +253,8 @@ export default function TransferBooking({ isOpen = false, onClose, displayMode =
             <h2 className="text-2xl font-bold text-gray-900">송영서비스 요청</h2>
             <p className="text-sm text-gray-500 mt-1">출발지·도착지를 지도에서 지정하면, 기사님이 요금을 안내해 드립니다.</p>
           </div>
-          <Button variant="ghost" size="touch" onClick={onClose}>
-            <X className="h-5 w-5" />
+          <Button variant="ghost" size="touchIcon" aria-label="송영 예약 닫기" onClick={onClose}>
+            <X className="h-5 w-5" aria-hidden="true" />
           </Button>
         </div>
 
@@ -347,7 +347,7 @@ export default function TransferBooking({ isOpen = false, onClose, displayMode =
                 <div>
                   <div className="flex items-center justify-between">
                     <Label>출발지</Label>
-                    <Button type="button" variant="outline" size="touch" className="h-8 px-3 text-xs"
+                    <Button type="button" variant="outline" size="touch" className="px-4 text-sm"
                       onClick={() => requestMapSelectionMode('departure')}
                     >
                       지도에서 선택
@@ -355,7 +355,7 @@ export default function TransferBooking({ isOpen = false, onClose, displayMode =
                   </div>
                   <button type="button"
                     onClick={() => requestMapSelectionMode('departure')}
-                    className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="mt-2 flex min-h-11 w-full items-center rounded-md border border-gray-300 bg-white px-3 text-left text-sm hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     {data.departure || '출발지를 선택해 주세요'}
                   </button>
@@ -376,7 +376,7 @@ export default function TransferBooking({ isOpen = false, onClose, displayMode =
                 <div>
                   <div className="flex items-center justify-between">
                     <Label>도착지</Label>
-                    <Button type="button" variant="outline" size="touch" className="h-8 px-3 text-xs"
+                    <Button type="button" variant="outline" size="touch" className="px-4 text-sm"
                       onClick={() => requestMapSelectionMode('destination')}
                     >
                       지도에서 선택
@@ -384,7 +384,7 @@ export default function TransferBooking({ isOpen = false, onClose, displayMode =
                   </div>
                   <button type="button"
                     onClick={() => requestMapSelectionMode('destination')}
-                    className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="mt-2 flex min-h-11 w-full items-center rounded-md border border-gray-300 bg-white px-3 text-left text-sm hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     {data.destination || '도착지를 선택해 주세요'}
                   </button>
@@ -411,8 +411,13 @@ export default function TransferBooking({ isOpen = false, onClose, displayMode =
                           className="flex items-center justify-between bg-gray-50 p-2 rounded hover:bg-gray-100"
                         >
                           <span className="text-sm">{spot}</span>
-                          <Button variant="ghost" size="touch" onClick={() => handleSpotRemove(spot)}>
-                            <X className="h-3 w-3" />
+                          <Button
+                            variant="ghost"
+                            size="touchIcon"
+                            aria-label={`${spot} 빼기`}
+                            onClick={() => handleSpotRemove(spot)}
+                          >
+                            <X className="h-3.5 w-3.5" aria-hidden="true" />
                           </Button>
                         </div>
                       ))}
@@ -595,19 +600,19 @@ export default function TransferBooking({ isOpen = false, onClose, displayMode =
         </div>
 
         {/* 하단 버튼 */}
-        <div className="flex justify-between p-6 border-t">
-          <Button variant="outline" onClick={currentStep === 1 ? onClose : handlePrev}>
+        <div className="flex items-center justify-between gap-3 border-t p-4 sm:p-6">
+          <Button variant="outline" className="h-11 px-5" onClick={currentStep === 1 ? onClose : handlePrev}>
             {currentStep === 1
               ? <><X className="h-4 w-4 mr-2" />취소</>
               : <><ChevronLeft className="h-4 w-4 mr-2" />이전</>
             }
           </Button>
           {currentStep < totalSteps ? (
-            <Button className="bg-blue-500 hover:bg-blue-600 text-white" onClick={handleNext}>
+            <Button className="h-11 bg-blue-500 px-6 text-white hover:bg-blue-600" onClick={handleNext}>
               다음 <ChevronRight className="h-4 w-4 ml-2" />
             </Button>
           ) : (
-            <Button className="bg-blue-500 hover:bg-blue-600 text-white"
+            <Button className="h-11 bg-blue-500 text-white hover:bg-blue-600"
               onClick={handleSubmit}
               disabled={isSubmitting}
             >

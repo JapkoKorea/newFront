@@ -21,7 +21,7 @@ export default function ServiceSelector({ isOpen, onClose, onSelectTour, onSelec
             <h2 className="text-xl font-bold text-gray-900">서비스 선택</h2>
             <p className="text-sm text-gray-500 mt-1">원하는 방식을 선택해 주세요.</p>
           </div>
-          <Button variant="ghost" size="touch" onClick={onClose}>
+          <Button variant="ghost" size="touchIcon" aria-label="닫기" onClick={onClose}>
             <X className="h-5 w-5" />
           </Button>
         </div>

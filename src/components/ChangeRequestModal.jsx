@@ -94,8 +94,8 @@ export default function ChangeRequestModal({ isOpen, onClose, reservation, onSub
               바꾸고 싶은 항목만 입력해 주세요. 접수 후 배차를 확인해 안내드립니다.
             </p>
           </div>
-          <Button variant="ghost" size="touch" onClick={close} aria-label="닫기">
-            <X className="h-5 w-5" />
+          <Button variant="ghost" size="touchIcon" onClick={close} aria-label="닫기">
+            <X className="h-5 w-5" aria-hidden="true" />
           </Button>
         </div>
 

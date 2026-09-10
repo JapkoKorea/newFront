@@ -400,7 +400,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900">투어 루트</h2>
         {isDirty && (
-          <button onClick={handleReset} className="text-xs text-gray-400 hover:text-gray-600 underline">초기화</button>
+          <button type="button" onClick={handleReset} className="inline-flex min-h-11 items-center text-sm text-gray-400 underline hover:text-gray-600">초기화</button>
         )}
       </div>
 
@@ -420,7 +420,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
                   setDepInput(value)
                   fetchPredictions(value, setDepPredictions, STATION_CHIPS)
                 }}
-                className="w-full pl-7 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                className="h-11 w-full pl-7 pr-3 text-sm border rounded-lg focus:outline-none focus:ring-1 focus:ring-yellow-400"
               />
               {depPredictions.length > 0 && (
                 <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto bg-white border rounded-lg shadow-lg">
@@ -442,7 +442,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
                 <button
                   key={`dep-${chip}`}
                   onClick={() => setDepartureSafely(chip)}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                  className={`inline-flex min-h-11 items-center rounded-full border px-3.5 text-sm transition-colors ${
                     normalizePlaceName(departure.name) === normalizePlaceName(chip)
                       ? 'bg-yellow-500 border-yellow-500 text-white font-medium'
                       : 'border-gray-200 text-gray-600 hover:border-yellow-400'
@@ -454,7 +454,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
             </div>
             <button
               onClick={() => setSelectionMode('departure')}
-              className={`w-full rounded-md border px-3 py-2 text-xs font-medium ${selectionMode === 'departure' ? 'border-yellow-500 bg-yellow-50 text-yellow-700' : 'border-gray-200 text-gray-600 hover:border-yellow-400'}`}
+              className={`flex min-h-11 w-full items-center justify-center rounded-md border px-3 text-sm font-medium ${selectionMode === 'departure' ? 'border-yellow-500 bg-yellow-50 text-yellow-700' : 'border-gray-200 text-gray-600 hover:border-yellow-400'}`}
             >
               지도에서 출발지 선택
             </button>
@@ -474,7 +474,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
                   setDestInput(value)
                   fetchPredictions(value, setDestPredictions, STATION_CHIPS)
                 }}
-                className="w-full pl-7 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                className="h-11 w-full pl-7 pr-3 text-sm border rounded-lg focus:outline-none focus:ring-1 focus:ring-yellow-400"
               />
               {destPredictions.length > 0 && (
                 <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto bg-white border rounded-lg shadow-lg">
@@ -496,7 +496,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
                 <button
                   key={`dest-${chip}`}
                   onClick={() => setDestinationSafely(chip)}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                  className={`inline-flex min-h-11 items-center rounded-full border px-3.5 text-sm transition-colors ${
                     normalizePlaceName(destination.name) === normalizePlaceName(chip)
                       ? 'bg-yellow-500 border-yellow-500 text-white font-medium'
                       : 'border-gray-200 text-gray-600 hover:border-yellow-400'
@@ -508,7 +508,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
             </div>
             <button
               onClick={() => setSelectionMode('destination')}
-              className={`w-full rounded-md border px-3 py-2 text-xs font-medium ${selectionMode === 'destination' ? 'border-yellow-500 bg-yellow-50 text-yellow-700' : 'border-gray-200 text-gray-600 hover:border-yellow-400'}`}
+              className={`flex min-h-11 w-full items-center justify-center rounded-md border px-3 text-sm font-medium ${selectionMode === 'destination' ? 'border-yellow-500 bg-yellow-50 text-yellow-700' : 'border-gray-200 text-gray-600 hover:border-yellow-400'}`}
             >
               지도에서 도착지 선택
             </button>
@@ -528,7 +528,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
                   setWaypointInput(value)
                   fetchPredictions(value, setWaypointPredictions, WAYPOINT_SUGGESTIONS)
                 }}
-                className="w-full pl-7 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                className="h-11 w-full pl-7 pr-3 text-sm border rounded-lg focus:outline-none focus:ring-1 focus:ring-yellow-400"
               />
               {waypointPredictions.length > 0 && (
                 <div className="absolute z-20 mt-1 w-full max-h-52 overflow-y-auto bg-white border rounded-lg shadow-lg">
@@ -550,7 +550,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
                 <button
                   key={`waypoint-${spot}`}
                   onClick={() => addWaypoint(spot)}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                  className={`inline-flex min-h-11 items-center rounded-full border px-3.5 text-sm transition-colors ${
                     spots.some((item) => normalizePlaceName(item) === normalizePlaceName(spot))
                       ? 'bg-yellow-100 border-yellow-300 text-yellow-800'
                       : 'border-gray-200 text-gray-600 hover:border-yellow-400'
@@ -562,7 +562,7 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
             </div>
             <button
               onClick={() => setSelectionMode('waypoint')}
-              className={`w-full rounded-md border px-3 py-2 text-xs font-medium ${selectionMode === 'waypoint' ? 'border-yellow-500 bg-yellow-50 text-yellow-700' : 'border-gray-200 text-gray-600 hover:border-yellow-400'}`}
+              className={`flex min-h-11 w-full items-center justify-center rounded-md border px-3 text-sm font-medium ${selectionMode === 'waypoint' ? 'border-yellow-500 bg-yellow-50 text-yellow-700' : 'border-gray-200 text-gray-600 hover:border-yellow-400'}`}
             >
               지도에서 경유지 추가
             </button>
@@ -669,8 +669,13 @@ export default function TourRouteEditor({ initialDeparture, initialDestination, 
                       </div>
                     )}
                   </div>
-                  <button onClick={() => removeSpot(index)} className="text-gray-400 hover:text-gray-600 shrink-0">
-                    <X className="h-4 w-4" />
+                  <button
+                    type="button"
+                    onClick={() => removeSpot(index)}
+                    aria-label={`${index + 1}번 경유지 빼기`}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" aria-hidden="true" />
                   </button>
                 </div>
               )

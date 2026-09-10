@@ -135,7 +135,7 @@ const ChatSupport = ({ isOpen, onClose, reservationNumber = null }) => {
               <p className="text-xs opacity-90">문의를 남기시면 순차적으로 답변드립니다</p>
             </div>
           </div>
-          <Button variant="ghost" size="touch" onClick={onClose} className="text-white hover:bg-green-600">
+          <Button variant="ghost" size="touchIcon" aria-label="닫기" onClick={onClose} className="text-white hover:bg-green-600">
             <X className="h-5 w-5" />
           </Button>
         </div>

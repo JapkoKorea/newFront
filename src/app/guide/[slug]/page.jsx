@@ -90,10 +90,10 @@ export default async function GuideDetailPage({ params }) {
 
         {/* 하단 CTA */}
         <div className="mt-12 flex flex-col sm:flex-row gap-3">
-          <Button asChild className="h-11 flex-1 bg-yellow-500 text-white hover:bg-yellow-600" size="lg">
+          <Button asChild className="h-11 w-full bg-yellow-500 text-white hover:bg-yellow-600 sm:flex-1" size="lg">
             <Link href="/tours">투어 코스 보기</Link>
           </Button>
-          <Button asChild variant="outline" size="lg" className="h-11 flex-1">
+          <Button asChild variant="outline" size="lg" className="h-11 w-full sm:flex-1">
             <Link href="/guide"><ArrowLeft className="h-4 w-4 mr-2" />다른 가이드 보기</Link>
           </Button>
         </div>

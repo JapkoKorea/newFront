@@ -29,8 +29,8 @@ export default function CourseSelectModal({ isOpen, onClose, productName, course
               {productName}에서 진행할 코스를 골라 주세요. 예약 중에도 바꿀 수 있습니다.
             </p>
           </div>
-          <Button variant="ghost" size="touch" onClick={onClose} aria-label="닫기">
-            <X className="h-5 w-5" />
+          <Button variant="ghost" size="touchIcon" onClick={onClose} aria-label="닫기">
+            <X className="h-5 w-5" aria-hidden="true" />
           </Button>
         </div>
 
