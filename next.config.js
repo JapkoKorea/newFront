@@ -33,12 +33,14 @@ const CSP = [
   // 지도는 @react-google-maps/api 가 maps.googleapis.com 에서 받아 온다.
   `script-src 'self' 'unsafe-inline'${DEV ? " 'unsafe-eval'" : ''} https://maps.googleapis.com`,
   // Tailwind 런타임과 지도 위젯이 인라인 스타일을 쓴다.
-  "style-src 'self' 'unsafe-inline'",
+  // 지도 컨트롤은 Google Fonts(Roboto, Google Sans) 스타일시트를 따로 받는다.
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   // 지도 타일, 카카오 로그인 버튼 이미지, 인라인 데이터 URI.
   "img-src 'self' data: blob: https://maps.gstatic.com https://*.googleapis.com https://*.ggpht.com https://developers.kakao.com",
-  "font-src 'self' data:",
+  "font-src 'self' data: https://fonts.gstatic.com",
   // 개발 서버는 웹소켓으로 변경 사항을 밀어 준다(HMR).
-  `connect-src 'self' ${API_ORIGIN} https://maps.googleapis.com${DEV ? ' ws://localhost:3000' : ''}`,
+  // 경로 계산(routes.Route.computeRoutes)은 routes.googleapis.com 으로 XHR 을 보낸다.
+  `connect-src 'self' ${API_ORIGIN} https://maps.googleapis.com https://routes.googleapis.com${DEV ? ' ws://localhost:3000' : ''}`,
   // 지도의 스트리트뷰 등이 iframe 을 쓴다.
   "frame-src 'self' https://*.google.com",
   // 우리 페이지를 남이 iframe 에 넣지 못하게(클릭재킹).
