@@ -49,7 +49,9 @@ async def refresh(request: Request, response: Response):
     raw_token = read_refresh_cookie(request)
     if not raw_token:
         # 로그인한 적 없는 방문자도 첫 진입에 한 번 부른다. 흔한 경우다.
-        return _signed_out("로그인이 필요합니다", "no_session")
+        # 오류가 아니라 "세션 없음"이라는 정상 답이므로 204 로 돌려준다.
+        # 401 이면 브라우저가 페이지마다 콘솔 오류를 찍는다. 지울 쿠키도 없다.
+        return Response(status_code=204, headers={"X-Auth-Error": "no_session"})
 
     rotated = rotate_session(raw_token, request.headers.get("user-agent"))
     if not rotated:

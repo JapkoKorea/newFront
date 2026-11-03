@@ -165,7 +165,8 @@ function requestRefresh() {
         method: 'POST',
         credentials: 'include',
       })
-      if (!response.ok) {
+      // 204 는 리프레시 쿠키가 아예 없다는 뜻(로그인한 적 없는 방문자).
+      if (!response.ok || response.status === 204) {
         forgetLocal()
         return ''
       }
@@ -196,8 +197,8 @@ function requestRefresh() {
 /**
  * 쓸 수 있는 액세스 토큰을 돌려준다. 없으면 갱신을 시도한다.
  *
- * 로그인하지 않은 방문자도 첫 호출에서 갱신을 한 번 시도한다(서버가 401 로
- * 답한다). 쿠키는 JS 가 볼 수 없으므로 물어보기 전에는 알 수 없다.
+ * 로그인하지 않은 방문자도 첫 호출에서 갱신을 한 번 시도한다(쿠키가 없으면
+ * 서버가 204 로 답한다). 쿠키는 JS 가 볼 수 없으므로 물어보기 전에는 알 수 없다.
  */
 export async function ensureAccessToken() {
   if (typeof window === 'undefined') return ''
