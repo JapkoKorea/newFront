@@ -2,9 +2,11 @@
 
 import { useRouter } from 'next/navigation'
 import TransferBooking from '@/components/TransferBooking.jsx'
+import { useHideFloatingActions } from '@/lib/appShell.jsx'
 
 export default function TransferBookingPageClient() {
   const router = useRouter()
+  useHideFloatingActions()
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20 pb-12 px-4">

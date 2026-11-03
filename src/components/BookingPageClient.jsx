@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import TaxiBooking from '@/components/TaxiBooking.jsx'
 import { clearTourBookingPrefill, loadTourBookingPrefill } from '@/lib/bookingPrefill.js'
+import { useHideFloatingActions } from '@/lib/appShell.jsx'
 
 // 코스 맥락 유무는 URL 쿼리(from=product)로 서버에서 이미 판단해 넘겨받는다.
 // prefill 자체는 sessionStorage 에 있어 클라이언트에서만 읽을 수 있지만,
@@ -11,6 +12,7 @@ import { clearTourBookingPrefill, loadTourBookingPrefill } from '@/lib/bookingPr
 export default function BookingPageClient({ fromProduct = false }) {
   const router = useRouter()
   const [initialDraft, setInitialDraft] = useState(null)
+  useHideFloatingActions()
 
   useEffect(() => {
     const prefill = loadTourBookingPrefill()

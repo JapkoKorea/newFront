@@ -74,3 +74,11 @@ export function useDeclareBottomBar() {
   const { registerBottomBar } = useAppShell()
   useEffect(() => registerBottomBar(), [registerBottomBar])
 }
+
+/**
+ * 입력 폼 화면에서 플로팅 버튼을 접는다. 폰에서는 버튼이 오른쪽 입력칸을 가린다.
+ * 상담·FAQ 는 상단 내비(폰에서는 메뉴)에 그대로 있다.
+ */
+export function useHideFloatingActions() {
+  useDeclareBottomBar()
+}
