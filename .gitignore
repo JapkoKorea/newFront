@@ -59,3 +59,6 @@ skills-lock.json
 # 로컬 원본 소스 문서
 ss season_content.pdf
 *.pdf
+
+# DB 백업 덤프 (scripts/backup-db.sh)
+backups/

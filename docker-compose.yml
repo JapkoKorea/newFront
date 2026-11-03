@@ -1,15 +1,19 @@
 # 잽코 택시투어 전체 배포 구성 (서버 1대).
 #
 #   [브라우저] --443--> [caddy] --> web:3000  (Next.js)
-#                              \--> api:8000  (FastAPI) --> MySQL
+#                              \--> api:8000  (FastAPI) --> mysql:3306
 #
 # 사용법:
-#   cp .env.example .env      # 값 채우기 (WEB_DOMAIN, API_DOMAIN 포함)
+#   cp .env.example .env      # 값 채우기 (WEB_DOMAIN, API_DOMAIN, MYSQL_* 포함)
 #   docker compose up -d --build
 #   docker compose logs -f
 #
-# MySQL 은 이 구성에 포함하지 않는다. 호스트의 MySQL 또는 RDS 를
-# .env 의 MYSQL_HOST 로 지정한다.
+# MySQL 도 이 구성 안에서 돈다. 데이터는 mysql_data 볼륨에 남고, 백업은
+# scripts/backup-db.sh 로 뜬다(DEPLOY.md 참고).
+#
+# 시간대: 백엔드 코드와 SQL 이 시간대 없는 now()/NOW() 를 쓴다. 개발 환경(맥의
+# 로컬 MySQL)이 한국 시간이라, 컨테이너도 전부 Asia/Seoul 로 맞춘다. 컨테이너
+# 기본값인 UTC 로 두면 당일/전일 판정과 기록 시각이 9시간 어긋난다.
 
 services:
   caddy:
@@ -49,6 +53,8 @@ services:
     image: japko-taxi-web:latest
     container_name: japko-taxi-web
     restart: unless-stopped
+    environment:
+      TZ: Asia/Seoul
     expose:
       - "3000"
 
@@ -62,13 +68,16 @@ services:
     env_file:
       - .env
     environment:
-      # 호스트에 설치된 MySQL 에 붙을 때 사용한다.
-      # RDS 등 외부 DB 를 쓰면 .env 의 MYSQL_HOST 가 그대로 적용된다.
-      MYSQL_HOST: ${MYSQL_HOST:-host.docker.internal}
+      # DB 는 같은 구성 안의 mysql 컨테이너다. .env 의 MYSQL_HOST(로컬 개발용
+      # 127.0.0.1)는 컨테이너 안에서 자기 자신을 가리키므로 여기서 덮어쓴다.
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      TZ: Asia/Seoul
     expose:
       - "8000"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    depends_on:
+      mysql:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/courses')\""]
       interval: 30s
@@ -76,6 +85,31 @@ services:
       retries: 3
       start_period: 20s
 
+  mysql:
+    # 운영은 LTS 계열을 쓴다. 로컬 개발 DB(9.x)에서 뜬 덤프도 그대로 들어간다.
+    image: mysql:8.4
+    container_name: japko-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD 를 .env 에 설정하세요}
+      # 최초 기동 때 이 DB 와 계정을 만든다. MYSQL_USER 는 root 이면 안 된다.
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-japko_local}
+      MYSQL_USER: ${MYSQL_USER:?MYSQL_USER 를 .env 에 설정하세요 (root 제외)}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD 를 .env 에 설정하세요}
+      TZ: Asia/Seoul
+    volumes:
+      - mysql_data:/var/lib/mysql   # DB 데이터. down -v 로 지우면 전부 사라진다
+    # 외부에는 열지 않는다. 서버 안에서만(SSH 터널, 나중에 붙일 챗 백엔드) 접속한다.
+    ports:
+      - "127.0.0.1:3306:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
 volumes:
   caddy_data:
   caddy_config:
+  mysql_data:
