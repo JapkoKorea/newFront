@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Clock, MapPin, ChevronRight, ArrowLeft } from 'lucide-react'
+import { Clock, MapPin, ChevronRight, ArrowLeft, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
 import TourRouteEditor from '@/components/TourRouteEditor.jsx'
 import { saveTourBookingPrefill } from '@/lib/bookingPrefill.js'
@@ -143,18 +143,18 @@ export default function TourDetailClient({ course, spotGuideData, fixedRouteProf
           <div className="p-5 bg-green-50 rounded-xl">
             <h2 className="font-bold text-green-800 mb-3">포함 사항</h2>
             <ul className="space-y-2 text-sm text-green-700">
-              <li>✓ 전문 기사/가이드 동행</li>
-              <li>✓ 차량 이용 (에어컨/히터)</li>
-              <li>✓ 코스 내 이동 일체</li>
-              <li>✓ 한국어 대응</li>
+              <li className="flex items-center gap-2"><Check className="h-4 w-4 shrink-0" aria-hidden="true" />전문 기사/가이드 동행</li>
+              <li className="flex items-center gap-2"><Check className="h-4 w-4 shrink-0" aria-hidden="true" />차량 이용 (에어컨/히터)</li>
+              <li className="flex items-center gap-2"><Check className="h-4 w-4 shrink-0" aria-hidden="true" />코스 내 이동 일체</li>
+              <li className="flex items-center gap-2"><Check className="h-4 w-4 shrink-0" aria-hidden="true" />한국어 대응</li>
             </ul>
           </div>
           <div className="p-5 bg-gray-50 rounded-xl">
             <h2 className="font-bold text-gray-800 mb-3">불포함 사항</h2>
             <ul className="space-y-2 text-sm text-gray-600">
-              <li>✗ 명소 입장료</li>
-              <li>✗ 식사</li>
-              <li>✗ 개인 여행자 보험</li>
+              <li className="flex items-center gap-2"><X className="h-4 w-4 shrink-0" aria-hidden="true" />명소 입장료</li>
+              <li className="flex items-center gap-2"><X className="h-4 w-4 shrink-0" aria-hidden="true" />식사</li>
+              <li className="flex items-center gap-2"><X className="h-4 w-4 shrink-0" aria-hidden="true" />개인 여행자 보험</li>
             </ul>
           </div>
         </div>

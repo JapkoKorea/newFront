@@ -111,7 +111,7 @@ export const tourCourses = [
     destination: '비에이역',
     spots: ['크리스마스 나무', '켄과 메리 나무', '마일드세븐 언덕'],
     description: '순백의 설원과 눈 덮인 나무들을 드라이브하며 감상. 겨울 비에이의 핵심 루트.',
-    badge: '⛄ 겨울 추천',
+    badge: '겨울 추천',
   },
   {
     id: 'winter-falls',
@@ -122,7 +122,7 @@ export const tourCourses = [
     destination: '아사히카와역',
     spots: ['청의 호수', '흰수염폭포', '크리스마스 나무'],
     description: '겨울에만 볼 수 있는 빙결 흰수염폭포와 설원의 청의 호수. 특별한 겨울 풍경.',
-    badge: '⛄ 겨울 한정',
+    badge: '겨울 한정',
   },
   // ── 여름 코스 ──────────────────────────────────────
   {
